@@ -14,8 +14,25 @@ pub struct ColumnArray {
 }
 
 impl ColumnArray {
-    /// Create a new array column with a nested column for elements
-    pub fn new(nested: ColumnRef) -> Self {
+    /// Create a new array column from an array type
+    pub fn new(type_: Type) -> Self {
+        // Extract nested type and create nested column
+        let nested = match &type_ {
+            Type::Array { item_type } => {
+                crate::io::block_stream::create_column(item_type).expect("Failed to create nested column")
+            }
+            _ => panic!("ColumnArray requires Array type"),
+        };
+
+        Self {
+            type_,
+            nested,
+            offsets: Vec::new(),
+        }
+    }
+
+    /// Create a new array column with an existing nested column
+    pub fn with_nested(nested: ColumnRef) -> Self {
         let nested_type = nested.column_type().clone();
         Self {
             type_: Type::array(nested_type),
@@ -25,10 +42,16 @@ impl ColumnArray {
     }
 
     /// Create with reserved capacity
-    pub fn with_capacity(nested: ColumnRef, capacity: usize) -> Self {
-        let nested_type = nested.column_type().clone();
+    pub fn with_capacity(type_: Type, capacity: usize) -> Self {
+        let nested = match &type_ {
+            Type::Array { item_type } => {
+                crate::io::block_stream::create_column(item_type).expect("Failed to create nested column")
+            }
+            _ => panic!("ColumnArray requires Array type"),
+        };
+
         Self {
-            type_: Type::array(nested_type),
+            type_,
             nested,
             offsets: Vec::with_capacity(capacity),
         }
@@ -80,6 +103,39 @@ impl ColumnArray {
     /// Get the offsets
     pub fn offsets(&self) -> &[u64] {
         &self.offsets
+    }
+
+    /// Append an entire array column as a single array element
+    /// This takes all the data from the provided column and adds it as one array
+    pub fn append_array(&mut self, array_data: ColumnRef) {
+        let len = array_data.size() as u64;
+
+        // Append the array data to nested column
+        if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
+            let _ = nested_mut.append_column(array_data);
+        }
+
+        // Update offsets
+        self.append_len(len);
+    }
+
+    /// Get the array at the given index as a sliced column
+    pub fn at(&self, index: usize) -> ColumnRef {
+        if let Some((start, end)) = self.get_array_range(index) {
+            self.nested.slice(start, end - start).expect("Valid slice")
+        } else {
+            panic!("Array index out of bounds: {}", index);
+        }
+    }
+
+    /// Get the number of arrays (alias for size())
+    pub fn len(&self) -> usize {
+        self.offsets.len()
+    }
+
+    /// Check if the array column is empty
+    pub fn is_empty(&self) -> bool {
+        self.offsets.is_empty()
     }
 }
 
@@ -156,7 +212,7 @@ impl Column for ColumnArray {
     }
 
     fn clone_empty(&self) -> ColumnRef {
-        Arc::new(ColumnArray::new(self.nested.clone_empty()))
+        Arc::new(ColumnArray::with_nested(self.nested.clone_empty()))
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
@@ -189,7 +245,7 @@ impl Column for ColumnArray {
             sliced_offsets.push(self.offsets[i] - offset_base);
         }
 
-        let mut result = ColumnArray::new(sliced_nested);
+        let mut result = ColumnArray::with_nested(sliced_nested);
         result.offsets = sliced_offsets;
 
         Ok(Arc::new(result))

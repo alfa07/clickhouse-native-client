@@ -13,8 +13,25 @@ pub struct ColumnNullable {
 }
 
 impl ColumnNullable {
-    /// Create a new nullable column wrapping a nested column
-    pub fn new(nested: ColumnRef) -> Self {
+    /// Create a new nullable column from a nullable type
+    pub fn new(type_: Type) -> Self {
+        // Extract nested type and create nested column
+        let nested = match &type_ {
+            Type::Nullable { nested_type } => {
+                crate::io::block_stream::create_column(nested_type).expect("Failed to create nested column")
+            }
+            _ => panic!("ColumnNullable requires Nullable type"),
+        };
+
+        Self {
+            type_,
+            nested,
+            nulls: Vec::new(),
+        }
+    }
+
+    /// Create a new nullable column wrapping an existing nested column
+    pub fn with_nested(nested: ColumnRef) -> Self {
         let nested_type = nested.column_type().clone();
         Self {
             type_: Type::nullable(nested_type),
@@ -24,10 +41,16 @@ impl ColumnNullable {
     }
 
     /// Create with reserved capacity
-    pub fn with_capacity(nested: ColumnRef, capacity: usize) -> Self {
-        let nested_type = nested.column_type().clone();
+    pub fn with_capacity(type_: Type, capacity: usize) -> Self {
+        let nested = match &type_ {
+            Type::Nullable { nested_type } => {
+                crate::io::block_stream::create_column(nested_type).expect("Failed to create nested column")
+            }
+            _ => panic!("ColumnNullable requires Nullable type"),
+        };
+
         Self {
-            type_: Type::nullable(nested_type),
+            type_,
             nested,
             nulls: Vec::with_capacity(capacity),
         }
@@ -61,6 +84,52 @@ impl ColumnNullable {
     /// Get the nulls bitmap
     pub fn nulls(&self) -> &[u8] {
         &self.nulls
+    }
+
+    /// Append a nullable UInt32 value (convenience method for tests)
+    pub fn append_nullable(&mut self, value: Option<u32>) {
+        use crate::column::numeric::ColumnUInt32;
+
+        match value {
+            None => {
+                self.append_null();
+                // Still need to add a placeholder to nested column to keep indices aligned
+                if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
+                    if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>() {
+                        col.append(0); // Placeholder value (ignored due to null flag)
+                    }
+                }
+            }
+            Some(val) => {
+                self.append_non_null();
+                if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
+                    if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>() {
+                        col.append(val);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Check if value at index is null (alias for is_null)
+    pub fn is_null_at(&self, index: usize) -> bool {
+        self.is_null(index)
+    }
+
+    /// Get a reference to the value at the given index
+    /// Returns the nested column for accessing the value (check is_null first!)
+    pub fn at(&self, index: usize) -> ColumnRef {
+        self.nested.clone()
+    }
+
+    /// Get the number of elements (alias for size())
+    pub fn len(&self) -> usize {
+        self.nulls.len()
+    }
+
+    /// Check if the nullable column is empty
+    pub fn is_empty(&self) -> bool {
+        self.nulls.is_empty()
     }
 }
 
@@ -135,7 +204,7 @@ impl Column for ColumnNullable {
     }
 
     fn clone_empty(&self) -> ColumnRef {
-        Arc::new(ColumnNullable::new(self.nested.clone_empty()))
+        Arc::new(ColumnNullable::with_nested(self.nested.clone_empty()))
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
@@ -151,7 +220,7 @@ impl Column for ColumnNullable {
         let sliced_nulls = self.nulls[begin..begin + len].to_vec();
         let sliced_nested = self.nested.slice(begin, len)?;
 
-        let mut result = ColumnNullable::new(sliced_nested);
+        let mut result = ColumnNullable::with_nested(sliced_nested);
         result.nulls = sliced_nulls;
 
         Ok(Arc::new(result))

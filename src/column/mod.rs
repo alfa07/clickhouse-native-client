@@ -2,6 +2,33 @@ pub mod numeric;
 pub mod string;
 pub mod nullable;
 pub mod array;
+pub mod tuple;
+pub mod uuid;
+pub mod ipv4;
+pub mod ipv6;
+pub mod decimal;
+pub mod enum_column;
+pub mod date;
+pub mod nothing;
+pub mod map;
+pub mod lowcardinality;
+pub mod geo;
+
+// Re-export column types for easier access
+pub use numeric::*;
+pub use string::{ColumnString, ColumnFixedString};
+pub use nullable::ColumnNullable;
+pub use array::ColumnArray;
+pub use tuple::ColumnTuple;
+pub use uuid::{ColumnUuid, Uuid};
+pub use ipv4::ColumnIpv4;
+pub use ipv6::ColumnIpv6;
+pub use decimal::ColumnDecimal;
+pub use enum_column::{ColumnEnum8, ColumnEnum16};
+pub use date::{ColumnDate, ColumnDate32, ColumnDateTime, ColumnDateTime64};
+pub use nothing::ColumnNothing;
+pub use map::ColumnMap;
+pub use lowcardinality::ColumnLowCardinality;
 
 use crate::types::Type;
 use crate::{Error, Result};
