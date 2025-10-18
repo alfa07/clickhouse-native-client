@@ -104,8 +104,8 @@ fn test_create_datetime() {
     let type_ = Type::parse("DateTime").unwrap();
     let col = create_column(&type_).unwrap();
 
-    // DateTime is stored as UInt32
-    assert!(col.as_any().downcast_ref::<ColumnUInt32>().is_some());
+    // DateTime uses specialized ColumnDateTime
+    assert!(col.as_any().downcast_ref::<ColumnDateTime>().is_some());
 }
 
 #[test]
@@ -155,8 +155,8 @@ fn test_create_datetime_with_timezone() {
     let type_ = Type::parse("DateTime('UTC')").unwrap();
     let col = create_column(&type_).unwrap();
 
-    // DateTime is stored as UInt32
-    assert!(col.as_any().downcast_ref::<ColumnUInt32>().is_some());
+    // DateTime uses specialized ColumnDateTime
+    assert!(col.as_any().downcast_ref::<ColumnDateTime>().is_some());
 
     // Verify the type contains timezone info
     if let Type::DateTime { timezone } = type_ {
@@ -171,8 +171,8 @@ fn test_create_datetime64_with_precision_and_timezone() {
     let type_ = Type::parse("DateTime64(3, 'UTC')").unwrap();
     let col = create_column(&type_).unwrap();
 
-    // DateTime64 is stored as Int64
-    assert!(col.as_any().downcast_ref::<ColumnInt64>().is_some());
+    // DateTime64 uses specialized ColumnDateTime64
+    assert!(col.as_any().downcast_ref::<ColumnDateTime64>().is_some());
 
     // Verify the type contains precision and timezone info
     if let Type::DateTime64 { precision, timezone } = type_ {
@@ -188,8 +188,8 @@ fn test_create_decimal() {
     let type_ = Type::parse("Decimal(9, 3)").unwrap();
     let col = create_column(&type_).unwrap();
 
-    // Decimal(9,3) uses Int32
-    assert!(col.as_any().downcast_ref::<ColumnInt32>().is_some());
+    // Decimal uses specialized ColumnDecimal
+    assert!(col.as_any().downcast_ref::<ColumnDecimal>().is_some());
 }
 
 #[test]
@@ -197,8 +197,8 @@ fn test_create_decimal_18() {
     let type_ = Type::parse("Decimal(18, 3)").unwrap();
     let col = create_column(&type_).unwrap();
 
-    // Decimal(18,3) uses Int64
-    assert!(col.as_any().downcast_ref::<ColumnInt64>().is_some());
+    // Decimal uses specialized ColumnDecimal
+    assert!(col.as_any().downcast_ref::<ColumnDecimal>().is_some());
 }
 
 #[test]
@@ -206,8 +206,8 @@ fn test_create_enum8() {
     let type_ = Type::parse("Enum8('ONE' = 1, 'TWO' = 2)").unwrap();
     let col = create_column(&type_).unwrap();
 
-    // Enum8 is stored as Int8
-    assert!(col.as_any().downcast_ref::<ColumnInt8>().is_some());
+    // Enum8 uses specialized ColumnEnum8
+    assert!(col.as_any().downcast_ref::<ColumnEnum8>().is_some());
 }
 
 #[test]
@@ -215,8 +215,8 @@ fn test_create_enum16() {
     let type_ = Type::parse("Enum16('ONE' = 1, 'TWO' = 2, 'THREE' = 3, 'FOUR' = 4)").unwrap();
     let col = create_column(&type_).unwrap();
 
-    // Enum16 is stored as Int16
-    assert!(col.as_any().downcast_ref::<ColumnInt16>().is_some());
+    // Enum16 uses specialized ColumnEnum16
+    assert!(col.as_any().downcast_ref::<ColumnEnum16>().is_some());
 }
 
 // ============================================================================
@@ -256,10 +256,10 @@ fn test_create_array_enum8() {
 
     assert!(col.as_any().downcast_ref::<ColumnArray>().is_some());
 
-    // Check nested type is Int8 (Enum8 storage)
+    // Check nested type uses ColumnEnum8
     let array = col.as_any().downcast_ref::<ColumnArray>().unwrap();
     let nested = array.nested();
-    assert!(nested.as_any().downcast_ref::<ColumnInt8>().is_some());
+    assert!(nested.as_any().downcast_ref::<ColumnEnum8>().is_some());
 }
 
 // ============================================================================

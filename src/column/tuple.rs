@@ -104,6 +104,14 @@ impl Column for ColumnTuple {
         Ok(())
     }
 
+    fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
+        // Call save_prefix on all tuple element columns
+        for col in &self.columns {
+            col.save_prefix(buffer)?;
+        }
+        Ok(())
+    }
+
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
         for col in &self.columns {
             col.save_to_buffer(buffer)?;
@@ -191,8 +199,8 @@ mod tests {
         assert_eq!(sliced.size(), 2);
 
         let sliced_tuple = sliced.as_any().downcast_ref::<ColumnTuple>().unwrap();
-        let sliced_col1 = sliced_tuple
-            .column_at(0)
+        let col_ref = sliced_tuple.column_at(0);
+        let sliced_col1 = col_ref
             .as_any()
             .downcast_ref::<ColumnUInt64>()
             .unwrap();

@@ -409,6 +409,18 @@ impl Client {
                         let _temp_table = self.conn.read_string().await?;
                     }
                     let block = self.block_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke data callback if present
+                    if let Some(callback) = query.get_on_data_cancelable() {
+                        let should_continue = callback(&block);
+                        if !should_continue {
+                            eprintln!("[DEBUG] Query cancelled by data callback");
+                            break;
+                        }
+                    } else if let Some(callback) = query.get_on_data() {
+                        callback(&block);
+                    }
+
                     if !block.is_empty() {
                         blocks.push(block);
                     }
@@ -416,36 +428,65 @@ impl Client {
                 code if code == ServerCode::Progress as u64 => {
                     eprintln!("[DEBUG] Received progress packet");
                     progress_info = self.read_progress().await?;
+
+                    // Invoke progress callback if present
+                    if let Some(callback) = query.get_on_progress() {
+                        callback(&progress_info);
+                    }
                 }
                 code if code == ServerCode::EndOfStream as u64 => {
                     eprintln!("[DEBUG] Received end of stream");
                     break;
                 }
                 code if code == ServerCode::ProfileInfo as u64 => {
-                    eprintln!("[DEBUG] Received profile info packet (ignoring)");
-                    // ProfileInfo contains: rows, blocks, bytes, elapsed, rows_before_limit, calculated_rows_before_limit
-                    let _rows = self.conn.read_varint().await?;
-                    let _blocks = self.conn.read_varint().await?;
-                    let _bytes = self.conn.read_varint().await?;
-                    let _applied_limit = self.conn.read_u8().await?;
-                    let _rows_before_limit = self.conn.read_varint().await?;
-                    let _calculated_rows_before_limit = self.conn.read_u8().await?;
+                    eprintln!("[DEBUG] Received profile info packet");
+                    // Read ProfileInfo fields directly
+                    let rows = self.conn.read_varint().await?;
+                    let blocks = self.conn.read_varint().await?;
+                    let bytes = self.conn.read_varint().await?;
+                    let applied_limit = self.conn.read_u8().await? != 0;
+                    let rows_before_limit = self.conn.read_varint().await?;
+                    let calculated_rows_before_limit = self.conn.read_u8().await? != 0;
+
+                    let profile = crate::query::Profile {
+                        rows,
+                        blocks,
+                        bytes,
+                        rows_before_limit,
+                        applied_limit,
+                        calculated_rows_before_limit,
+                    };
+
+                    // Invoke profile callback if present
+                    if let Some(callback) = query.get_on_profile() {
+                        callback(&profile);
+                    }
                 }
                 code if code == ServerCode::Log as u64 => {
-                    eprintln!("[DEBUG] Received log packet (ignoring)");
+                    eprintln!("[DEBUG] Received log packet");
                     // Skip string first (log tag)
                     let _log_tag = self.conn.read_string().await?;
-                    // Read and discard the log block (sent uncompressed)
+                    // Read the log block (sent uncompressed)
                     let uncompressed_reader = BlockReader::new(self.server_info.revision);
-                    let _block = uncompressed_reader.read_block(&mut self.conn).await?;
+                    let block = uncompressed_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke server log callback if present
+                    if let Some(callback) = query.get_on_server_log() {
+                        callback(&block);
+                    }
                 }
                 code if code == ServerCode::ProfileEvents as u64 => {
-                    eprintln!("[DEBUG] Received profile events packet (ignoring)");
+                    eprintln!("[DEBUG] Received profile events packet");
                     // Skip string first (matches C++ implementation)
                     let _table_name = self.conn.read_string().await?;
-                    // Read and discard ProfileEvents block (sent uncompressed)
+                    // Read ProfileEvents block (sent uncompressed)
                     let uncompressed_reader = BlockReader::new(self.server_info.revision);
-                    let _block = uncompressed_reader.read_block(&mut self.conn).await?;
+                    let block = uncompressed_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke profile events callback if present
+                    if let Some(callback) = query.get_on_profile_events() {
+                        callback(&block);
+                    }
                 }
                 code if code == ServerCode::TableColumns as u64 => {
                     eprintln!("[DEBUG] Received table columns packet (ignoring)");
@@ -459,6 +500,12 @@ impl Client {
                     let exception = self.read_exception().await?;
                     eprintln!("[DEBUG] Exception: code={}, name={}, msg={}",
                         exception.code, exception.name, exception.display_text);
+
+                    // Invoke exception callback if present
+                    if let Some(callback) = query.get_on_exception() {
+                        callback(&exception);
+                    }
+
                     return Err(Error::Protocol(format!(
                         "ClickHouse exception: {} ({}): {}",
                         exception.name, exception.code, exception.display_text
@@ -521,7 +568,20 @@ impl Client {
                 self.conn.write_varint(info.client_version_patch).await?;
             }
             if revision >= 54442 {
-                self.conn.write_u8(0).await?; // no OpenTelemetry
+                // OpenTelemetry tracing context
+                if let Some(ctx) = query.tracing_context() {
+                    self.conn.write_u8(1).await?; // have OpenTelemetry
+                    // Write trace_id (128-bit)
+                    self.conn.write_u128(ctx.trace_id).await?;
+                    // Write span_id (64-bit)
+                    self.conn.write_u64(ctx.span_id).await?;
+                    // Write tracestate
+                    self.conn.write_string(&ctx.tracestate).await?;
+                    // Write trace_flags
+                    self.conn.write_u8(ctx.trace_flags).await?;
+                } else {
+                    self.conn.write_u8(0).await?; // no OpenTelemetry
+                }
             }
             if revision >= 54453 {
                 self.conn.write_varint(0).await?; // collaborate_with_initiator
@@ -808,6 +868,19 @@ impl Client {
                 packet_type
             )))
         }
+    }
+
+    /// Cancel the current query
+    ///
+    /// Sends a cancel packet to the server to stop any currently running query.
+    /// Note: This is most useful when called with a cancelable callback, or when
+    /// you need to cancel a long-running query from outside the query execution flow.
+    pub async fn cancel(&mut self) -> Result<()> {
+        eprintln!("[DEBUG] Sending cancel...");
+        self.conn.write_varint(ClientCode::Cancel as u64).await?;
+        self.conn.flush().await?;
+        eprintln!("[DEBUG] Cancel sent");
+        Ok(())
     }
 
     /// Get server info

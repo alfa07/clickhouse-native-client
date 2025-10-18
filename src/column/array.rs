@@ -199,6 +199,12 @@ impl Column for ColumnArray {
         Ok(())
     }
 
+    fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
+        // Delegate to nested column's save_prefix
+        // Critical for Array(LowCardinality(X)) to write LowCardinality version before offsets
+        self.nested.save_prefix(buffer)
+    }
+
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
         // Write offsets
         for &offset in &self.offsets {
@@ -317,7 +323,7 @@ mod tests {
     #[test]
     fn test_array_creation() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let col = ColumnArray::new(nested);
+        let col = ColumnArray::with_nested(nested);
         assert_eq!(col.size(), 0);
     }
 
@@ -329,7 +335,7 @@ mod tests {
         nested.append(2);
         nested.append(3);
 
-        let mut col = ColumnArray::new(Arc::new(nested));
+        let mut col = ColumnArray::with_nested(Arc::new(nested));
         col.append_len(3); // Array of 3 elements
 
         // Second array: [4, 5]
@@ -352,7 +358,7 @@ mod tests {
     #[test]
     fn test_array_offsets() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnArray::new(nested);
+        let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(3); // Array with 3 elements
         col.append_len(0); // Empty array
@@ -367,7 +373,7 @@ mod tests {
     #[test]
     fn test_array_empty_arrays() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnArray::new(nested);
+        let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(0);
         col.append_len(0);
@@ -382,7 +388,7 @@ mod tests {
     #[test]
     fn test_array_save_load() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnArray::new(nested);
+        let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(3);
         col.append_len(2);
@@ -398,7 +404,7 @@ mod tests {
     #[test]
     fn test_array_load_offsets() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnArray::new(nested);
+        let mut col = ColumnArray::with_nested(nested);
 
         // Encode offsets manually: 3, 5, 8
         let mut data = BytesMut::new();
@@ -421,7 +427,7 @@ mod tests {
             nested.append(i);
         }
 
-        let mut col = ColumnArray::new(Arc::new(nested));
+        let mut col = ColumnArray::with_nested(Arc::new(nested));
         col.append_len(3); // offset: 3
         col.append_len(2); // offset: 5
         col.append_len(1); // offset: 6
@@ -436,8 +442,8 @@ mod tests {
 
     #[test]
     fn test_array_with_strings() {
-        let nested = Arc::new(ColumnString::new());
-        let mut col = ColumnArray::new(nested);
+        let nested = Arc::new(ColumnString::new(Type::string()));
+        let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(2); // Array with 2 strings
         col.append_len(3); // Array with 3 strings
@@ -450,10 +456,10 @@ mod tests {
     #[test]
     fn test_array_type_mismatch() {
         let nested1 = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col1 = ColumnArray::new(nested1);
+        let mut col1 = ColumnArray::with_nested(nested1);
 
-        let nested2 = Arc::new(ColumnString::new());
-        let col2 = ColumnArray::new(nested2);
+        let nested2 = Arc::new(ColumnString::new(Type::string()));
+        let col2 = ColumnArray::with_nested(nested2);
 
         let result = col1.append_column(Arc::new(col2));
         assert!(result.is_err());
@@ -462,7 +468,7 @@ mod tests {
     #[test]
     fn test_array_out_of_bounds() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnArray::new(nested);
+        let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(3);
         col.append_len(2);

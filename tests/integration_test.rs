@@ -1,4 +1,7 @@
-use clickhouse_client::{Block, Client, ClientOptions, Query};
+use clickhouse_client::{Block, Client, ClientOptions};
+use clickhouse_client::column::numeric::ColumnUInt64;
+use clickhouse_client::column::nullable::ColumnNullable;
+use clickhouse_client::types::Type;
 use std::env;
 use std::sync::Arc;
 
@@ -256,10 +259,10 @@ async fn test_insert_block() {
     let mut block = Block::new();
 
     // Add String column
-    let mut name_col = ColumnString::new();
-    name_col.append("test1");
-    name_col.append("test2");
-    name_col.append("test3");
+    let mut name_col = ColumnString::new(Type::string());
+    name_col.append("test1".to_string());
+    name_col.append("test2".to_string());
+    name_col.append("test3".to_string());
     block
         .append_column("name", Arc::new(name_col))
         .expect("Failed to append name column");
@@ -309,6 +312,397 @@ async fn test_cleanup() {
     let _ = client.query("DROP DATABASE IF EXISTS test_db").await;
 
     println!("Cleanup completed");
+}
+
+// ============================================================================
+// Exception Handling Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore]
+async fn test_exception_handling_syntax_error() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // Execute invalid SQL - should return error
+    let result = client.query("SELECTTTT invalid syntax").await;
+
+    assert!(result.is_err(), "Expected syntax error");
+
+    if let Err(error) = result {
+        let error_msg = error.to_string();
+        println!("Got expected error: {}", error_msg);
+
+        // Error should mention syntax problem
+        assert!(
+            error_msg.contains("Syntax error")
+                || error_msg.contains("SYNTAX_ERROR")
+                || error_msg.contains("Unknown expression identifier"),
+            "Expected syntax error message, got: {}",
+            error_msg
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_exception_handling_table_not_found() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // Query non-existent table
+    let result = client
+        .query("SELECT * FROM nonexistent_table_xyz_12345")
+        .await;
+
+    assert!(result.is_err(), "Expected table not found error");
+
+    if let Err(error) = result {
+        let error_msg = error.to_string();
+        println!("Got expected error: {}", error_msg);
+
+        assert!(
+            error_msg.contains("does not exist")
+                || error_msg.contains("doesn't exist")
+                || error_msg.contains("Unknown table"),
+            "Expected table not found error, got: {}",
+            error_msg
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_exception_recovery() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // Execute invalid query
+    let _ = client.query("INVALID SQL").await;
+
+    // Connection should still be usable after exception
+    let result = client.ping().await;
+    assert!(
+        result.is_ok(),
+        "Connection should be usable after exception"
+    );
+
+    // Execute valid query after exception
+    let result = client.query("SELECT 1").await;
+    assert!(
+        result.is_ok(),
+        "Should be able to execute queries after exception"
+    );
+}
+
+// ============================================================================
+// NULL Parameter Handling Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore]
+async fn test_nullable_column_insertion() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // Create table with nullable column
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_nullable")
+        .await;
+
+    client
+        .query(
+            r#"
+        CREATE TABLE test_db.test_nullable (
+            id UInt64,
+            nullable_value Nullable(UInt64)
+        ) ENGINE = Memory
+    "#,
+        )
+        .await
+        .expect("Failed to create table");
+
+    // Insert data with NULL values using block insertion
+    let mut block = Block::new();
+
+    // Create id column
+    let mut id_col = ColumnUInt64::new(Type::uint64());
+    id_col.append(1);
+    id_col.append(2);
+    id_col.append(3);
+
+    // Create nullable column
+    let nested_col = Arc::new(ColumnUInt64::new(Type::uint64()));
+    let mut nullable_col = ColumnNullable::with_nested(nested_col);
+
+    // Append values: Some(100), None, Some(300)
+    // Manually append since append_nullable is only for UInt32
+    nullable_col.append_non_null();
+    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
+        if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>() {
+            col.append(100);
+        }
+    }
+
+    nullable_col.append_null();
+    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
+        if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>() {
+            col.append(0); // Placeholder for NULL
+        }
+    }
+
+    nullable_col.append_non_null();
+    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
+        if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>() {
+            col.append(300);
+        }
+    }
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("nullable_value", Arc::new(nullable_col))
+        .expect("Failed to append nullable column");
+
+    client
+        .insert("test_db.test_nullable", block)
+        .await
+        .expect("Failed to insert nullable data");
+
+    // Query NULL values
+    let result = client
+        .query("SELECT id FROM test_db.test_nullable WHERE nullable_value IS NULL")
+        .await
+        .expect("Failed to query NULL values");
+
+    println!("NULL query returned {} rows", result.total_rows());
+    assert_eq!(result.total_rows(), 1, "Should have 1 NULL value");
+
+    // Query non-NULL values
+    let result = client
+        .query("SELECT id FROM test_db.test_nullable WHERE nullable_value IS NOT NULL")
+        .await
+        .expect("Failed to query non-NULL values");
+
+    println!("Non-NULL query returned {} rows", result.total_rows());
+    assert_eq!(result.total_rows(), 2, "Should have 2 non-NULL values");
+
+    // Cleanup
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_nullable")
+        .await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_select_null_literal() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // SELECT NULL should work
+    let result = client
+        .query("SELECT NULL AS null_col")
+        .await
+        .expect("Failed to SELECT NULL");
+
+    println!("SELECT NULL returned {} rows", result.total_rows());
+    assert_eq!(result.total_rows(), 1);
+
+    // SELECT with NULL and non-NULL columns (simpler test)
+    let result = client
+        .query("SELECT 1 AS num, NULL AS null_col")
+        .await
+        .expect("Failed to SELECT with NULL column");
+
+    assert_eq!(result.total_rows(), 1);
+    if let Some(block) = result.blocks().first() {
+        assert_eq!(block.column_count(), 2, "Should have 2 columns");
+    }
+}
+
+// ============================================================================
+// Large Data Transfer Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore]
+async fn test_large_block_insert() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    use clickhouse_client::column::numeric::ColumnUInt64;
+    use clickhouse_client::column::string::ColumnString;
+    use clickhouse_client::types::Type;
+
+    // Create table
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_large_block")
+        .await;
+
+    client
+        .query(
+            r#"
+        CREATE TABLE test_db.test_large_block (
+            id UInt64,
+            text String
+        ) ENGINE = Memory
+    "#,
+        )
+        .await
+        .expect("Failed to create table");
+
+    // Create large block with 10,000 rows
+    let mut block = Block::new();
+
+    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut text_col = ColumnString::new(Type::string());
+
+    for i in 0..10000 {
+        id_col.append(i);
+        text_col.append(format!("Row number {}", i));
+    }
+
+    block.append_column("id", Arc::new(id_col)).unwrap();
+    block.append_column("text", Arc::new(text_col)).unwrap();
+
+    println!("Inserting block with {} rows", block.row_count());
+
+    // Insert large block
+    client
+        .insert("test_db.test_large_block", block)
+        .await
+        .expect("Failed to insert large block");
+
+    // Verify count
+    let result = client
+        .query("SELECT COUNT(*) FROM test_db.test_large_block")
+        .await
+        .expect("Failed to count rows");
+
+    println!("Large block insert completed");
+    assert_eq!(result.total_rows(), 1);
+
+    // Cleanup
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_large_block")
+        .await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_large_result_set() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    use clickhouse_client::column::numeric::ColumnUInt64;
+    use clickhouse_client::types::Type;
+
+    // Create and populate table
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_large_select")
+        .await;
+
+    client
+        .query(
+            r#"
+        CREATE TABLE test_db.test_large_select (
+            id UInt64
+        ) ENGINE = Memory
+    "#,
+        )
+        .await
+        .expect("Failed to create table");
+
+    // Insert 50,000 rows
+    let mut block = Block::new();
+    let mut id_col = ColumnUInt64::new(Type::uint64());
+
+    for i in 0..50000 {
+        id_col.append(i);
+    }
+
+    block.append_column("id", Arc::new(id_col)).unwrap();
+
+    client
+        .insert("test_db.test_large_select", block)
+        .await
+        .expect("Failed to insert data");
+
+    // Query large result set
+    println!("Querying large result set...");
+    let result = client
+        .query("SELECT * FROM test_db.test_large_select")
+        .await
+        .expect("Failed to select large result");
+
+    println!("Received {} total rows in {} blocks",
+             result.total_rows(),
+             result.blocks().len());
+
+    assert!(result.total_rows() >= 50000, "Should receive all 50,000 rows");
+
+    // Cleanup
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_large_select")
+        .await;
+}
+
+// ============================================================================
+// Connection Persistence Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore]
+async fn test_multiple_queries_same_connection() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // Execute 100 queries on the same connection
+    for i in 0..100 {
+        let query = format!("SELECT {} AS value", i);
+        let result = client
+            .query(query.as_str())
+            .await
+            .unwrap_or_else(|_| panic!("Failed on query {}", i));
+
+        assert_eq!(result.total_rows(), 1);
+    }
+
+    println!("Executed 100 queries successfully on same connection");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_ping_between_queries() {
+    let mut client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // Ping
+    client.ping().await.expect("First ping failed");
+
+    // Query
+    let _ = client.query("SELECT 1").await.expect("Query failed");
+
+    // Ping again
+    client.ping().await.expect("Second ping failed");
+
+    // Another query
+    let _ = client.query("SELECT 2").await.expect("Second query failed");
+
+    // Final ping
+    client.ping().await.expect("Final ping failed");
+
+    println!("Ping and query interleaving works correctly");
 }
 
 // Helper function to setup test table with data

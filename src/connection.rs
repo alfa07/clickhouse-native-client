@@ -393,6 +393,10 @@ impl Connection {
         Ok(self.writer.write_u64_le(value).await?)
     }
 
+    pub async fn write_u128(&mut self, value: u128) -> Result<()> {
+        Ok(self.writer.write_u128_le(value).await?)
+    }
+
     pub async fn write_i8(&mut self, value: i8) -> Result<()> {
         Ok(self.writer.write_i8(value).await?)
     }

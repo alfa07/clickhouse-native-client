@@ -193,6 +193,12 @@ impl Column for ColumnNullable {
         Ok(())
     }
 
+    fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
+        // Delegate to nested column's save_prefix
+        // This is critical for nested types like LowCardinality that write version info
+        self.nested.save_prefix(buffer)
+    }
+
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
         // Write null bitmap
         buffer.put_slice(&self.nulls);
@@ -245,14 +251,14 @@ mod tests {
     #[test]
     fn test_nullable_creation() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let col = ColumnNullable::new(nested);
+        let col = ColumnNullable::with_nested(nested);
         assert_eq!(col.size(), 0);
     }
 
     #[test]
     fn test_nullable_append() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnNullable::new(nested);
+        let mut col = ColumnNullable::with_nested(nested);
 
         col.append_non_null();
         col.append_null();
@@ -267,7 +273,7 @@ mod tests {
     #[test]
     fn test_nullable_nulls_bitmap() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnNullable::new(nested);
+        let mut col = ColumnNullable::with_nested(nested);
 
         col.append_non_null();
         col.append_null();
@@ -285,7 +291,7 @@ mod tests {
         nested.append(20);
         nested.append(30);
 
-        let mut col = ColumnNullable::new(Arc::new(nested));
+        let mut col = ColumnNullable::with_nested(Arc::new(nested));
         col.append_non_null();
         col.append_null();
         col.append_non_null();
@@ -302,7 +308,7 @@ mod tests {
     #[test]
     fn test_nullable_load_null_bitmap() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnNullable::new(nested);
+        let mut col = ColumnNullable::with_nested(nested);
 
         let data = vec![1u8, 0, 1, 0, 1];
         let mut reader = &data[..];
@@ -324,7 +330,7 @@ mod tests {
         for i in 0..10 {
             nested.append(i);
         }
-        let mut col = ColumnNullable::new(Arc::new(nested));
+        let mut col = ColumnNullable::with_nested(Arc::new(nested));
 
         for i in 0..10 {
             if i % 2 == 0 {
@@ -345,8 +351,8 @@ mod tests {
 
     #[test]
     fn test_nullable_with_string() {
-        let nested = Arc::new(ColumnString::new());
-        let mut col = ColumnNullable::new(nested);
+        let nested = Arc::new(ColumnString::new(Type::string()));
+        let mut col = ColumnNullable::with_nested(nested);
 
         col.append_non_null();
         col.append_null();
@@ -361,10 +367,10 @@ mod tests {
     #[test]
     fn test_nullable_type_mismatch() {
         let nested1 = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col1 = ColumnNullable::new(nested1);
+        let mut col1 = ColumnNullable::with_nested(nested1);
 
-        let nested2 = Arc::new(ColumnString::new());
-        let col2 = ColumnNullable::new(nested2);
+        let nested2 = Arc::new(ColumnString::new(Type::string()));
+        let col2 = ColumnNullable::with_nested(nested2);
 
         let result = col1.append_column(Arc::new(col2));
         assert!(result.is_err());
@@ -373,7 +379,7 @@ mod tests {
     #[test]
     fn test_nullable_out_of_bounds() {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
-        let mut col = ColumnNullable::new(nested);
+        let mut col = ColumnNullable::with_nested(nested);
 
         col.append_null();
         col.append_non_null();

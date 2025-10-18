@@ -75,7 +75,9 @@ impl ColumnFixedString {
         let end = start + self.string_size;
         let bytes = &self.data[start..end];
 
-        Some(String::from_utf8_lossy(bytes).to_string())
+        // Trim null bytes from the end
+        let trimmed = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+        Some(String::from_utf8_lossy(&bytes[..trimmed]).to_string())
     }
 
     /// Get value at index (for tests)
@@ -403,36 +405,36 @@ mod tests {
     #[test]
     fn test_fixed_string_append() {
         let mut col = ColumnFixedString::new(Type::fixed_string(10));
-        col.append("hello");
-        col.append("world");
+        col.append("hello".to_string());
+        col.append("world".to_string());
 
         assert_eq!(col.size(), 2);
-        assert_eq!(col.get(0), Some("hello"));
-        assert_eq!(col.get(1), Some("world"));
+        assert_eq!(col.get(0), Some("hello".to_string()));
+        assert_eq!(col.get(1), Some("world".to_string()));
     }
 
     #[test]
     fn test_fixed_string_padding() {
         let mut col = ColumnFixedString::new(Type::fixed_string(10));
-        col.append("hi");
+        col.append("hi".to_string());
 
         // Should be padded to 10 bytes
         assert_eq!(col.data.len(), 10);
-        assert_eq!(col.get(0), Some("hi"));
+        assert_eq!(col.get(0), Some("hi".to_string()));
     }
 
     #[test]
     #[should_panic(expected = "String too long")]
     fn test_fixed_string_too_long() {
         let mut col = ColumnFixedString::new(Type::fixed_string(5));
-        col.append("too long string");
+        col.append("too long string".to_string());
     }
 
     #[test]
     fn test_fixed_string_save_load() {
         let mut col = ColumnFixedString::new(Type::fixed_string(8));
-        col.append("hello");
-        col.append("world");
+        col.append("hello".to_string());
+        col.append("world".to_string());
 
         let mut buffer = BytesMut::new();
         col.save_to_buffer(&mut buffer).unwrap();
@@ -442,8 +444,8 @@ mod tests {
         col2.load_from_buffer(&mut reader, 2).unwrap();
 
         assert_eq!(col2.size(), 2);
-        assert_eq!(col2.get(0), Some("hello"));
-        assert_eq!(col2.get(1), Some("world"));
+        assert_eq!(col2.get(0), Some("hello".to_string()));
+        assert_eq!(col2.get(1), Some("world".to_string()));
     }
 
     #[test]
