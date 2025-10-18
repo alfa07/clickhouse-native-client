@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <!-- Listen on all interfaces so we can connect from the host machine -->
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>

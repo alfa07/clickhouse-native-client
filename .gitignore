@@ -1,0 +1,13 @@
+/target
+Cargo.lock
+
+# ClickHouse Docker data
+clickhouse-data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+cpp/clickhouse-cpp

@@ -1,0 +1,23 @@
+[package]
+name = "clickhouse-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+bytes = "1"
+thiserror = "1"
+lz4 = "1.28"
+zstd = "0.13"
+tokio-rustls = { version = "0.24", optional = true }
+chrono = "0.4"
+uuid = "1"
+async-trait = "0.1"
+cityhash-rs = "1.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[features]
+default = []
+tls = ["tokio-rustls"]
