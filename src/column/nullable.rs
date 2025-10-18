@@ -118,7 +118,7 @@ impl ColumnNullable {
 
     /// Get a reference to the value at the given index
     /// Returns the nested column for accessing the value (check is_null first!)
-    pub fn at(&self, index: usize) -> ColumnRef {
+    pub fn at(&self, _index: usize) -> ColumnRef {
         self.nested.clone()
     }
 

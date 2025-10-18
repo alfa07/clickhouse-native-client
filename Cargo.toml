@@ -10,14 +10,18 @@ thiserror = "1"
 lz4 = "1.28"
 zstd = "0.13"
 tokio-rustls = { version = "0.24", optional = true }
+rustls = { version = "0.21", optional = true }
+rustls-native-certs = { version = "0.6", optional = true }
+rustls-pemfile = { version = "1.0", optional = true }
 chrono = "0.4"
 uuid = "1"
 async-trait = "0.1"
 cityhash-rs = "1.0"
+socket2 = "0.5"
 
 [dev-dependencies]
 tokio-test = "0.4"
 
 [features]
 default = []
-tls = ["tokio-rustls"]
+tls = ["tokio-rustls", "rustls", "rustls-native-certs", "rustls-pemfile"]

@@ -10,4 +10,3 @@ clickhouse-data/
 *.swp
 *.swo
 *~
-cpp/clickhouse-cpp

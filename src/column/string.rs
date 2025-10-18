@@ -1,4 +1,4 @@
-use super::{Column, ColumnRef, ColumnTyped};
+use super::{Column, ColumnRef};
 use crate::types::Type;
 use crate::{Error, Result};
 use bytes::{Buf, BufMut, BytesMut};
