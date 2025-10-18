@@ -13,6 +13,98 @@ const DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES: u64 = 50264;
 const DBMS_MIN_REVISION_WITH_BLOCK_INFO: u64 = 51903;
 const DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION: u64 = 54454;
 
+/// Create a column instance for the given type
+/// This is used internally by column types like Array and Nullable
+pub fn create_column(type_: &Type) -> Result<ColumnRef> {
+    use crate::column::array::ColumnArray;
+    use crate::column::date::{ColumnDate, ColumnDate32, ColumnDateTime, ColumnDateTime64};
+    use crate::column::decimal::ColumnDecimal;
+    use crate::column::enum_column::{ColumnEnum8, ColumnEnum16};
+    use crate::column::ipv4::ColumnIpv4;
+    use crate::column::ipv6::ColumnIpv6;
+    use crate::column::lowcardinality::ColumnLowCardinality;
+    use crate::column::map::ColumnMap;
+    use crate::column::nothing::ColumnNothing;
+    use crate::column::nullable::ColumnNullable;
+    use crate::column::numeric::*;
+    use crate::column::string::{ColumnFixedString, ColumnString};
+    use crate::column::uuid::ColumnUuid;
+
+    match type_ {
+        Type::Simple(code) => {
+            use crate::types::TypeCode;
+            match code {
+                TypeCode::UInt8 => Ok(Arc::new(ColumnUInt8::new(type_.clone()))),
+                TypeCode::UInt16 => Ok(Arc::new(ColumnUInt16::new(type_.clone()))),
+                TypeCode::UInt32 => Ok(Arc::new(ColumnUInt32::new(type_.clone()))),
+                TypeCode::UInt64 => Ok(Arc::new(ColumnUInt64::new(type_.clone()))),
+                TypeCode::Int8 => Ok(Arc::new(ColumnInt8::new(type_.clone()))),
+                TypeCode::Int16 => Ok(Arc::new(ColumnInt16::new(type_.clone()))),
+                TypeCode::Int32 => Ok(Arc::new(ColumnInt32::new(type_.clone()))),
+                TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new(type_.clone()))),
+                TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new(type_.clone()))),
+                TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new(type_.clone()))),
+                TypeCode::String => Ok(Arc::new(ColumnString::new(type_.clone()))),
+                TypeCode::Date => Ok(Arc::new(ColumnDate::new(type_.clone()))),
+                TypeCode::Date32 => Ok(Arc::new(ColumnDate32::new(type_.clone()))),
+                TypeCode::UUID => Ok(Arc::new(ColumnUuid::new(type_.clone()))),
+                TypeCode::IPv4 => Ok(Arc::new(ColumnIpv4::new(type_.clone()))),
+                TypeCode::IPv6 => Ok(Arc::new(ColumnIpv6::new(type_.clone()))),
+                TypeCode::Void => Ok(Arc::new(ColumnNothing::new(type_.clone()))),
+                _ => Err(Error::Protocol(format!("Unsupported type: {}", type_.name()))),
+            }
+        }
+        Type::FixedString { .. } => Ok(Arc::new(ColumnFixedString::new(type_.clone()))),
+        Type::DateTime { .. } => {
+            // Use specialized ColumnDateTime with timezone support
+            Ok(Arc::new(ColumnDateTime::new(type_.clone())))
+        }
+        Type::DateTime64 { .. } => {
+            // Use specialized ColumnDateTime64 with precision and timezone
+            Ok(Arc::new(ColumnDateTime64::new(type_.clone())))
+        }
+        Type::Enum8 { .. } => {
+            // Use specialized ColumnEnum8 with name-value mapping
+            Ok(Arc::new(ColumnEnum8::new(type_.clone())))
+        }
+        Type::Enum16 { .. } => {
+            // Use specialized ColumnEnum16 with name-value mapping
+            Ok(Arc::new(ColumnEnum16::new(type_.clone())))
+        }
+        Type::Decimal { .. } => {
+            // Use specialized ColumnDecimal with precision and scale
+            Ok(Arc::new(ColumnDecimal::new(type_.clone())))
+        }
+        Type::Nullable { .. } => {
+            Ok(Arc::new(ColumnNullable::new(type_.clone())))
+        }
+        Type::Array { .. } => {
+            Ok(Arc::new(ColumnArray::new(type_.clone())))
+        }
+        Type::Map { .. } => {
+            Ok(Arc::new(ColumnMap::new(type_.clone())))
+        }
+        Type::LowCardinality { .. } => {
+            Ok(Arc::new(ColumnLowCardinality::new(type_.clone())))
+        }
+        Type::Tuple { item_types } => {
+            // Create empty columns for each tuple element
+            let mut columns = Vec::new();
+            for item_type in item_types {
+                columns.push(create_column(item_type)?);
+            }
+            Ok(Arc::new(crate::column::ColumnTuple::new(
+                type_.clone(),
+                columns,
+            )))
+        }
+        _ => Err(Error::Protocol(format!(
+            "Unsupported column type: {}",
+            type_.name()
+        ))),
+    }
+}
+
 /// Reader for blocks from network
 pub struct BlockReader {
     server_revision: u64,
@@ -146,10 +238,10 @@ impl BlockReader {
                     TypeCode::UInt8 | TypeCode::Int8 => {
                         let _ = conn.read_bytes(num_rows * 1).await?;
                     }
-                    TypeCode::UInt16 | TypeCode::Int16 => {
+                    TypeCode::UInt16 | TypeCode::Int16 | TypeCode::Date => {
                         let _ = conn.read_bytes(num_rows * 2).await?;
                     }
-                    TypeCode::UInt32 | TypeCode::Int32 | TypeCode::Float32 => {
+                    TypeCode::UInt32 | TypeCode::Int32 | TypeCode::Float32 | TypeCode::Date32 => {
                         let _ = conn.read_bytes(num_rows * 4).await?;
                     }
                     TypeCode::UInt64 | TypeCode::Int64 | TypeCode::Float64 => {
@@ -161,6 +253,20 @@ impl BlockReader {
                             let len = conn.read_varint().await? as usize;
                             let _ = conn.read_bytes(len).await?;
                         }
+                    }
+                    // Void/Nothing - skip bytes (1 byte per row)
+                    TypeCode::Void => {
+                        let _ = conn.read_bytes(num_rows).await?;
+                    }
+                    // UUID, IPv4, IPv6
+                    TypeCode::UUID => {
+                        let _ = conn.read_bytes(num_rows * 16).await?;
+                    }
+                    TypeCode::IPv4 => {
+                        let _ = conn.read_bytes(num_rows * 4).await?;
+                    }
+                    TypeCode::IPv6 => {
+                        let _ = conn.read_bytes(num_rows * 16).await?;
                     }
                     _ => {
                         return Err(Error::Protocol(format!(
@@ -324,11 +430,11 @@ impl BlockReader {
                     TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new(type_.clone()))),
                     TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new(type_.clone()))),
                     TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new(type_.clone()))),
-                    TypeCode::String => Ok(Arc::new(ColumnString::new())),
+                    TypeCode::String => Ok(Arc::new(ColumnString::new(type_.clone()))),
                     _ => Err(Error::Protocol(format!("Unsupported type: {}", type_.name()))),
                 }
             }
-            Type::FixedString { size } => Ok(Arc::new(ColumnFixedString::new(*size))),
+            Type::FixedString { .. } => Ok(Arc::new(ColumnFixedString::new(type_.clone()))),
             Type::DateTime { .. } => {
                 // DateTime is stored as UInt32 (Unix timestamp)
                 Ok(Arc::new(ColumnUInt32::new(type_.clone())))
@@ -337,13 +443,11 @@ impl BlockReader {
                 // DateTime64 is stored as Int64 (Unix timestamp with precision)
                 Ok(Arc::new(ColumnInt64::new(type_.clone())))
             }
-            Type::Nullable { nested_type } => {
-                let nested = self.create_column_by_type(nested_type)?;
-                Ok(Arc::new(ColumnNullable::new(nested)))
+            Type::Nullable { .. } => {
+                Ok(Arc::new(ColumnNullable::new(type_.clone())))
             }
-            Type::Array { item_type } => {
-                let nested = self.create_column_by_type(item_type)?;
-                Ok(Arc::new(ColumnArray::new(nested)))
+            Type::Array { .. } => {
+                Ok(Arc::new(ColumnArray::new(type_.clone())))
             }
             _ => Err(Error::Protocol(format!(
                 "Unsupported column type: {}",

@@ -12,23 +12,41 @@ pub struct ColumnFixedString {
 }
 
 impl ColumnFixedString {
-    pub fn new(size: usize) -> Self {
+    pub fn new(type_: Type) -> Self {
+        let string_size = match &type_ {
+            Type::FixedString { size } => *size,
+            _ => panic!("Expected FixedString type"),
+        };
+
         Self {
-            type_: Type::fixed_string(size),
-            string_size: size,
+            type_,
+            string_size,
             data: Vec::new(),
         }
     }
 
-    pub fn with_capacity(size: usize, capacity: usize) -> Self {
+    pub fn with_capacity(type_: Type, capacity: usize) -> Self {
+        let string_size = match &type_ {
+            Type::FixedString { size } => *size,
+            _ => panic!("Expected FixedString type"),
+        };
+
         Self {
-            type_: Type::fixed_string(size),
-            string_size: size,
-            data: Vec::with_capacity(size * capacity),
+            type_,
+            string_size,
+            data: Vec::with_capacity(string_size * capacity),
         }
     }
 
-    pub fn append(&mut self, s: &str) {
+    /// Create a column with initial data (builder pattern)
+    pub fn with_data(mut self, data: Vec<String>) -> Self {
+        for s in data {
+            self.append(s);
+        }
+        self
+    }
+
+    pub fn append(&mut self, s: String) {
         let bytes = s.as_bytes();
 
         if bytes.len() > self.string_size {
@@ -48,7 +66,7 @@ impl ColumnFixedString {
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<&str> {
+    pub fn get(&self, index: usize) -> Option<String> {
         if index >= self.size() {
             return None;
         }
@@ -57,10 +75,22 @@ impl ColumnFixedString {
         let end = start + self.string_size;
         let bytes = &self.data[start..end];
 
-        // Find actual string length (trim trailing zeros)
-        let actual_len = bytes.iter().rposition(|&b| b != 0).map_or(0, |pos| pos + 1);
+        Some(String::from_utf8_lossy(bytes).to_string())
+    }
 
-        std::str::from_utf8(&bytes[..actual_len]).ok()
+    /// Get value at index (for tests)
+    pub fn at(&self, index: usize) -> String {
+        self.get(index).unwrap()
+    }
+
+    /// Get the number of elements (alias for size())
+    pub fn len(&self) -> usize {
+        self.size()
+    }
+
+    /// Check if the column is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 
     pub fn fixed_size(&self) -> usize {
@@ -126,7 +156,7 @@ impl Column for ColumnFixedString {
     }
 
     fn clone_empty(&self) -> ColumnRef {
-        Arc::new(ColumnFixedString::new(self.string_size))
+        Arc::new(ColumnFixedString::new(self.type_.clone()))
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
@@ -140,7 +170,7 @@ impl Column for ColumnFixedString {
         let start = begin * self.string_size;
         let end = start + len * self.string_size;
 
-        let mut result = ColumnFixedString::new(self.string_size);
+        let mut result = ColumnFixedString::new(self.type_.clone());
         result.data = self.data[start..end].to_vec();
 
         Ok(Arc::new(result))
@@ -162,25 +192,31 @@ pub struct ColumnString {
 }
 
 impl ColumnString {
-    pub fn new() -> Self {
+    pub fn new(type_: Type) -> Self {
         Self {
-            type_: Type::string(),
+            type_,
             data: Vec::new(),
         }
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         Self {
-            type_: Type::string(),
+            type_,
             data: Vec::with_capacity(capacity),
         }
     }
 
-    pub fn from_vec(data: Vec<String>) -> Self {
+    pub fn from_vec(type_: Type, data: Vec<String>) -> Self {
         Self {
-            type_: Type::string(),
+            type_,
             data,
         }
+    }
+
+    /// Create a column with initial data (builder pattern)
+    pub fn with_data(mut self, data: Vec<String>) -> Self {
+        self.data = data;
+        self
     }
 
     pub fn append(&mut self, s: impl Into<String>) {
@@ -191,6 +227,21 @@ impl ColumnString {
         self.data.get(index).map(|s| s.as_str())
     }
 
+    /// Get value at index (for tests)
+    pub fn at(&self, index: usize) -> String {
+        self.data[index].clone()
+    }
+
+    /// Get the number of elements (alias for size())
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Check if the column is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &str> {
         self.data.iter().map(|s| s.as_str())
     }
@@ -198,7 +249,7 @@ impl ColumnString {
 
 impl Default for ColumnString {
     fn default() -> Self {
-        Self::new()
+        Self::new(Type::string())
     }
 }
 
@@ -269,7 +320,7 @@ impl Column for ColumnString {
     }
 
     fn clone_empty(&self) -> ColumnRef {
-        Arc::new(ColumnString::new())
+        Arc::new(ColumnString::new(self.type_.clone()))
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
@@ -281,7 +332,7 @@ impl Column for ColumnString {
         }
 
         let sliced = self.data[begin..begin + len].to_vec();
-        Ok(Arc::new(ColumnString::from_vec(sliced)))
+        Ok(Arc::new(ColumnString::from_vec(self.type_.clone(), sliced)))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -344,14 +395,14 @@ mod tests {
 
     #[test]
     fn test_fixed_string_creation() {
-        let col = ColumnFixedString::new(10);
+        let col = ColumnFixedString::new(Type::fixed_string(10));
         assert_eq!(col.size(), 0);
         assert_eq!(col.fixed_size(), 10);
     }
 
     #[test]
     fn test_fixed_string_append() {
-        let mut col = ColumnFixedString::new(10);
+        let mut col = ColumnFixedString::new(Type::fixed_string(10));
         col.append("hello");
         col.append("world");
 
@@ -362,7 +413,7 @@ mod tests {
 
     #[test]
     fn test_fixed_string_padding() {
-        let mut col = ColumnFixedString::new(10);
+        let mut col = ColumnFixedString::new(Type::fixed_string(10));
         col.append("hi");
 
         // Should be padded to 10 bytes
@@ -373,20 +424,20 @@ mod tests {
     #[test]
     #[should_panic(expected = "String too long")]
     fn test_fixed_string_too_long() {
-        let mut col = ColumnFixedString::new(5);
+        let mut col = ColumnFixedString::new(Type::fixed_string(5));
         col.append("too long string");
     }
 
     #[test]
     fn test_fixed_string_save_load() {
-        let mut col = ColumnFixedString::new(8);
+        let mut col = ColumnFixedString::new(Type::fixed_string(8));
         col.append("hello");
         col.append("world");
 
         let mut buffer = BytesMut::new();
         col.save_to_buffer(&mut buffer).unwrap();
 
-        let mut col2 = ColumnFixedString::new(8);
+        let mut col2 = ColumnFixedString::new(Type::fixed_string(8));
         let mut reader = &buffer[..];
         col2.load_from_buffer(&mut reader, 2).unwrap();
 
@@ -397,13 +448,13 @@ mod tests {
 
     #[test]
     fn test_string_creation() {
-        let col = ColumnString::new();
+        let col = ColumnString::new(Type::string());
         assert_eq!(col.size(), 0);
     }
 
     #[test]
     fn test_string_append() {
-        let mut col = ColumnString::new();
+        let mut col = ColumnString::new(Type::string());
         col.append("hello");
         col.append("world");
         col.append(String::from("rust"));
@@ -416,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_string_save_load() {
-        let mut col = ColumnString::new();
+        let mut col = ColumnString::new(Type::string());
         col.append("hello");
         col.append("мир"); // Unicode
         col.append("🦀"); // Emoji
@@ -424,7 +475,7 @@ mod tests {
         let mut buffer = BytesMut::new();
         col.save_to_buffer(&mut buffer).unwrap();
 
-        let mut col2 = ColumnString::new();
+        let mut col2 = ColumnString::new(Type::string());
         let mut reader = &buffer[..];
         col2.load_from_buffer(&mut reader, 3).unwrap();
 
@@ -436,7 +487,7 @@ mod tests {
 
     #[test]
     fn test_string_slice() {
-        let mut col = ColumnString::new();
+        let mut col = ColumnString::new(Type::string());
         for i in 0..10 {
             col.append(format!("str_{}", i));
         }

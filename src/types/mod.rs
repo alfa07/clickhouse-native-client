@@ -282,6 +282,59 @@ impl Type {
         }
     }
 
+    // Enum helper methods
+    pub fn has_enum_value(&self, value: i16) -> bool {
+        match self {
+            Type::Enum8 { items } => items.iter().any(|item| item.value == value),
+            Type::Enum16 { items } => items.iter().any(|item| item.value == value),
+            _ => false,
+        }
+    }
+
+    pub fn has_enum_name(&self, name: &str) -> bool {
+        match self {
+            Type::Enum8 { items } => items.iter().any(|item| item.name == name),
+            Type::Enum16 { items } => items.iter().any(|item| item.name == name),
+            _ => false,
+        }
+    }
+
+    pub fn get_enum_name(&self, value: i16) -> Option<&str> {
+        match self {
+            Type::Enum8 { items } => items
+                .iter()
+                .find(|item| item.value == value)
+                .map(|item| item.name.as_str()),
+            Type::Enum16 { items } => items
+                .iter()
+                .find(|item| item.value == value)
+                .map(|item| item.name.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn get_enum_value(&self, name: &str) -> Option<i16> {
+        match self {
+            Type::Enum8 { items } => items
+                .iter()
+                .find(|item| item.name == name)
+                .map(|item| item.value),
+            Type::Enum16 { items } => items
+                .iter()
+                .find(|item| item.name == name)
+                .map(|item| item.value),
+            _ => None,
+        }
+    }
+
+    pub fn enum_items(&self) -> Option<&[EnumItem]> {
+        match self {
+            Type::Enum8 { items } => Some(items),
+            Type::Enum16 { items } => Some(items),
+            _ => None,
+        }
+    }
+
     pub fn point() -> Self {
         Type::Simple(TypeCode::Point)
     }
@@ -299,41 +352,128 @@ impl Type {
     }
 
     /// Parse a type from its string representation
-    /// This is a simplified parser for common types
     pub fn parse(type_str: &str) -> crate::Result<Self> {
-        // Handle nullable
-        if type_str.starts_with("Nullable(") && type_str.ends_with(")") {
-            let inner = &type_str[9..type_str.len() - 1];
-            return Ok(Type::nullable(Type::parse(inner)?));
+        let type_str = type_str.trim();
+
+        // Handle empty/whitespace-only strings
+        if type_str.is_empty() {
+            return Err(crate::Error::Protocol("Empty type string".to_string()));
         }
 
-        // Handle arrays
-        if type_str.starts_with("Array(") && type_str.ends_with(")") {
-            let inner = &type_str[6..type_str.len() - 1];
-            return Ok(Type::array(Type::parse(inner)?));
+        // Find the first '(' to split type name from parameters
+        if let Some(paren_pos) = type_str.find('(') {
+            if !type_str.ends_with(')') {
+                return Err(crate::Error::Protocol(format!("Mismatched parentheses in type: {}", type_str)));
+            }
+
+            let type_name = &type_str[..paren_pos];
+            let params_str = &type_str[paren_pos + 1..type_str.len() - 1];
+
+            return match type_name {
+                "Nullable" => {
+                    Ok(Type::nullable(Type::parse(params_str)?))
+                }
+                "Array" => {
+                    Ok(Type::array(Type::parse(params_str)?))
+                }
+                "FixedString" => {
+                    let size = params_str.parse::<usize>().map_err(|_| {
+                        crate::Error::Protocol(format!("Invalid FixedString size: {}", params_str))
+                    })?;
+                    Ok(Type::fixed_string(size))
+                }
+                "DateTime" => {
+                    // DateTime('UTC') or DateTime('Europe/Minsk')
+                    let tz = parse_string_literal(params_str)?;
+                    Ok(Type::datetime(Some(tz)))
+                }
+                "DateTime64" => {
+                    // DateTime64(3, 'UTC') or DateTime64(3)
+                    let params = parse_comma_separated(params_str)?;
+                    if params.is_empty() {
+                        return Err(crate::Error::Protocol("DateTime64 requires precision parameter".to_string()));
+                    }
+                    let precision = params[0].parse::<usize>().map_err(|_| {
+                        crate::Error::Protocol(format!("Invalid DateTime64 precision: {}", params[0]))
+                    })?;
+                    let timezone = if params.len() > 1 {
+                        Some(parse_string_literal(&params[1])?)
+                    } else {
+                        None
+                    };
+                    Ok(Type::datetime64(precision, timezone))
+                }
+                "Decimal" => {
+                    // Decimal(12, 5)
+                    let params = parse_comma_separated(params_str)?;
+                    if params.len() != 2 {
+                        return Err(crate::Error::Protocol(format!("Decimal requires 2 parameters, got {}", params.len())));
+                    }
+                    let precision = params[0].parse::<usize>().map_err(|_| {
+                        crate::Error::Protocol(format!("Invalid Decimal precision: {}", params[0]))
+                    })?;
+                    let scale = params[1].parse::<usize>().map_err(|_| {
+                        crate::Error::Protocol(format!("Invalid Decimal scale: {}", params[1]))
+                    })?;
+                    Ok(Type::decimal(precision, scale))
+                }
+                "Decimal32" | "Decimal64" | "Decimal128" => {
+                    // Decimal32(7) - single precision parameter, scale defaults to 0
+                    let precision = params_str.parse::<usize>().map_err(|_| {
+                        crate::Error::Protocol(format!("Invalid {} precision: {}", type_name, params_str))
+                    })?;
+                    Ok(Type::decimal(precision, 0))
+                }
+                "Enum8" => {
+                    // Enum8('red' = 1, 'green' = 2)
+                    let items = parse_enum_items(params_str)?;
+                    Ok(Type::enum8(items))
+                }
+                "Enum16" => {
+                    // Enum16('red' = 1, 'green' = 2)
+                    let items = parse_enum_items(params_str)?;
+                    Ok(Type::enum16(items))
+                }
+                "LowCardinality" => {
+                    Ok(Type::low_cardinality(Type::parse(params_str)?))
+                }
+                "Map" => {
+                    // Map(Int32, String)
+                    let params = parse_comma_separated(params_str)?;
+                    if params.len() != 2 {
+                        return Err(crate::Error::Protocol(format!("Map requires 2 type parameters, got {}", params.len())));
+                    }
+                    let key_type = Type::parse(&params[0])?;
+                    let value_type = Type::parse(&params[1])?;
+                    Ok(Type::map(key_type, value_type))
+                }
+                "Tuple" => {
+                    // Tuple(UInt8, String, Date)
+                    let params = parse_comma_separated(params_str)?;
+                    if params.is_empty() {
+                        return Err(crate::Error::Protocol("Tuple requires at least one type parameter".to_string()));
+                    }
+                    let mut item_types = Vec::new();
+                    for param in params {
+                        item_types.push(Type::parse(&param)?);
+                    }
+                    Ok(Type::tuple(item_types))
+                }
+                "SimpleAggregateFunction" => {
+                    // SimpleAggregateFunction(func, Type) -> unwrap to Type
+                    // Example: SimpleAggregateFunction(func, Int32) -> Int32
+                    let params = parse_comma_separated(params_str)?;
+                    if params.len() < 2 {
+                        return Err(crate::Error::Protocol("SimpleAggregateFunction requires at least 2 parameters".to_string()));
+                    }
+                    // First param is function name, second is type - we just care about the type
+                    Type::parse(&params[1])
+                }
+                _ => Err(crate::Error::Protocol(format!("Unknown parametric type: {}", type_name)))
+            };
         }
 
-        // Handle fixed strings
-        if type_str.starts_with("FixedString(") && type_str.ends_with(")") {
-            let size_str = &type_str[12..type_str.len() - 1];
-            let size = size_str.parse::<usize>().map_err(|_| {
-                crate::Error::Protocol(format!("Invalid FixedString size: {}", size_str))
-            })?;
-            return Ok(Type::fixed_string(size));
-        }
-
-        // Handle Enum8/Enum16
-        // Format: Enum8('name' = value, 'name2' = value2, ...)
-        // For now, we treat them as their underlying storage types (Int8/Int16)
-        // Full enum parsing would require extracting the name-value pairs
-        if type_str.starts_with("Enum8(") {
-            return Ok(Type::Simple(TypeCode::Int8));
-        }
-        if type_str.starts_with("Enum16(") {
-            return Ok(Type::Simple(TypeCode::Int16));
-        }
-
-        // Handle simple types
+        // Simple types without parameters
         match type_str {
             "UInt8" => Ok(Type::uint8()),
             "UInt16" => Ok(Type::uint16()),
@@ -347,14 +487,102 @@ impl Type {
             "Float64" => Ok(Type::float64()),
             "String" => Ok(Type::string()),
             "Date" => Ok(Type::date()),
+            "Date32" => Ok(Type::date32()),
             "DateTime" => Ok(Type::datetime(None)),
             "UUID" => Ok(Type::uuid()),
+            "IPv4" => Ok(Type::ipv4()),
+            "IPv6" => Ok(Type::ipv6()),
+            "Bool" => Ok(Type::uint8()), // Bool is an alias for UInt8
             _ => Err(crate::Error::Protocol(format!(
                 "Unknown type: {}",
                 type_str
             ))),
         }
     }
+}
+
+// Helper functions for type parsing
+
+/// Parse a string literal from 'quoted' or "quoted" format
+fn parse_string_literal(s: &str) -> crate::Result<String> {
+    let s = s.trim();
+    if (s.starts_with('\'') && s.ends_with('\'')) || (s.starts_with('"') && s.ends_with('"')) {
+        Ok(s[1..s.len() - 1].to_string())
+    } else {
+        Err(crate::Error::Protocol(format!("Expected quoted string, got: {}", s)))
+    }
+}
+
+/// Split comma-separated parameters, respecting nested parentheses
+/// Example: "Int32, String" -> ["Int32", "String"]
+/// Example: "Map(Int32, String), UInt64" -> ["Map(Int32, String)", "UInt64"]
+fn parse_comma_separated(s: &str) -> crate::Result<Vec<String>> {
+    let mut params = Vec::new();
+    let mut current = String::new();
+    let mut paren_depth = 0;
+    let mut in_quotes = false;
+    let mut quote_char = '\0';
+
+    for ch in s.chars() {
+        match ch {
+            '\'' | '"' if !in_quotes => {
+                in_quotes = true;
+                quote_char = ch;
+                current.push(ch);
+            }
+            ch if in_quotes && ch == quote_char => {
+                in_quotes = false;
+                current.push(ch);
+            }
+            '(' if !in_quotes => {
+                paren_depth += 1;
+                current.push(ch);
+            }
+            ')' if !in_quotes => {
+                paren_depth -= 1;
+                current.push(ch);
+            }
+            ',' if !in_quotes && paren_depth == 0 => {
+                params.push(current.trim().to_string());
+                current.clear();
+            }
+            _ => {
+                current.push(ch);
+            }
+        }
+    }
+
+    if !current.trim().is_empty() {
+        params.push(current.trim().to_string());
+    }
+
+    Ok(params)
+}
+
+/// Parse enum items from string like "'red' = 1, 'green' = 2, 'blue' = 3"
+fn parse_enum_items(s: &str) -> crate::Result<Vec<EnumItem>> {
+    let mut items = Vec::new();
+    let parts = parse_comma_separated(s)?;
+
+    for part in parts {
+        // Each part should be 'name' = value
+        let eq_parts: Vec<&str> = part.split('=').collect();
+        if eq_parts.len() != 2 {
+            return Err(crate::Error::Protocol(format!(
+                "Invalid enum item format (expected 'name' = value): {}",
+                part
+            )));
+        }
+
+        let name = parse_string_literal(eq_parts[0].trim())?;
+        let value = eq_parts[1].trim().parse::<i16>().map_err(|_| {
+            crate::Error::Protocol(format!("Invalid enum value: {}", eq_parts[1]))
+        })?;
+
+        items.push(EnumItem { name, value });
+    }
+
+    Ok(items)
 }
 
 impl PartialEq for Type {
@@ -374,6 +602,8 @@ impl PartialEq for Type {
                 Type::Decimal { precision: p_a, scale: s_a },
                 Type::Decimal { precision: p_b, scale: s_b },
             ) => p_a == p_b && s_a == s_b,
+            (Type::Enum8 { items: a }, Type::Enum8 { items: b }) => a == b,
+            (Type::Enum16 { items: a }, Type::Enum16 { items: b }) => a == b,
             (Type::Array { item_type: a }, Type::Array { item_type: b }) => a == b,
             (Type::Nullable { nested_type: a }, Type::Nullable { nested_type: b }) => a == b,
             (Type::Tuple { item_types: a }, Type::Tuple { item_types: b }) => a == b,

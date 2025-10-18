@@ -92,8 +92,29 @@ impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
         Self { type_, data }
     }
 
+    /// Create a column with initial data (builder pattern)
+    pub fn with_data(mut self, data: Vec<T>) -> Self {
+        self.data = data;
+        self
+    }
+
     pub fn get(&self, index: usize) -> Option<&T> {
         self.data.get(index)
+    }
+
+    /// Get value at index (panics if out of bounds - for tests)
+    pub fn at(&self, index: usize) -> T {
+        self.data[index].clone()
+    }
+
+    /// Get the number of elements (alias for size())
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Check if the column is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 
     pub fn append(&mut self, value: T) {
@@ -214,6 +235,9 @@ pub type ColumnInt128 = ColumnVector<i128>;
 
 pub type ColumnFloat32 = ColumnVector<f32>;
 pub type ColumnFloat64 = ColumnVector<f64>;
+
+// Date is stored as UInt16 (days since epoch)
+pub type ColumnDate = ColumnVector<u16>;
 
 #[cfg(test)]
 mod tests {
