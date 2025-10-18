@@ -3,6 +3,15 @@ Cargo.lock
 
 # ClickHouse Docker data
 clickhouse-data/
+clickhouse-data-tls/
+
+# TLS certificates (generated for testing)
+certs/ca/*.pem
+certs/server/*.pem
+certs/client/*.pem
+!certs/ca/.gitkeep
+!certs/server/.gitkeep
+!certs/client/.gitkeep
 
 # IDE
 .idea/

@@ -284,6 +284,14 @@ impl BlockReader {
                 // DateTime64 is stored as Int64 (8 bytes)
                 let _ = conn.read_bytes(num_rows * 8).await?;
             }
+            Type::Enum8 { .. } => {
+                // Enum8 is stored as Int8 (1 byte)
+                let _ = conn.read_bytes(num_rows * 1).await?;
+            }
+            Type::Enum16 { .. } => {
+                // Enum16 is stored as Int16 (2 bytes)
+                let _ = conn.read_bytes(num_rows * 2).await?;
+            }
             Type::Nullable { nested_type } => {
                 // Read null mask first (one byte per row)
                 let _ = conn.read_bytes(num_rows).await?;
@@ -438,6 +446,14 @@ impl BlockReader {
             Type::DateTime64 { .. } => {
                 // DateTime64 is stored as Int64 (Unix timestamp with precision)
                 Ok(Arc::new(ColumnInt64::new(type_.clone())))
+            }
+            Type::Enum8 { .. } => {
+                // Enum8 is stored as Int8
+                Ok(Arc::new(ColumnInt8::new(type_.clone())))
+            }
+            Type::Enum16 { .. } => {
+                // Enum16 is stored as Int16
+                Ok(Arc::new(ColumnInt16::new(type_.clone())))
             }
             Type::Nullable { .. } => {
                 Ok(Arc::new(ColumnNullable::new(type_.clone())))

@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <!--
+        SSL/TLS Configuration for ClickHouse
+
+        This enables secure connections on port 9440 (instead of 9000)
+        and secure HTTP on port 8443 (instead of 8123)
+    -->
+
+    <!-- Enable secure TCP protocol on port 9440 -->
+    <tcp_port_secure>9440</tcp_port_secure>
+
+    <!-- Enable secure HTTP on port 8443 -->
+    <https_port>8443</https_port>
+
+    <!-- OpenSSL Configuration -->
+    <openSSL>
+        <server>
+            <!-- Server Certificate -->
+            <certificateFile>/etc/clickhouse-server/certs/server/server-cert.pem</certificateFile>
+
+            <!-- Server Private Key -->
+            <privateKeyFile>/etc/clickhouse-server/certs/server/server-key.pem</privateKeyFile>
+
+            <!-- Diffie-Hellman Parameters (for forward secrecy) -->
+            <dhParamsFile>/etc/clickhouse-server/certs/server/dhparam.pem</dhParamsFile>
+
+            <!-- CA Certificate for verifying client certificates (if mutual TLS) -->
+            <caConfig>/etc/clickhouse-server/certs/ca/ca-cert.pem</caConfig>
+
+            <!--
+                Verification Mode:
+                - none: Don't verify client certificates
+                - relaxed: Request but don't require client certificate
+                - strict: Require valid client certificate
+
+                For testing, we use 'relaxed' to allow both authenticated
+                and non-authenticated connections
+            -->
+            <verificationMode>relaxed</verificationMode>
+
+            <!-- Don't load system CA certificates -->
+            <loadDefaultCAFile>false</loadDefaultCAFile>
+
+            <!-- Enable session caching for better performance -->
+            <cacheSessions>true</cacheSessions>
+
+            <!-- Disable insecure SSL/TLS versions -->
+            <disableProtocols>sslv2,sslv3</disableProtocols>
+
+            <!-- Use server's cipher preference order -->
+            <preferServerCiphers>true</preferServerCiphers>
+
+            <!--
+                Cipher Suite Configuration
+
+                Strong ciphers with forward secrecy (PFS).
+                Excludes weak ciphers (RC4, MD5, DES, etc.)
+            -->
+            <cipherList>
+                ECDHE-ECDSA-AES128-GCM-SHA256:
+                ECDHE-RSA-AES128-GCM-SHA256:
+                ECDHE-ECDSA-AES256-GCM-SHA384:
+                ECDHE-RSA-AES256-GCM-SHA384:
+                ECDHE-ECDSA-CHACHA20-POLY1305:
+                ECDHE-RSA-CHACHA20-POLY1305:
+                DHE-RSA-AES128-GCM-SHA256:
+                DHE-RSA-AES256-GCM-SHA384
+            </cipherList>
+
+            <!-- Session timeout (in seconds) -->
+            <sessionTimeout>300</sessionTimeout>
+
+            <!-- Enable extended master secret extension (RFC 7627) -->
+            <extendedVerification>true</extendedVerification>
+
+            <!-- Require TLS -->
+            <requireTLSv1>true</requireTLSv1>
+            <requireTLSv1_1>false</requireTLSv1_1>
+            <requireTLSv1_2>true</requireTLSv1_2>
+        </server>
+
+        <client>
+            <!-- Client settings for outbound connections (e.g., distributed queries) -->
+            <loadDefaultCAFile>false</loadDefaultCAFile>
+            <caConfig>/etc/clickhouse-server/certs/ca/ca-cert.pem</caConfig>
+            <cacheSessions>true</cacheSessions>
+            <disableProtocols>sslv2,sslv3</disableProtocols>
+            <preferServerCiphers>true</preferServerCiphers>
+            <invalidCertificateHandler>
+                <name>AcceptCertificateHandler</name>
+            </invalidCertificateHandler>
+        </client>
+    </openSSL>
+</clickhouse>

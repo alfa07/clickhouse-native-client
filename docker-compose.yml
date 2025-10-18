@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Standard ClickHouse server (non-TLS)
   clickhouse:
     image: clickhouse/clickhouse-server:23.8
     container_name: clickhouse-server
@@ -9,7 +10,8 @@ services:
       - "8123:8123"  # HTTP interface
     volumes:
       - ./clickhouse-data:/var/lib/clickhouse
-      - ./clickhouse-config:/etc/clickhouse-server/config.d
+      - ./clickhouse-config/network.xml:/etc/clickhouse-server/config.d/network.xml
+      - ./clickhouse-config/users.xml:/etc/clickhouse-server/config.d/users.xml
     environment:
       - CLICKHOUSE_DB=default
       - CLICKHOUSE_USER=default
@@ -23,3 +25,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # TLS-enabled ClickHouse server
+  clickhouse-tls:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-server-tls
+    ports:
+      - "9440:9440"  # Secure native TCP protocol
+      - "8443:8443"  # Secure HTTP interface
+    volumes:
+      - ./clickhouse-data-tls:/var/lib/clickhouse
+      - ./clickhouse-config:/etc/clickhouse-server/config.d
+      - ./certs:/etc/clickhouse-server/certs:ro
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--secure", "--port", "9440", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      - clickhouse
