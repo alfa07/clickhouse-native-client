@@ -98,10 +98,6 @@ pub fn create_column(type_: &Type) -> Result<ColumnRef> {
                 columns,
             )))
         }
-        _ => Err(Error::Protocol(format!(
-            "Unsupported column type: {}",
-            type_.name()
-        ))),
     }
 }
 
@@ -294,7 +290,7 @@ impl BlockReader {
                 // Then read nested data (recursive call via boxed wrapper)
                 self.load_column_data_async(conn, nested_type, num_rows).await?;
             }
-            Type::Array { item_type } => {
+            Type::Array { item_type: _ } => {
                 // Read offsets array (one UInt64 per row)
                 let _ = conn.read_bytes(num_rows * 8).await?;
                 // Read total count of items from last offset

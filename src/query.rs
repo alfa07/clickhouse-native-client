@@ -1,10 +1,69 @@
-use crate::block::BlockInfo;
 use crate::{Error, Result};
 use bytes::{Buf, BufMut, BytesMut};
 use std::collections::HashMap;
 
 /// Query settings
 pub type QuerySettings = HashMap<String, String>;
+
+/// OpenTelemetry tracing context (W3C Trace Context)
+/// See: https://www.w3.org/TR/trace-context/
+#[derive(Clone, Debug, Default)]
+pub struct TracingContext {
+    /// Trace ID (128-bit identifier)
+    pub trace_id: u128,
+    /// Span ID (64-bit identifier)
+    pub span_id: u64,
+    /// Tracestate header value
+    pub tracestate: String,
+    /// Trace flags (8-bit flags)
+    pub trace_flags: u8,
+}
+
+impl TracingContext {
+    /// Create a new empty tracing context
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a tracing context with trace and span IDs
+    pub fn with_ids(trace_id: u128, span_id: u64) -> Self {
+        Self {
+            trace_id,
+            span_id,
+            tracestate: String::new(),
+            trace_flags: 0,
+        }
+    }
+
+    /// Set trace ID
+    pub fn trace_id(mut self, trace_id: u128) -> Self {
+        self.trace_id = trace_id;
+        self
+    }
+
+    /// Set span ID
+    pub fn span_id(mut self, span_id: u64) -> Self {
+        self.span_id = span_id;
+        self
+    }
+
+    /// Set tracestate
+    pub fn tracestate(mut self, tracestate: impl Into<String>) -> Self {
+        self.tracestate = tracestate.into();
+        self
+    }
+
+    /// Set trace flags
+    pub fn trace_flags(mut self, flags: u8) -> Self {
+        self.trace_flags = flags;
+        self
+    }
+
+    /// Check if tracing is enabled (non-zero trace_id)
+    pub fn is_enabled(&self) -> bool {
+        self.trace_id != 0
+    }
+}
 
 /// Query structure for building and executing queries
 #[derive(Clone, Debug)]
@@ -17,6 +76,8 @@ pub struct Query {
     settings: QuerySettings,
     /// Query parameters (for parameterized queries)
     parameters: HashMap<String, String>,
+    /// OpenTelemetry tracing context
+    tracing_context: Option<TracingContext>,
 }
 
 impl Query {
@@ -27,6 +88,7 @@ impl Query {
             query_id: String::new(),
             settings: HashMap::new(),
             parameters: HashMap::new(),
+            tracing_context: None,
         }
     }
 }
@@ -63,9 +125,20 @@ impl Query {
         self
     }
 
+    /// Set OpenTelemetry tracing context
+    pub fn with_tracing_context(mut self, context: TracingContext) -> Self {
+        self.tracing_context = Some(context);
+        self
+    }
+
     /// Get the query text
     pub fn text(&self) -> &str {
         &self.query_text
+    }
+
+    /// Get the tracing context
+    pub fn tracing_context(&self) -> Option<&TracingContext> {
+        self.tracing_context.as_ref()
     }
 
     /// Get the query ID

@@ -11,7 +11,14 @@ pub mod block;
 pub mod query;
 pub mod client;
 
+#[cfg(feature = "tls")]
+pub mod ssl;
+
 pub use error::{Error, Result};
 pub use block::{Block, BlockInfo};
-pub use client::{Client, ClientOptions, QueryResult};
-pub use query::{Query, Progress};
+pub use client::{Client, ClientOptions, Endpoint, QueryResult};
+pub use query::{Query, Progress, TracingContext};
+pub use connection::ConnectionOptions;
+
+#[cfg(feature = "tls")]
+pub use ssl::SSLOptions;

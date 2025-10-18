@@ -1,7 +1,7 @@
 use super::{Column, ColumnRef};
 use crate::types::Type;
 use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Column for tuple types (fixed number of heterogeneous columns)

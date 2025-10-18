@@ -31,8 +31,8 @@ pub use map::ColumnMap;
 pub use lowcardinality::ColumnLowCardinality;
 
 use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Bytes, BytesMut};
+use crate::Result;
+use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Reference to a column (using Arc for cheap cloning)

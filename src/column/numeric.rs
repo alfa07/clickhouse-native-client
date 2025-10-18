@@ -2,8 +2,6 @@ use super::{Column, ColumnRef, ColumnTyped};
 use crate::types::Type;
 use crate::{Error, Result};
 use bytes::{Buf, BufMut, BytesMut};
-use std::io::{Read, Write};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Trait for types that can be read/written as fixed-size values (synchronous version for columns)

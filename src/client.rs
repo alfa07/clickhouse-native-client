@@ -1,17 +1,42 @@
 use crate::block::Block;
-use crate::connection::Connection;
+use crate::connection::{Connection, ConnectionOptions};
 use crate::io::{BlockReader, BlockWriter};
 use crate::protocol::{ClientCode, CompressionMethod, ServerCode};
 use crate::query::{ClientInfo, Progress, Query, ServerInfo};
 use crate::{Error, Result};
+use std::time::Duration;
 
-/// Client options
-#[derive(Clone, Debug)]
-pub struct ClientOptions {
+#[cfg(feature = "tls")]
+use crate::ssl::SSLOptions;
+
+/// Endpoint configuration (host + port)
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Endpoint {
     /// Server host
     pub host: String,
     /// Server port
     pub port: u16,
+}
+
+impl Endpoint {
+    /// Create a new endpoint
+    pub fn new(host: impl Into<String>, port: u16) -> Self {
+        Self {
+            host: host.into(),
+            port,
+        }
+    }
+}
+
+/// Client options
+#[derive(Clone, Debug)]
+pub struct ClientOptions {
+    /// Server host (used if endpoints is empty)
+    pub host: String,
+    /// Server port (used if endpoints is empty)
+    pub port: u16,
+    /// Multiple endpoints for failover (if empty, uses host+port)
+    pub endpoints: Vec<Endpoint>,
     /// Database name
     pub database: String,
     /// Username
@@ -20,8 +45,23 @@ pub struct ClientOptions {
     pub password: String,
     /// Compression method
     pub compression: Option<CompressionMethod>,
+    /// Maximum compression chunk size (default: 65535)
+    pub max_compression_chunk_size: usize,
     /// Client information
     pub client_info: ClientInfo,
+    /// Connection timeout and TCP options
+    pub connection_options: ConnectionOptions,
+    /// SSL/TLS options (requires 'tls' feature)
+    #[cfg(feature = "tls")]
+    pub ssl_options: Option<SSLOptions>,
+    /// Number of send retries (default: 1, no retry)
+    pub send_retries: u32,
+    /// Timeout between retry attempts (default: 5 seconds)
+    pub retry_timeout: Duration,
+    /// Send ping before each query (default: false)
+    pub ping_before_query: bool,
+    /// Rethrow server exceptions (default: true)
+    pub rethrow_exceptions: bool,
 }
 
 impl Default for ClientOptions {
@@ -29,11 +69,20 @@ impl Default for ClientOptions {
         Self {
             host: "localhost".to_string(),
             port: 9000,
+            endpoints: Vec::new(),
             database: "default".to_string(),
             user: "default".to_string(),
             password: String::new(),
             compression: Some(CompressionMethod::LZ4),
+            max_compression_chunk_size: 65535,
             client_info: ClientInfo::default(),
+            connection_options: ConnectionOptions::default(),
+            #[cfg(feature = "tls")]
+            ssl_options: None,
+            send_retries: 1,
+            retry_timeout: Duration::from_secs(5),
+            ping_before_query: false,
+            rethrow_exceptions: true,
         }
     }
 }
@@ -46,6 +95,18 @@ impl ClientOptions {
             port,
             ..Default::default()
         }
+    }
+
+    /// Set multiple endpoints for failover
+    pub fn endpoints(mut self, endpoints: Vec<Endpoint>) -> Self {
+        self.endpoints = endpoints;
+        self
+    }
+
+    /// Add an endpoint for failover
+    pub fn add_endpoint(mut self, host: impl Into<String>, port: u16) -> Self {
+        self.endpoints.push(Endpoint::new(host, port));
+        self
     }
 
     /// Set the database
@@ -71,6 +132,58 @@ impl ClientOptions {
         self.compression = method;
         self
     }
+
+    /// Set maximum compression chunk size
+    pub fn max_compression_chunk_size(mut self, size: usize) -> Self {
+        self.max_compression_chunk_size = size;
+        self
+    }
+
+    /// Set connection options (timeouts, TCP settings)
+    pub fn connection_options(mut self, options: ConnectionOptions) -> Self {
+        self.connection_options = options;
+        self
+    }
+
+    /// Set number of send retries
+    pub fn send_retries(mut self, retries: u32) -> Self {
+        self.send_retries = retries;
+        self
+    }
+
+    /// Set retry timeout
+    pub fn retry_timeout(mut self, timeout: Duration) -> Self {
+        self.retry_timeout = timeout;
+        self
+    }
+
+    /// Enable/disable ping before query
+    pub fn ping_before_query(mut self, enabled: bool) -> Self {
+        self.ping_before_query = enabled;
+        self
+    }
+
+    /// Enable/disable exception rethrowing
+    pub fn rethrow_exceptions(mut self, enabled: bool) -> Self {
+        self.rethrow_exceptions = enabled;
+        self
+    }
+
+    /// Set SSL/TLS options (requires 'tls' feature)
+    #[cfg(feature = "tls")]
+    pub fn ssl_options(mut self, options: SSLOptions) -> Self {
+        self.ssl_options = Some(options);
+        self
+    }
+
+    /// Get all endpoints (including host+port if endpoints is empty)
+    pub(crate) fn get_endpoints(&self) -> Vec<Endpoint> {
+        if self.endpoints.is_empty() {
+            vec![Endpoint::new(&self.host, self.port)]
+        } else {
+            self.endpoints.clone()
+        }
+    }
 }
 
 /// ClickHouse client
@@ -83,12 +196,72 @@ pub struct Client {
 }
 
 impl Client {
-    /// Connect to ClickHouse server
+    /// Connect to ClickHouse server with retry and endpoint failover
     pub async fn connect(options: ClientOptions) -> Result<Self> {
-        let mut conn = Connection::connect(&options.host, options.port).await?;
+        let endpoints = options.get_endpoints();
+        let mut last_error = None;
+
+        // Try each endpoint with retries
+        for endpoint in &endpoints {
+            for attempt in 0..options.send_retries {
+                match Self::try_connect(&endpoint.host, endpoint.port, &options).await {
+                    Ok(client) => return Ok(client),
+                    Err(e) => {
+                        last_error = Some(e);
+
+                        // Wait before retry (except for last attempt)
+                        if attempt + 1 < options.send_retries {
+                            tokio::time::sleep(options.retry_timeout).await;
+                        }
+                    }
+                }
+            }
+        }
+
+        // All endpoints and retries failed
+        Err(last_error.unwrap_or_else(|| {
+            Error::Connection("No endpoints available".to_string())
+        }))
+    }
+
+    /// Try to connect to a specific endpoint
+    async fn try_connect(host: &str, port: u16, options: &ClientOptions) -> Result<Self> {
+        // Connect with or without TLS based on options
+        let mut conn = {
+            #[cfg(feature = "tls")]
+            {
+                if let Some(ref ssl_opts) = options.ssl_options {
+                    // Build SSL client config
+                    let ssl_config = ssl_opts.build_client_config()?;
+
+                    // Use server name from SSL options if provided, otherwise use host
+                    let server_name = ssl_opts
+                        .server_name
+                        .as_ref()
+                        .map(|s| s.as_str())
+                        .or(if ssl_opts.use_sni { Some(host) } else { None });
+
+                    Connection::connect_with_tls(
+                        host,
+                        port,
+                        &options.connection_options,
+                        ssl_config,
+                        server_name,
+                    )
+                    .await?
+                } else {
+                    Connection::connect_with_options(host, port, &options.connection_options)
+                        .await?
+                }
+            }
+            #[cfg(not(feature = "tls"))]
+            {
+                Connection::connect_with_options(host, port, &options.connection_options).await?
+            }
+        };
 
         // Send hello
-        Self::send_hello(&mut conn, &options).await?;
+        Self::send_hello(&mut conn, options).await?;
 
         // Receive hello
         let server_info = Self::receive_hello(&mut conn).await?;
@@ -117,7 +290,7 @@ impl Client {
             server_info,
             block_reader,
             block_writer,
-            options,
+            options: options.clone(),
         })
     }
 

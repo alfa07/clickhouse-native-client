@@ -1,18 +1,117 @@
 use crate::wire_format::WireFormat;
 use crate::{Error, Result};
 use bytes::Bytes;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use std::time::Duration;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter};
 use tokio::net::TcpStream;
+
+#[cfg(feature = "tls")]
+use rustls::ServerName;
+#[cfg(feature = "tls")]
+use std::sync::Arc;
+#[cfg(feature = "tls")]
+use tokio_rustls::TlsConnector;
 
 /// Default buffer sizes for reading and writing
 const DEFAULT_READ_BUFFER_SIZE: usize = 8192;
 const DEFAULT_WRITE_BUFFER_SIZE: usize = 8192;
 
-/// Async connection wrapper for TCP socket
+/// Connection timeout and TCP options
+#[derive(Clone, Debug)]
+pub struct ConnectionOptions {
+    /// Connection timeout (default: 5 seconds)
+    pub connect_timeout: Duration,
+    /// Receive timeout (0 = no timeout)
+    pub recv_timeout: Duration,
+    /// Send timeout (0 = no timeout)
+    pub send_timeout: Duration,
+    /// Enable TCP keepalive
+    pub tcp_keepalive: bool,
+    /// TCP keepalive idle time (default: 60 seconds)
+    pub tcp_keepalive_idle: Duration,
+    /// TCP keepalive interval (default: 5 seconds)
+    pub tcp_keepalive_interval: Duration,
+    /// TCP keepalive probe count (default: 3)
+    pub tcp_keepalive_count: u32,
+    /// Enable TCP_NODELAY (disable Nagle's algorithm)
+    pub tcp_nodelay: bool,
+}
+
+impl Default for ConnectionOptions {
+    fn default() -> Self {
+        Self {
+            connect_timeout: Duration::from_secs(5),
+            recv_timeout: Duration::ZERO,
+            send_timeout: Duration::ZERO,
+            tcp_keepalive: false,
+            tcp_keepalive_idle: Duration::from_secs(60),
+            tcp_keepalive_interval: Duration::from_secs(5),
+            tcp_keepalive_count: 3,
+            tcp_nodelay: true,
+        }
+    }
+}
+
+impl ConnectionOptions {
+    /// Create new connection options
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set connection timeout
+    pub fn connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = timeout;
+        self
+    }
+
+    /// Set receive timeout
+    pub fn recv_timeout(mut self, timeout: Duration) -> Self {
+        self.recv_timeout = timeout;
+        self
+    }
+
+    /// Set send timeout
+    pub fn send_timeout(mut self, timeout: Duration) -> Self {
+        self.send_timeout = timeout;
+        self
+    }
+
+    /// Enable TCP keepalive
+    pub fn tcp_keepalive(mut self, enabled: bool) -> Self {
+        self.tcp_keepalive = enabled;
+        self
+    }
+
+    /// Set TCP keepalive idle time
+    pub fn tcp_keepalive_idle(mut self, duration: Duration) -> Self {
+        self.tcp_keepalive_idle = duration;
+        self
+    }
+
+    /// Set TCP keepalive interval
+    pub fn tcp_keepalive_interval(mut self, duration: Duration) -> Self {
+        self.tcp_keepalive_interval = duration;
+        self
+    }
+
+    /// Set TCP keepalive probe count
+    pub fn tcp_keepalive_count(mut self, count: u32) -> Self {
+        self.tcp_keepalive_count = count;
+        self
+    }
+
+    /// Enable/disable TCP_NODELAY
+    pub fn tcp_nodelay(mut self, enabled: bool) -> Self {
+        self.tcp_nodelay = enabled;
+        self
+    }
+}
+
+/// Async connection wrapper for TCP/TLS socket
 /// This is the async I/O boundary - all socket operations are async
 pub struct Connection {
-    reader: BufReader<tokio::io::ReadHalf<TcpStream>>,
-    writer: BufWriter<tokio::io::WriteHalf<TcpStream>>,
+    reader: BufReader<Box<dyn AsyncRead + Unpin + Send>>,
+    writer: BufWriter<Box<dyn AsyncWrite + Unpin + Send>>,
 }
 
 impl Connection {
@@ -21,24 +120,217 @@ impl Connection {
         let (read_half, write_half) = tokio::io::split(stream);
 
         Self {
-            reader: BufReader::with_capacity(DEFAULT_READ_BUFFER_SIZE, read_half),
-            writer: BufWriter::with_capacity(DEFAULT_WRITE_BUFFER_SIZE, write_half),
+            reader: BufReader::with_capacity(
+                DEFAULT_READ_BUFFER_SIZE,
+                Box::new(read_half) as Box<dyn AsyncRead + Unpin + Send>,
+            ),
+            writer: BufWriter::with_capacity(
+                DEFAULT_WRITE_BUFFER_SIZE,
+                Box::new(write_half) as Box<dyn AsyncWrite + Unpin + Send>,
+            ),
         }
     }
 
-    /// Connect to a ClickHouse server
-    pub async fn connect(host: &str, port: u16) -> Result<Self> {
-        let addr = format!("{}:{}", host, port);
-        let stream = TcpStream::connect(&addr).await.map_err(|e| {
-            Error::Connection(format!("Failed to connect to {}: {}", addr, e))
-        })?;
+    /// Create a new connection from a TLS stream
+    #[cfg(feature = "tls")]
+    pub fn new_tls(stream: tokio_rustls::client::TlsStream<TcpStream>) -> Self {
+        let (read_half, write_half) = tokio::io::split(stream);
 
-        // Enable TCP_NODELAY for lower latency
-        stream
-            .set_nodelay(true)
-            .map_err(|e| Error::Connection(format!("Failed to set TCP_NODELAY: {}", e)))?;
+        Self {
+            reader: BufReader::with_capacity(
+                DEFAULT_READ_BUFFER_SIZE,
+                Box::new(read_half) as Box<dyn AsyncRead + Unpin + Send>,
+            ),
+            writer: BufWriter::with_capacity(
+                DEFAULT_WRITE_BUFFER_SIZE,
+                Box::new(write_half) as Box<dyn AsyncWrite + Unpin + Send>,
+            ),
+        }
+    }
+
+    /// Connect to a ClickHouse server with default options
+    pub async fn connect(host: &str, port: u16) -> Result<Self> {
+        Self::connect_with_options(host, port, &ConnectionOptions::default()).await
+    }
+
+    /// Connect to a ClickHouse server with custom options
+    pub async fn connect_with_options(
+        host: &str,
+        port: u16,
+        options: &ConnectionOptions,
+    ) -> Result<Self> {
+        let addr = format!("{}:{}", host, port);
+
+        // Apply connection timeout
+        let stream = if options.connect_timeout > Duration::ZERO {
+            tokio::time::timeout(options.connect_timeout, TcpStream::connect(&addr))
+                .await
+                .map_err(|_| {
+                    Error::Connection(format!(
+                        "Connection timeout after {:?} to {}",
+                        options.connect_timeout, addr
+                    ))
+                })?
+                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+        } else {
+            TcpStream::connect(&addr)
+                .await
+                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+        };
+
+        // Apply TCP_NODELAY
+        if options.tcp_nodelay {
+            stream
+                .set_nodelay(true)
+                .map_err(|e| Error::Connection(format!("Failed to set TCP_NODELAY: {}", e)))?;
+        }
+
+        // Apply TCP keepalive
+        #[cfg(unix)]
+        if options.tcp_keepalive {
+            use socket2::{Socket, TcpKeepalive};
+            use std::os::unix::io::{AsRawFd, FromRawFd};
+
+            let socket = unsafe { Socket::from_raw_fd(stream.as_raw_fd()) };
+
+            let mut keepalive = TcpKeepalive::new()
+                .with_time(options.tcp_keepalive_idle);
+
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            {
+                keepalive = keepalive.with_interval(options.tcp_keepalive_interval);
+            }
+
+            #[cfg(target_os = "linux")]
+            {
+                keepalive = keepalive.with_retries(options.tcp_keepalive_count);
+            }
+
+            socket.set_tcp_keepalive(&keepalive).map_err(|e| {
+                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+            })?;
+
+            // Prevent socket from being dropped
+            std::mem::forget(socket);
+        }
+
+        #[cfg(windows)]
+        if options.tcp_keepalive {
+            use socket2::{Socket, TcpKeepalive};
+            use std::os::windows::io::{AsRawSocket, FromRawSocket};
+
+            let socket = unsafe { Socket::from_raw_socket(stream.as_raw_socket()) };
+
+            let keepalive = TcpKeepalive::new()
+                .with_time(options.tcp_keepalive_idle)
+                .with_interval(options.tcp_keepalive_interval);
+
+            socket.set_tcp_keepalive(&keepalive).map_err(|e| {
+                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+            })?;
+
+            // Prevent socket from being dropped
+            std::mem::forget(socket);
+        }
 
         Ok(Self::new(stream))
+    }
+
+    /// Connect to a ClickHouse server with TLS
+    #[cfg(feature = "tls")]
+    pub async fn connect_with_tls(
+        host: &str,
+        port: u16,
+        options: &ConnectionOptions,
+        ssl_config: Arc<rustls::ClientConfig>,
+        server_name: Option<&str>,
+    ) -> Result<Self> {
+        let addr = format!("{}:{}", host, port);
+
+        // Establish TCP connection first
+        let stream = if options.connect_timeout > Duration::ZERO {
+            tokio::time::timeout(options.connect_timeout, TcpStream::connect(&addr))
+                .await
+                .map_err(|_| {
+                    Error::Connection(format!(
+                        "Connection timeout after {:?} to {}",
+                        options.connect_timeout, addr
+                    ))
+                })?
+                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+        } else {
+            TcpStream::connect(&addr)
+                .await
+                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+        };
+
+        // Apply TCP_NODELAY
+        if options.tcp_nodelay {
+            stream
+                .set_nodelay(true)
+                .map_err(|e| Error::Connection(format!("Failed to set TCP_NODELAY: {}", e)))?;
+        }
+
+        // Apply TCP keepalive (same as non-TLS connection)
+        #[cfg(unix)]
+        if options.tcp_keepalive {
+            use socket2::{Socket, TcpKeepalive};
+            use std::os::unix::io::{AsRawFd, FromRawFd};
+
+            let socket = unsafe { Socket::from_raw_fd(stream.as_raw_fd()) };
+
+            let mut keepalive = TcpKeepalive::new().with_time(options.tcp_keepalive_idle);
+
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            {
+                keepalive = keepalive.with_interval(options.tcp_keepalive_interval);
+            }
+
+            #[cfg(target_os = "linux")]
+            {
+                keepalive = keepalive.with_retries(options.tcp_keepalive_count);
+            }
+
+            socket.set_tcp_keepalive(&keepalive).map_err(|e| {
+                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+            })?;
+
+            // Prevent socket from being dropped
+            std::mem::forget(socket);
+        }
+
+        #[cfg(windows)]
+        if options.tcp_keepalive {
+            use socket2::{Socket, TcpKeepalive};
+            use std::os::windows::io::{AsRawSocket, FromRawSocket};
+
+            let socket = unsafe { Socket::from_raw_socket(stream.as_raw_socket()) };
+
+            let keepalive = TcpKeepalive::new()
+                .with_time(options.tcp_keepalive_idle)
+                .with_interval(options.tcp_keepalive_interval);
+
+            socket.set_tcp_keepalive(&keepalive).map_err(|e| {
+                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+            })?;
+
+            // Prevent socket from being dropped
+            std::mem::forget(socket);
+        }
+
+        // Perform TLS handshake
+        let connector = TlsConnector::from(ssl_config);
+        let server_name_to_use = server_name.unwrap_or(host);
+
+        let domain = ServerName::try_from(server_name_to_use).map_err(|e| {
+            Error::Connection(format!("Invalid server name '{}': {}", server_name_to_use, e))
+        })?;
+
+        let tls_stream = connector.connect(domain, stream).await.map_err(|e| {
+            Error::Connection(format!("TLS handshake failed: {}", e))
+        })?;
+
+        Ok(Self::new_tls(tls_stream))
     }
 
     /// Read a varint-encoded u64
@@ -172,16 +464,6 @@ impl Connection {
         self.write_varint(data.len() as u64).await?;
         self.write_bytes(data).await?;
         Ok(())
-    }
-
-    /// Get access to the underlying reader (for advanced use)
-    pub fn reader_mut(&mut self) -> &mut BufReader<tokio::io::ReadHalf<TcpStream>> {
-        &mut self.reader
-    }
-
-    /// Get access to the underlying writer (for advanced use)
-    pub fn writer_mut(&mut self) -> &mut BufWriter<tokio::io::WriteHalf<TcpStream>> {
-        &mut self.writer
     }
 }
 

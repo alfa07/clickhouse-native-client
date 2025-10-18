@@ -101,7 +101,7 @@ impl Block {
 
     /// Clear all data from all columns
     pub fn clear(&mut self) {
-        for item in &self.columns {
+        for _item in &self.columns {
             // We can't modify through Arc, so this is a limitation
             // In practice, we'd need interior mutability or a different design
             // For now, we'll just reset the block
@@ -111,8 +111,8 @@ impl Block {
     }
 
     /// Reserve capacity in all columns
-    pub fn reserve(&mut self, new_cap: usize) {
-        for item in &self.columns {
+    pub fn reserve(&mut self, _new_cap: usize) {
+        for _item in &self.columns {
             // Same limitation as clear() - can't modify through Arc
             // This would need a different design with RefCell or similar
         }
@@ -142,7 +142,7 @@ impl Block {
     }
 
     /// Iterate over columns
-    pub fn iter(&self) -> BlockIterator {
+    pub fn iter(&self) -> BlockIterator<'_> {
         BlockIterator {
             block: self,
             index: 0,
