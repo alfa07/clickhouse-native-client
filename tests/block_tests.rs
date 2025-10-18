@@ -100,7 +100,7 @@ fn test_block_clear() {
 
     // Store expected column info before clearing
     let expected_column_count = block.column_count();
-    let expected_names: Vec<String> = block
+    let _expected_names: Vec<String> = block
         .iter()
         .map(|(name, _, _)| name.to_string())
         .collect();
@@ -238,4 +238,251 @@ fn test_block_mismatched_row_counts() {
     let result = block.append_column("col2", Arc::new(col2));
 
     assert!(result.is_err());
+}
+
+// ============================================================================
+// Advanced Iterator Tests (from C++ block_ut.cpp)
+// ============================================================================
+
+#[test]
+fn test_block_iterator_equality() {
+    // Empty block - all iterators should be equal
+    let empty_block = Block::new();
+    let mut iter1 = empty_block.iter();
+    let mut iter2 = empty_block.iter();
+
+    assert!(iter1.next().is_none());
+    assert!(iter2.next().is_none());
+
+    // Non-empty block - iterators should not start at end
+    let block = make_test_block();
+    let mut iter = block.iter();
+
+    assert!(iter.next().is_some(), "Iterator should have first element");
+    assert!(iter.next().is_some(), "Iterator should have second element");
+    assert!(iter.next().is_none(), "Iterator should be exhausted after two elements");
+}
+
+#[test]
+fn test_block_multiple_iterations() {
+    let block = make_test_block();
+
+    // First iteration
+    let count1: usize = block.iter().count();
+    assert_eq!(count1, 2);
+
+    // Second iteration - should work the same
+    let count2: usize = block.iter().count();
+    assert_eq!(count2, 2);
+
+    // Third iteration with manual loop
+    let mut names = Vec::new();
+    for (name, _, _) in &block {
+        names.push(name.to_string());
+    }
+    assert_eq!(names, vec!["foo", "bar"]);
+}
+
+#[test]
+fn test_block_iterator_collect() {
+    let block = make_test_block();
+
+    // Collect column names using iterator
+    let names: Vec<String> = block
+        .iter()
+        .map(|(name, _, _)| name.to_string())
+        .collect();
+
+    assert_eq!(names, vec!["foo", "bar"]);
+
+    // Collect column sizes
+    let sizes: Vec<usize> = block
+        .iter()
+        .map(|(_, _, col)| col.size())
+        .collect();
+
+    assert_eq!(sizes, vec![5, 5]);
+}
+
+// ============================================================================
+// Block Data Verification Tests
+// ============================================================================
+
+#[test]
+fn test_block_data_integrity_after_creation() {
+    let block = make_test_block();
+
+    // Verify first column (UInt8)
+    let col1 = block.column(0).unwrap();
+    let col1_u8 = col1.as_any().downcast_ref::<ColumnUInt8>().unwrap();
+    assert_eq!(col1_u8.at(0), 1);
+    assert_eq!(col1_u8.at(1), 2);
+    assert_eq!(col1_u8.at(2), 3);
+    assert_eq!(col1_u8.at(3), 4);
+    assert_eq!(col1_u8.at(4), 5);
+
+    // Verify second column (String)
+    let col2 = block.column(1).unwrap();
+    let col2_str = col2.as_any().downcast_ref::<ColumnString>().unwrap();
+    assert_eq!(col2_str.at(0), "1");
+    assert_eq!(col2_str.at(1), "2");
+    assert_eq!(col2_str.at(2), "3");
+    assert_eq!(col2_str.at(3), "4");
+    assert_eq!(col2_str.at(4), "5");
+}
+
+#[test]
+fn test_block_column_type_info() {
+    let block = make_test_block();
+
+    // Check first column type
+    for (idx, (name, col_type, column)) in block.iter().enumerate() {
+        match idx {
+            0 => {
+                assert_eq!(name, "foo");
+                assert_eq!(col_type.name(), "UInt8");
+                assert_eq!(column.size(), 5);
+            }
+            1 => {
+                assert_eq!(name, "bar");
+                assert_eq!(col_type.name(), "String");
+                assert_eq!(column.size(), 5);
+            }
+            _ => panic!("Unexpected column index: {}", idx),
+        }
+    }
+}
+
+// ============================================================================
+// Block Edge Cases
+// ============================================================================
+
+#[test]
+fn test_block_single_column() {
+    let mut block = Block::new();
+
+    let mut col = ColumnUInt8::new(Type::uint8());
+    col.append(42);
+
+    block.append_column("single", Arc::new(col)).unwrap();
+
+    assert_eq!(block.column_count(), 1);
+    assert_eq!(block.row_count(), 1);
+    assert_eq!(block.column_name(0), Some("single"));
+}
+
+#[test]
+fn test_block_single_row() {
+    let mut block = Block::new();
+
+    let mut col1 = ColumnUInt8::new(Type::uint8());
+    col1.append(1);
+
+    let mut col2 = ColumnString::new(Type::string());
+    col2.append("one");
+
+    block.append_column("num", Arc::new(col1)).unwrap();
+    block.append_column("text", Arc::new(col2)).unwrap();
+
+    assert_eq!(block.column_count(), 2);
+    assert_eq!(block.row_count(), 1);
+}
+
+#[test]
+fn test_block_many_columns() {
+    let mut block = Block::new();
+
+    // Add 100 columns
+    for i in 0..100 {
+        let mut col = ColumnUInt8::new(Type::uint8());
+        col.append((i % 256) as u8);
+
+        block.append_column(&format!("col{}", i), Arc::new(col)).unwrap();
+    }
+
+    assert_eq!(block.column_count(), 100);
+    assert_eq!(block.row_count(), 1);
+
+    // Verify we can access all columns
+    for i in 0..100 {
+        let col_name = block.column_name(i);
+        assert_eq!(col_name, Some(format!("col{}", i).as_str()));
+    }
+}
+
+#[test]
+fn test_block_many_rows() {
+    let mut block = Block::new();
+
+    let mut col = ColumnUInt8::new(Type::uint8());
+
+    // Add 10000 rows
+    for i in 0..10000 {
+        col.append((i % 256) as u8);
+    }
+
+    block.append_column("numbers", Arc::new(col)).unwrap();
+
+    assert_eq!(block.column_count(), 1);
+    assert_eq!(block.row_count(), 10000);
+}
+
+// ============================================================================
+// Block Clone and Copy Tests
+// ============================================================================
+
+#[test]
+fn test_block_clone() {
+    let block1 = make_test_block();
+    let block2 = block1.clone();
+
+    assert_eq!(block1.column_count(), block2.column_count());
+    assert_eq!(block1.row_count(), block2.row_count());
+
+    // Verify column names match
+    for i in 0..block1.column_count() {
+        assert_eq!(block1.column_name(i), block2.column_name(i));
+    }
+}
+
+// ============================================================================
+// Column Type Mismatch Detection
+// ============================================================================
+
+use clickhouse_client::column::numeric::ColumnUInt64;
+
+#[test]
+fn test_block_can_store_different_numeric_types() {
+    let mut block = Block::new();
+
+    let mut col1 = ColumnUInt8::new(Type::uint8());
+    col1.append(1);
+
+    let mut col2 = ColumnUInt64::new(Type::uint64());
+    col2.append(1000);
+
+    block.append_column("u8", Arc::new(col1)).unwrap();
+    block.append_column("u64", Arc::new(col2)).unwrap();
+
+    assert_eq!(block.column_count(), 2);
+    assert_eq!(block.row_count(), 1);
+}
+
+// ============================================================================
+// Total Rows Calculation
+// ============================================================================
+
+#[test]
+fn test_block_row_count() {
+    let block = make_test_block();
+
+    // Verify row_count() returns correct value
+    assert_eq!(block.row_count(), 5);
+}
+
+#[test]
+fn test_block_row_count_empty() {
+    let block = Block::new();
+
+    assert_eq!(block.row_count(), 0);
 }

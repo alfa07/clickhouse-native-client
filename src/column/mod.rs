@@ -59,6 +59,14 @@ pub trait Column: Send + Sync {
     /// Load column data from byte buffer
     fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()>;
 
+    /// Save column prefix to byte buffer (for types that need prefix data)
+    /// Default implementation is a no-op. Override for types like LowCardinality, Array with special nested types.
+    /// This matches C++ clickhouse-cpp's SavePrefix pattern.
+    fn save_prefix(&self, _buffer: &mut BytesMut) -> Result<()> {
+        // Default: no prefix data to write
+        Ok(())
+    }
+
     /// Save column data to byte buffer
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()>;
 
@@ -95,7 +103,5 @@ pub trait ColumnIter<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Tests will be in individual column implementations
 }

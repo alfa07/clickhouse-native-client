@@ -17,7 +17,11 @@ pub mod ssl;
 pub use error::{Error, Result};
 pub use block::{Block, BlockInfo};
 pub use client::{Client, ClientOptions, Endpoint, QueryResult};
-pub use query::{Query, Progress, TracingContext};
+pub use query::{
+    Query, Progress, Profile, TracingContext, Exception,
+    ProgressCallback, ProfileCallback, ProfileEventsCallback,
+    ServerLogCallback, ExceptionCallback, DataCallback, DataCancelableCallback,
+};
 pub use connection::ConnectionOptions;
 
 #[cfg(feature = "tls")]

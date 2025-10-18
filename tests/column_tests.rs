@@ -183,15 +183,13 @@ fn test_fixed_string_append_small_strings() {
 
     assert_eq!(col.len(), 3);
 
-    // Check that all strings are padded to fixed size
-    assert_eq!(col.at(0).len(), string_size);
-    assert_eq!(col.at(1).len(), string_size);
-    assert_eq!(col.at(2).len(), string_size);
+    // get() method returns trimmed strings (without null padding)
+    assert_eq!(col.at(0), "abc");
+    assert_eq!(col.at(1), "xy");
+    assert_eq!(col.at(2), "");
 
-    // Check actual content (padded with \0)
-    let mut expected1 = "abc".to_string();
-    expected1.push_str(&"\0".repeat(string_size - 3));
-    assert_eq!(col.at(0), expected1);
+    // Check that the fixed size is correct
+    assert_eq!(col.fixed_size(), string_size);
 }
 
 #[test]

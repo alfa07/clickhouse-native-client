@@ -38,10 +38,12 @@ pub fn create_column(type_: &Type) -> Result<ColumnRef> {
                 TypeCode::UInt16 => Ok(Arc::new(ColumnUInt16::new(type_.clone()))),
                 TypeCode::UInt32 => Ok(Arc::new(ColumnUInt32::new(type_.clone()))),
                 TypeCode::UInt64 => Ok(Arc::new(ColumnUInt64::new(type_.clone()))),
+                TypeCode::UInt128 => Ok(Arc::new(ColumnUInt128::new(type_.clone()))),
                 TypeCode::Int8 => Ok(Arc::new(ColumnInt8::new(type_.clone()))),
                 TypeCode::Int16 => Ok(Arc::new(ColumnInt16::new(type_.clone()))),
                 TypeCode::Int32 => Ok(Arc::new(ColumnInt32::new(type_.clone()))),
                 TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new(type_.clone()))),
+                TypeCode::Int128 => Ok(Arc::new(ColumnInt128::new(type_.clone()))),
                 TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new(type_.clone()))),
                 TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new(type_.clone()))),
                 TypeCode::String => Ok(Arc::new(ColumnString::new(type_.clone()))),
@@ -243,6 +245,9 @@ impl BlockReader {
                     TypeCode::UInt64 | TypeCode::Int64 | TypeCode::Float64 => {
                         let _ = conn.read_bytes(num_rows * 8).await?;
                     }
+                    TypeCode::UInt128 | TypeCode::Int128 => {
+                        let _ = conn.read_bytes(num_rows * 16).await?;
+                    }
                     // String - variable length, read each string
                     TypeCode::String => {
                         for _ in 0..num_rows {
@@ -291,6 +296,17 @@ impl BlockReader {
             Type::Enum16 { .. } => {
                 // Enum16 is stored as Int16 (2 bytes)
                 let _ = conn.read_bytes(num_rows * 2).await?;
+            }
+            Type::Decimal { precision, .. } => {
+                // Decimal storage size depends on precision
+                let bytes_per_value = if *precision <= 9 {
+                    4 // Decimal32
+                } else if *precision <= 18 {
+                    8 // Decimal64
+                } else {
+                    16 // Decimal128
+                };
+                let _ = conn.read_bytes(num_rows * bytes_per_value).await?;
             }
             Type::Nullable { nested_type } => {
                 // Read null mask first (one byte per row)
@@ -416,9 +432,18 @@ impl BlockReader {
     /// Create a column by type
     fn create_column_by_type(&self, type_: &Type) -> Result<ColumnRef> {
         use crate::column::array::ColumnArray;
+        use crate::column::date::{ColumnDate, ColumnDate32, ColumnDateTime, ColumnDateTime64};
+        use crate::column::decimal::ColumnDecimal;
+        use crate::column::enum_column::{ColumnEnum8, ColumnEnum16};
+        use crate::column::ipv4::ColumnIpv4;
+        use crate::column::ipv6::ColumnIpv6;
+        use crate::column::lowcardinality::ColumnLowCardinality;
+        use crate::column::map::ColumnMap;
+        use crate::column::nothing::ColumnNothing;
         use crate::column::nullable::ColumnNullable;
         use crate::column::numeric::*;
         use crate::column::string::{ColumnFixedString, ColumnString};
+        use crate::column::uuid::ColumnUuid;
 
         match type_ {
             Type::Simple(code) => {
@@ -428,32 +453,44 @@ impl BlockReader {
                     TypeCode::UInt16 => Ok(Arc::new(ColumnUInt16::new(type_.clone()))),
                     TypeCode::UInt32 => Ok(Arc::new(ColumnUInt32::new(type_.clone()))),
                     TypeCode::UInt64 => Ok(Arc::new(ColumnUInt64::new(type_.clone()))),
+                    TypeCode::UInt128 => Ok(Arc::new(ColumnUInt128::new(type_.clone()))),
                     TypeCode::Int8 => Ok(Arc::new(ColumnInt8::new(type_.clone()))),
                     TypeCode::Int16 => Ok(Arc::new(ColumnInt16::new(type_.clone()))),
                     TypeCode::Int32 => Ok(Arc::new(ColumnInt32::new(type_.clone()))),
                     TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new(type_.clone()))),
+                    TypeCode::Int128 => Ok(Arc::new(ColumnInt128::new(type_.clone()))),
                     TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new(type_.clone()))),
                     TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new(type_.clone()))),
                     TypeCode::String => Ok(Arc::new(ColumnString::new(type_.clone()))),
+                    TypeCode::Date => Ok(Arc::new(ColumnDate::new(type_.clone()))),
+                    TypeCode::Date32 => Ok(Arc::new(ColumnDate32::new(type_.clone()))),
+                    TypeCode::UUID => Ok(Arc::new(ColumnUuid::new(type_.clone()))),
+                    TypeCode::IPv4 => Ok(Arc::new(ColumnIpv4::new(type_.clone()))),
+                    TypeCode::IPv6 => Ok(Arc::new(ColumnIpv6::new(type_.clone()))),
+                    TypeCode::Void => Ok(Arc::new(ColumnNothing::new(type_.clone()))),
                     _ => Err(Error::Protocol(format!("Unsupported type: {}", type_.name()))),
                 }
             }
             Type::FixedString { .. } => Ok(Arc::new(ColumnFixedString::new(type_.clone()))),
             Type::DateTime { .. } => {
-                // DateTime is stored as UInt32 (Unix timestamp)
-                Ok(Arc::new(ColumnUInt32::new(type_.clone())))
+                // Use specialized ColumnDateTime with timezone support
+                Ok(Arc::new(ColumnDateTime::new(type_.clone())))
             }
             Type::DateTime64 { .. } => {
-                // DateTime64 is stored as Int64 (Unix timestamp with precision)
-                Ok(Arc::new(ColumnInt64::new(type_.clone())))
+                // Use specialized ColumnDateTime64 with precision and timezone
+                Ok(Arc::new(ColumnDateTime64::new(type_.clone())))
             }
             Type::Enum8 { .. } => {
-                // Enum8 is stored as Int8
-                Ok(Arc::new(ColumnInt8::new(type_.clone())))
+                // Use specialized ColumnEnum8 with name-value mapping
+                Ok(Arc::new(ColumnEnum8::new(type_.clone())))
             }
             Type::Enum16 { .. } => {
-                // Enum16 is stored as Int16
-                Ok(Arc::new(ColumnInt16::new(type_.clone())))
+                // Use specialized ColumnEnum16 with name-value mapping
+                Ok(Arc::new(ColumnEnum16::new(type_.clone())))
+            }
+            Type::Decimal { .. } => {
+                // Use specialized ColumnDecimal with precision and scale
+                Ok(Arc::new(ColumnDecimal::new(type_.clone())))
             }
             Type::Nullable { .. } => {
                 Ok(Arc::new(ColumnNullable::new(type_.clone())))
@@ -461,10 +498,23 @@ impl BlockReader {
             Type::Array { .. } => {
                 Ok(Arc::new(ColumnArray::new(type_.clone())))
             }
-            _ => Err(Error::Protocol(format!(
-                "Unsupported column type: {}",
-                type_.name()
-            ))),
+            Type::Map { .. } => {
+                Ok(Arc::new(ColumnMap::new(type_.clone())))
+            }
+            Type::LowCardinality { .. } => {
+                Ok(Arc::new(ColumnLowCardinality::new(type_.clone())))
+            }
+            Type::Tuple { item_types } => {
+                // Create empty columns for each tuple element
+                let mut columns = Vec::new();
+                for item_type in item_types {
+                    columns.push(create_column(item_type)?);
+                }
+                Ok(Arc::new(crate::column::ColumnTuple::new(
+                    type_.clone(),
+                    columns,
+                )))
+            }
         }
     }
 }
@@ -549,7 +599,8 @@ impl BlockWriter {
 
             // Write column data (only if rows > 0)
             if block.row_count() > 0 {
-                column.save_to_buffer(buffer)?;
+                column.save_prefix(buffer)?;   // Phase 1: Write prefix data (for LowCardinality, etc.)
+                column.save_to_buffer(buffer)?; // Phase 2: Write body data
             }
         }
 

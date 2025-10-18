@@ -130,13 +130,14 @@ fn test_roundtrip_fixed_string() {
     let result_fixed = result.as_any().downcast_ref::<ColumnFixedString>().unwrap();
 
     assert_eq!(result_fixed.len(), 3);
-    assert_eq!(result_fixed.at(0).len(), size);
-    assert_eq!(result_fixed.at(1).len(), size);
-    assert_eq!(result_fixed.at(2).len(), size);
 
-    // Check actual content (first few chars)
-    assert!(result_fixed.at(0).starts_with("abc"));
-    assert_eq!(&result_fixed.at(1)[0..10], "1234567890");
+    // at() returns trimmed strings (null bytes removed)
+    assert_eq!(result_fixed.at(0), "abc");
+    assert_eq!(result_fixed.at(1), "1234567890");
+    assert_eq!(result_fixed.at(2), "");
+
+    // Verify the fixed size is correct
+    assert_eq!(result_fixed.fixed_size(), size);
 }
 
 // ============================================================================

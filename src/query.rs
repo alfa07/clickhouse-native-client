@@ -1,6 +1,8 @@
+use crate::block::Block;
 use crate::{Error, Result};
 use bytes::{Buf, BufMut, BytesMut};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Query settings
 pub type QuerySettings = HashMap<String, String>;
@@ -66,7 +68,7 @@ impl TracingContext {
 }
 
 /// Query structure for building and executing queries
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Query {
     /// The SQL query string
     query_text: String,
@@ -78,6 +80,20 @@ pub struct Query {
     parameters: HashMap<String, String>,
     /// OpenTelemetry tracing context
     tracing_context: Option<TracingContext>,
+    /// Progress callback
+    on_progress: Option<ProgressCallback>,
+    /// Profile callback
+    on_profile: Option<ProfileCallback>,
+    /// Profile events callback
+    on_profile_events: Option<ProfileEventsCallback>,
+    /// Server log callback
+    on_server_log: Option<ServerLogCallback>,
+    /// Exception callback
+    on_exception: Option<ExceptionCallback>,
+    /// Data callback
+    on_data: Option<DataCallback>,
+    /// Cancelable data callback
+    on_data_cancelable: Option<DataCancelableCallback>,
 }
 
 impl Query {
@@ -89,6 +105,13 @@ impl Query {
             settings: HashMap::new(),
             parameters: HashMap::new(),
             tracing_context: None,
+            on_progress: None,
+            on_profile: None,
+            on_profile_events: None,
+            on_server_log: None,
+            on_exception: None,
+            on_data: None,
+            on_data_cancelable: None,
         }
     }
 }
@@ -154,6 +177,99 @@ impl Query {
     /// Get the parameters
     pub fn parameters(&self) -> &HashMap<String, String> {
         &self.parameters
+    }
+
+    /// Set progress callback
+    pub fn on_progress<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&Progress) + Send + Sync + 'static,
+    {
+        self.on_progress = Some(Arc::new(callback));
+        self
+    }
+
+    /// Set profile callback
+    pub fn on_profile<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&Profile) + Send + Sync + 'static,
+    {
+        self.on_profile = Some(Arc::new(callback));
+        self
+    }
+
+    /// Set profile events callback
+    pub fn on_profile_events<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&Block) -> bool + Send + Sync + 'static,
+    {
+        self.on_profile_events = Some(Arc::new(callback));
+        self
+    }
+
+    /// Set server log callback
+    pub fn on_server_log<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&Block) -> bool + Send + Sync + 'static,
+    {
+        self.on_server_log = Some(Arc::new(callback));
+        self
+    }
+
+    /// Set exception callback
+    pub fn on_exception<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&Exception) + Send + Sync + 'static,
+    {
+        self.on_exception = Some(Arc::new(callback));
+        self
+    }
+
+    /// Set data callback
+    pub fn on_data<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&Block) + Send + Sync + 'static,
+    {
+        self.on_data = Some(Arc::new(callback));
+        self
+    }
+
+    /// Set cancelable data callback (return false to cancel)
+    pub fn on_data_cancelable<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&Block) -> bool + Send + Sync + 'static,
+    {
+        self.on_data_cancelable = Some(Arc::new(callback));
+        self
+    }
+
+    // Internal getters for Client to invoke callbacks
+
+    pub(crate) fn get_on_progress(&self) -> Option<&ProgressCallback> {
+        self.on_progress.as_ref()
+    }
+
+    pub(crate) fn get_on_profile(&self) -> Option<&ProfileCallback> {
+        self.on_profile.as_ref()
+    }
+
+    pub(crate) fn get_on_profile_events(&self) -> Option<&ProfileEventsCallback> {
+        self.on_profile_events.as_ref()
+    }
+
+    pub(crate) fn get_on_server_log(&self) -> Option<&ServerLogCallback> {
+        self.on_server_log.as_ref()
+    }
+
+    pub(crate) fn get_on_exception(&self) -> Option<&ExceptionCallback> {
+        self.on_exception.as_ref()
+    }
+
+    pub(crate) fn get_on_data(&self) -> Option<&DataCallback> {
+        self.on_data.as_ref()
+    }
+
+    pub(crate) fn get_on_data_cancelable(&self) -> Option<&DataCancelableCallback> {
+        self.on_data_cancelable.as_ref()
     }
 }
 
@@ -327,6 +443,26 @@ pub struct Progress {
     pub written_bytes: u64,
 }
 
+/// Profile information
+#[derive(Clone, Debug, Default)]
+pub struct Profile {
+    pub rows: u64,
+    pub blocks: u64,
+    pub bytes: u64,
+    pub rows_before_limit: u64,
+    pub applied_limit: bool,
+    pub calculated_rows_before_limit: bool,
+}
+
+/// Callback types for query execution
+pub type ProgressCallback = Arc<dyn Fn(&Progress) + Send + Sync>;
+pub type ProfileCallback = Arc<dyn Fn(&Profile) + Send + Sync>;
+pub type ProfileEventsCallback = Arc<dyn Fn(&Block) -> bool + Send + Sync>;
+pub type ServerLogCallback = Arc<dyn Fn(&Block) -> bool + Send + Sync>;
+pub type ExceptionCallback = Arc<dyn Fn(&Exception) + Send + Sync>;
+pub type DataCallback = Arc<dyn Fn(&Block) + Send + Sync>;
+pub type DataCancelableCallback = Arc<dyn Fn(&Block) -> bool + Send + Sync>;
+
 impl Progress {
     /// Serialize to buffer
     pub fn write_to(&self, buffer: &mut BytesMut, server_revision: u64) -> Result<()> {
@@ -360,6 +496,42 @@ impl Progress {
             total_rows,
             written_rows,
             written_bytes,
+        })
+    }
+}
+
+impl Profile {
+    /// Deserialize from buffer (ProfileInfo packet)
+    pub fn read_from(buffer: &mut &[u8]) -> Result<Self> {
+        let rows = read_varint(buffer)?;
+        let blocks = read_varint(buffer)?;
+        let bytes = read_varint(buffer)?;
+
+        let applied_limit = if !buffer.is_empty() {
+            let val = buffer[0];
+            buffer.advance(1);
+            val != 0
+        } else {
+            false
+        };
+
+        let rows_before_limit = read_varint(buffer)?;
+
+        let calculated_rows_before_limit = if !buffer.is_empty() {
+            let val = buffer[0];
+            buffer.advance(1);
+            val != 0
+        } else {
+            false
+        };
+
+        Ok(Self {
+            rows,
+            blocks,
+            bytes,
+            rows_before_limit,
+            applied_limit,
+            calculated_rows_before_limit,
         })
     }
 }

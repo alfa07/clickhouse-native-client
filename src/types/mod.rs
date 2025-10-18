@@ -469,6 +469,15 @@ impl Type {
                     // First param is function name, second is type - we just care about the type
                     Type::parse(&params[1])
                 }
+                "AggregateFunction" => {
+                    // AggregateFunction is not supported for reading
+                    // Matches C++ client behavior which throws UnimplementedError
+                    // These columns contain internal aggregation state which requires
+                    // specialized deserialization logic for each aggregate function
+                    Err(crate::Error::Protocol(
+                        "AggregateFunction columns are not supported. Use SimpleAggregateFunction or finalize the aggregation with -State combinators.".to_string()
+                    ))
+                }
                 _ => Err(crate::Error::Protocol(format!("Unknown parametric type: {}", type_name)))
             };
         }
@@ -479,10 +488,12 @@ impl Type {
             "UInt16" => Ok(Type::uint16()),
             "UInt32" => Ok(Type::uint32()),
             "UInt64" => Ok(Type::uint64()),
+            "UInt128" => Ok(Type::Simple(TypeCode::UInt128)),
             "Int8" => Ok(Type::int8()),
             "Int16" => Ok(Type::int16()),
             "Int32" => Ok(Type::int32()),
             "Int64" => Ok(Type::int64()),
+            "Int128" => Ok(Type::Simple(TypeCode::Int128)),
             "Float32" => Ok(Type::float32()),
             "Float64" => Ok(Type::float64()),
             "String" => Ok(Type::string()),
@@ -493,6 +504,11 @@ impl Type {
             "IPv4" => Ok(Type::ipv4()),
             "IPv6" => Ok(Type::ipv6()),
             "Bool" => Ok(Type::uint8()), // Bool is an alias for UInt8
+            "Nothing" => Ok(Type::Simple(TypeCode::Void)), // Nothing type for NULL columns
+            "Point" => Ok(Type::point()), // Point is Tuple(Float64, Float64)
+            "Ring" => Ok(Type::ring()), // Ring is Array(Point)
+            "Polygon" => Ok(Type::polygon()), // Polygon is Array(Ring)
+            "MultiPolygon" => Ok(Type::multi_polygon()), // MultiPolygon is Array(Polygon)
             _ => Err(crate::Error::Protocol(format!(
                 "Unknown type: {}",
                 type_str
