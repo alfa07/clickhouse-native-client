@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Standard ClickHouse server (non-TLS)
   clickhouse:
-    image: clickhouse/clickhouse-server:23.8
+    image: clickhouse/clickhouse-server:25.5
     container_name: clickhouse-server
     ports:
       - "9000:9000"  # Native TCP protocol
@@ -28,7 +28,7 @@ services:
 
   # TLS-enabled ClickHouse server
   clickhouse-tls:
-    image: clickhouse/clickhouse-server:23.8
+    image: clickhouse/clickhouse-server:25.5
     container_name: clickhouse-server-tls
     ports:
       - "9440:9440"  # Secure native TCP protocol

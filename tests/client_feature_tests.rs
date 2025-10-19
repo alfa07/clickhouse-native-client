@@ -113,6 +113,21 @@ async fn test_query_parameters() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
+    // Query parameters require ClickHouse 24.7+ (fully stable in 25.5+)
+    let server_info = client.server_info();
+    if server_info.version_major < 24
+        || (server_info.version_major == 24 && server_info.version_minor < 7)
+    {
+        println!(
+            "Skipping: ClickHouse {}.{}.{} does not fully support query \
+             parameters (requires 24.7+)",
+            server_info.version_major,
+            server_info.version_minor,
+            server_info.version_patch
+        );
+        return;
+    }
+
     // Test parameterized query
     // Note: ClickHouse supports query parameters with {param:Type} syntax
     let query = Query::new("SELECT {id:UInt64} as id, {name:String} as name")
