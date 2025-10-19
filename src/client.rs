@@ -15,6 +15,7 @@ use crate::{
     },
     query::{
         ClientInfo,
+        Profile,
         Progress,
         Query,
         ServerInfo,
@@ -484,42 +485,77 @@ impl Client {
                     let _block = self.block_reader.read_block(&mut self.conn).await?;
                 }
                 code if code == ServerCode::Progress as u64 => {
-                    let _progress = self.read_progress().await?;
+                    let progress = self.read_progress().await?;
+
+                    // Invoke progress callback if present
+                    if let Some(callback) = query.get_on_progress() {
+                        callback(&progress);
+                    }
                 }
                 code if code == ServerCode::EndOfStream as u64 => {
                     break;
                 }
                 code if code == ServerCode::Exception as u64 => {
                     let exception = self.read_exception().await?;
+
+                    // Invoke exception callback if present
+                    if let Some(callback) = query.get_on_exception() {
+                        callback(&exception);
+                    }
+
                     return Err(Error::Protocol(format!(
                         "ClickHouse exception: {} (code {}): {}",
                         exception.name, exception.code, exception.display_text
                     )));
                 }
                 code if code == ServerCode::ProfileInfo as u64 => {
-                    // Skip profile info
-                    let _rows = self.conn.read_varint().await?;
-                    let _blocks = self.conn.read_varint().await?;
-                    let _bytes = self.conn.read_varint().await?;
-                    let _applied_limit = self.conn.read_u8().await?;
-                    let _rows_before_limit = self.conn.read_varint().await?;
-                    let _calculated = self.conn.read_u8().await?;
+                    // Read profile info
+                    let rows = self.conn.read_varint().await?;
+                    let blocks = self.conn.read_varint().await?;
+                    let bytes = self.conn.read_varint().await?;
+                    let applied_limit = self.conn.read_u8().await?;
+                    let rows_before_limit = self.conn.read_varint().await?;
+                    let calculated = self.conn.read_u8().await?;
+
+                    let profile = Profile {
+                        rows,
+                        blocks,
+                        bytes,
+                        applied_limit: applied_limit != 0,
+                        rows_before_limit,
+                        calculated_rows_before_limit: calculated != 0,
+                    };
+
+                    // Invoke profile callback if present
+                    if let Some(callback) = query.get_on_profile() {
+                        callback(&profile);
+                    }
                 }
                 code if code == ServerCode::Log as u64 => {
                     let _log_tag = self.conn.read_string().await?;
                     // Log blocks are sent uncompressed
                     let uncompressed_reader =
                         BlockReader::new(self.server_info.revision);
-                    let _log_block =
+                    let block =
                         uncompressed_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke server log callback if present
+                    if let Some(callback) = query.get_on_server_log() {
+                        callback(&block);
+                    }
                 }
                 code if code == ServerCode::ProfileEvents as u64 => {
                     let _table_name = self.conn.read_string().await?;
                     // ProfileEvents blocks are sent uncompressed
                     let uncompressed_reader =
                         BlockReader::new(self.server_info.revision);
-                    let _events_block =
+                    let block =
                         uncompressed_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke profile events callback if present
+                    if let Some(callback) = query.get_on_profile_events() {
+                        callback(&block);
+                    }
                 }
                 code if code == ServerCode::TableColumns as u64 => {
                     let _table_name = self.conn.read_string().await?;
