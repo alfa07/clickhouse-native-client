@@ -426,7 +426,100 @@ impl Client {
         })
     }
 
+    /// Execute a DDL/DML query without returning data
+    ///
+    /// Use this for queries that don't return result sets:
+    /// - CREATE/DROP TABLE, DATABASE
+    /// - ALTER TABLE
+    /// - TRUNCATE
+    /// - Other DDL/DML operations
+    ///
+    /// For SELECT queries, use `query()` instead.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut client = Client::connect(ClientOptions::default()).await?;
+    /// client.execute("CREATE TABLE test (id UInt32) ENGINE = Memory").await?;
+    /// client.execute("DROP TABLE test").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn execute(&mut self, query: impl Into<Query>) -> Result<()> {
+        let query = query.into();
+        self.send_query(&query).await?;
+
+        // Read responses until EndOfStream, but don't collect blocks
+        loop {
+            let packet_type = self.conn.read_varint().await?;
+
+            match packet_type {
+                code if code == ServerCode::Data as u64 => {
+                    // Skip data blocks (shouldn't happen for DDL, but handle gracefully)
+                    if self.server_info.revision >= 50264 {
+                        let _temp_table = self.conn.read_string().await?;
+                    }
+                    let _block = self.block_reader.read_block(&mut self.conn).await?;
+                }
+                code if code == ServerCode::Progress as u64 => {
+                    let _progress = self.read_progress().await?;
+                }
+                code if code == ServerCode::EndOfStream as u64 => {
+                    break;
+                }
+                code if code == ServerCode::Exception as u64 => {
+                    let exception = self.read_exception().await?;
+                    return Err(Error::Protocol(format!(
+                        "ClickHouse exception: {} (code {}): {}",
+                        exception.name, exception.code, exception.display_text
+                    )));
+                }
+                code if code == ServerCode::ProfileInfo as u64 => {
+                    // Skip profile info
+                    let _rows = self.conn.read_varint().await?;
+                    let _blocks = self.conn.read_varint().await?;
+                    let _bytes = self.conn.read_varint().await?;
+                    let _applied_limit = self.conn.read_u8().await?;
+                    let _rows_before_limit = self.conn.read_varint().await?;
+                    let _calculated = self.conn.read_u8().await?;
+                }
+                code if code == ServerCode::Log as u64 => {
+                    let _log_tag = self.conn.read_string().await?;
+                    // Log blocks are sent uncompressed
+                    let uncompressed_reader =
+                        BlockReader::new(self.server_info.revision);
+                    let _log_block =
+                        uncompressed_reader.read_block(&mut self.conn).await?;
+                }
+                code if code == ServerCode::ProfileEvents as u64 => {
+                    let _table_name = self.conn.read_string().await?;
+                    // ProfileEvents blocks are sent uncompressed
+                    let uncompressed_reader =
+                        BlockReader::new(self.server_info.revision);
+                    let _events_block =
+                        uncompressed_reader.read_block(&mut self.conn).await?;
+                }
+                code if code == ServerCode::TableColumns as u64 => {
+                    let _table_name = self.conn.read_string().await?;
+                    let _columns_metadata = self.conn.read_string().await?;
+                }
+                _ => {
+                    return Err(Error::Protocol(format!(
+                        "Unexpected packet type during execute: {}",
+                        packet_type
+                    )));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Execute a query and return results
+    ///
+    /// For INSERT operations, use `insert()` instead.
+    /// For DDL/DML without results, use `execute()` instead.
     pub async fn query(
         &mut self,
         query: impl Into<Query>,
