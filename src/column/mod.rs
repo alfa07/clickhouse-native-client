@@ -1,3 +1,36 @@
+//! # Column Module
+//!
+//! This module provides implementations for all ClickHouse column types used in the native TCP protocol.
+//!
+//! ## ClickHouse Documentation
+//!
+//! - [Data Types Overview](https://clickhouse.com/docs/en/sql-reference/data-types)
+//! - [Nullable Type](https://clickhouse.com/docs/en/sql-reference/data-types/nullable)
+//! - [Array Type](https://clickhouse.com/docs/en/sql-reference/data-types/array)
+//! - [LowCardinality Type](https://clickhouse.com/docs/en/sql-reference/data-types/lowcardinality)
+//! - [Tuple Type](https://clickhouse.com/docs/en/sql-reference/data-types/tuple)
+//! - [Map Type](https://clickhouse.com/docs/en/sql-reference/data-types/map)
+//!
+//! ## Type Nesting Restrictions
+//!
+//! ClickHouse enforces strict rules about type nesting. The following combinations are **NOT allowed**:
+//!
+//! | Invalid Nesting | Error | Workaround |
+//! |----------------|-------|------------|
+//! | `Nullable(Array(...))` | "Nested type Array(...) cannot be inside Nullable type" (Error 43) | Use `Array(Nullable(...))` |
+//! | `Nullable(LowCardinality(...))` | "Nested type LowCardinality(...) cannot be inside Nullable type" | Use `LowCardinality(Nullable(...))` |
+//! | `Nullable(Array(LowCardinality(...)))` | Same as above | Use `Array(LowCardinality(Nullable(...)))` or `Array(Nullable(LowCardinality(...)))` |
+//!
+//! **Correct Nesting Order:**
+//! - ✅ `Array(Nullable(T))` - Array of nullable elements
+//! - ✅ `Array(LowCardinality(T))` - Array of low-cardinality elements
+//! - ✅ `Array(LowCardinality(Nullable(T)))` - Array of nullable low-cardinality elements
+//! - ✅ `LowCardinality(Nullable(T))` - Low-cardinality column with nullable values
+//!
+//! **References:**
+//! - [ClickHouse Issue #1062](https://github.com/ClickHouse/ClickHouse/issues/1062) - Arrays cannot be nullable
+//! - [ClickHouse Issue #42456](https://github.com/ClickHouse/ClickHouse/issues/42456) - LowCardinality cannot be inside Nullable
+
 pub mod numeric;
 pub mod string;
 pub mod nullable;

@@ -1,3 +1,19 @@
+//! Nullable column implementation
+//!
+//! **ClickHouse Documentation:** <https://clickhouse.com/docs/en/sql-reference/data-types/nullable>
+//!
+//! ## Important Nesting Restrictions
+//!
+//! ClickHouse does NOT allow wrapping certain types in Nullable:
+//! - ❌ `Nullable(Array(...))` - NOT allowed (Error code 43)
+//! - ❌ `Nullable(LowCardinality(...))` - NOT allowed
+//!
+//! **Correct usage:**
+//! - ✅ `Array(Nullable(...))` - Nullable elements inside array
+//! - ✅ `LowCardinality(Nullable(...))` - Nullable values with dictionary encoding
+//!
+//! See: <https://github.com/ClickHouse/ClickHouse/issues/1062>
+
 use super::{Column, ColumnRef};
 use crate::types::Type;
 use crate::{Error, Result};
@@ -5,7 +21,17 @@ use bytes::{Buf, BufMut, BytesMut};
 use std::sync::Arc;
 
 /// Column for nullable values
-/// Stores a nested column and a bitmap of null flags
+///
+/// Stores a nested column and a bitmap of null flags (1 = null, 0 = not null).
+///
+/// **Wire Format:**
+/// ```text
+/// [null_bitmap: UInt8 * num_rows][nested_column_data]
+/// ```
+///
+/// **ClickHouse Reference:**
+/// - Documentation: <https://clickhouse.com/docs/en/sql-reference/data-types/nullable>
+/// - Best Practices: <https://clickhouse.com/docs/en/cloud/bestpractices/avoid-nullable-columns>
 pub struct ColumnNullable {
     type_: Type,
     nested: ColumnRef,
