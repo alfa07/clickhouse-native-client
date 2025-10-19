@@ -681,7 +681,24 @@ impl Client {
             for (key, value) in query.parameters() {
                 self.conn.write_string(key).await?;
                 self.conn.write_varint(2).await?; // Custom type
-                self.conn.write_string(value).await?;
+                                                  // Write quoted string (value wrapped in single quotes)
+                                                  // This matches C++ client's WriteQuotedString behavior
+                                                  // Escape special characters: \0, \b, \t, \n, ', \
+                let mut quoted_value = String::with_capacity(value.len() + 2);
+                quoted_value.push('\'');
+                for ch in value.chars() {
+                    match ch {
+                        '\0' => quoted_value.push_str("\\0"),
+                        '\x08' => quoted_value.push_str("\\b"),
+                        '\t' => quoted_value.push_str("\\t"),
+                        '\n' => quoted_value.push_str("\\n"),
+                        '\'' => quoted_value.push_str("\\'"),
+                        '\\' => quoted_value.push_str("\\\\"),
+                        _ => quoted_value.push(ch),
+                    }
+                }
+                quoted_value.push('\'');
+                self.conn.write_string(&quoted_value).await?;
             }
             // Empty string to mark end of parameters
             self.conn.write_string("").await?;
