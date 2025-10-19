@@ -1,6 +1,12 @@
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
 use bytes::BytesMut;
 use std::sync::Arc;
 
@@ -71,11 +77,18 @@ impl Column for ColumnNothing {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         // Nothing type doesn't actually consume any data
-        // But we need to skip the appropriate bytes (1 byte per row of "nothing")
+        // But we need to skip the appropriate bytes (1 byte per row of
+        // "nothing")
         if buffer.len() < rows {
-            return Err(Error::Protocol("Not enough data for Nothing".to_string()));
+            return Err(Error::Protocol(
+                "Not enough data for Nothing".to_string(),
+            ));
         }
         *buffer = &buffer[rows..];
         self.size += rows;
@@ -96,9 +109,7 @@ impl Column for ColumnNothing {
 
     fn slice(&self, _begin: usize, len: usize) -> Result<ColumnRef> {
         // Slice just creates a new Nothing column with the specified length
-        Ok(Arc::new(
-            ColumnNothing::new(self.type_.clone()).with_size(len),
-        ))
+        Ok(Arc::new(ColumnNothing::new(self.type_.clone()).with_size(len)))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -142,7 +153,8 @@ mod tests {
     fn test_nothing_slice() {
         let col = ColumnNothing::new(void_type()).with_size(10);
         let sliced = col.slice(2, 5).unwrap();
-        let sliced_col = sliced.as_any().downcast_ref::<ColumnNothing>().unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnNothing>().unwrap();
 
         assert_eq!(sliced_col.len(), 5);
     }

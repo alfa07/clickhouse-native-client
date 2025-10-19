@@ -1,7 +1,16 @@
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for Decimal types with precision and scale
@@ -20,12 +29,7 @@ impl ColumnDecimal {
             _ => panic!("ColumnDecimal requires Decimal type"),
         };
 
-        Self {
-            type_,
-            precision,
-            scale,
-            data: Vec::new(),
-        }
+        Self { type_, precision, scale, data: Vec::new() }
     }
 
     pub fn with_data(mut self, data: Vec<i128>) -> Self {
@@ -100,8 +104,14 @@ impl Column for ColumnDecimal {
 
         if self.precision != other.precision || self.scale != other.scale {
             return Err(Error::TypeMismatch {
-                expected: format!("Decimal({}, {})", self.precision, self.scale),
-                actual: format!("Decimal({}, {})", other.precision, other.scale),
+                expected: format!(
+                    "Decimal({}, {})",
+                    self.precision, self.scale
+                ),
+                actual: format!(
+                    "Decimal({}, {})",
+                    other.precision, other.scale
+                ),
             });
         }
 
@@ -109,7 +119,11 @@ impl Column for ColumnDecimal {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         use bytes::Buf;
 
         self.data.reserve(rows);
@@ -125,7 +139,9 @@ impl Column for ColumnDecimal {
 
         for _ in 0..rows {
             if buffer.len() < bytes_per_value {
-                return Err(Error::Protocol("Not enough data for Decimal".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for Decimal".to_string(),
+                ));
             }
 
             let value = match bytes_per_value {
@@ -215,15 +231,12 @@ fn parse_decimal(s: &str, scale: usize) -> Result<i128> {
 
     let parts: Vec<&str> = s.split('.').collect();
     if parts.len() > 2 {
-        return Err(Error::Protocol(format!(
-            "Invalid decimal format: {}",
-            s
-        )));
+        return Err(Error::Protocol(format!("Invalid decimal format: {}", s)));
     }
 
-    let integer_part = parts[0]
-        .parse::<i128>()
-        .map_err(|e| Error::Protocol(format!("Invalid decimal integer part: {}", e)))?;
+    let integer_part = parts[0].parse::<i128>().map_err(|e| {
+        Error::Protocol(format!("Invalid decimal integer part: {}", e))
+    })?;
 
     let fractional_part = if parts.len() == 2 {
         let frac_str = parts[1];
@@ -241,9 +254,9 @@ fn parse_decimal(s: &str, scale: usize) -> Result<i128> {
             padded.push('0');
         }
 
-        padded
-            .parse::<i128>()
-            .map_err(|e| Error::Protocol(format!("Invalid decimal fractional part: {}", e)))?
+        padded.parse::<i128>().map_err(|e| {
+            Error::Protocol(format!("Invalid decimal fractional part: {}", e))
+        })?
     } else {
         0
     };
@@ -258,11 +271,8 @@ fn parse_decimal(s: &str, scale: usize) -> Result<i128> {
 /// Format scaled integer to decimal string
 /// 12345 with scale 2 -> "123.45"
 fn format_decimal(value: i128, scale: usize) -> String {
-    let (sign, abs_value) = if value < 0 {
-        ("-", -value)
-    } else {
-        ("", value)
-    };
+    let (sign, abs_value) =
+        if value < 0 { ("-", -value) } else { ("", value) };
 
     let scale_divisor = 10_i128.pow(scale as u32);
     let integer_part = abs_value / scale_divisor;

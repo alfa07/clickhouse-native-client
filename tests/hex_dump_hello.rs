@@ -1,5 +1,10 @@
-use tokio::net::TcpStream;
-use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::{
+    io::{
+        AsyncWriteExt,
+        BufWriter,
+    },
+    net::TcpStream,
+};
 
 #[tokio::test]
 #[ignore]
@@ -93,14 +98,16 @@ async fn hex_dump_hello_packet() {
     let mut response_byte = [0u8; 1];
     match tokio::time::timeout(
         tokio::time::Duration::from_secs(2),
-        read_half.read_exact(&mut response_byte)
-    ).await {
+        read_half.read_exact(&mut response_byte),
+    )
+    .await
+    {
         Ok(Ok(_)) => {
             println!("Got first response byte: 0x{:02x}", response_byte[0]);
-        },
+        }
         Ok(Err(e)) => {
             println!("Error reading response: {}", e);
-        },
+        }
         Err(_) => {
             println!("Timeout waiting for response");
         }

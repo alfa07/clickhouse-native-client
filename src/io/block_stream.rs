@@ -1,11 +1,24 @@
-use crate::block::{Block, BlockInfo};
-use crate::column::ColumnRef;
-use crate::compression::{compress, decompress};
-use crate::connection::Connection;
-use crate::protocol::CompressionMethod;
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use crate::{
+    block::{
+        Block,
+        BlockInfo,
+    },
+    column::ColumnRef,
+    compression::{
+        compress,
+        decompress,
+    },
+    connection::Connection,
+    protocol::CompressionMethod,
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Minimum revision constants
@@ -16,75 +29,141 @@ const DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION: u64 = 54454;
 /// Create a column instance for the given type
 /// This is used internally by column types like Array and Nullable
 pub fn create_column(type_: &Type) -> Result<ColumnRef> {
-    use crate::column::array::ColumnArray;
-    use crate::column::date::{ColumnDate, ColumnDate32, ColumnDateTime, ColumnDateTime64};
-    use crate::column::decimal::ColumnDecimal;
-    use crate::column::enum_column::{ColumnEnum8, ColumnEnum16};
-    use crate::column::ipv4::ColumnIpv4;
-    use crate::column::ipv6::ColumnIpv6;
-    use crate::column::lowcardinality::ColumnLowCardinality;
-    use crate::column::map::ColumnMap;
-    use crate::column::nothing::ColumnNothing;
-    use crate::column::nullable::ColumnNullable;
-    use crate::column::numeric::*;
-    use crate::column::string::{ColumnFixedString, ColumnString};
-    use crate::column::uuid::ColumnUuid;
+    use crate::column::{
+        array::ColumnArray,
+        date::{
+            ColumnDate,
+            ColumnDate32,
+            ColumnDateTime,
+            ColumnDateTime64,
+        },
+        decimal::ColumnDecimal,
+        enum_column::{
+            ColumnEnum16,
+            ColumnEnum8,
+        },
+        ipv4::ColumnIpv4,
+        ipv6::ColumnIpv6,
+        lowcardinality::ColumnLowCardinality,
+        map::ColumnMap,
+        nothing::ColumnNothing,
+        nullable::ColumnNullable,
+        numeric::*,
+        string::{
+            ColumnFixedString,
+            ColumnString,
+        },
+        uuid::ColumnUuid,
+    };
 
     match type_ {
         Type::Simple(code) => {
             use crate::types::TypeCode;
             match code {
-                TypeCode::UInt8 => Ok(Arc::new(ColumnUInt8::new(type_.clone()))),
-                TypeCode::UInt16 => Ok(Arc::new(ColumnUInt16::new(type_.clone()))),
-                TypeCode::UInt32 => Ok(Arc::new(ColumnUInt32::new(type_.clone()))),
-                TypeCode::UInt64 => Ok(Arc::new(ColumnUInt64::new(type_.clone()))),
-                TypeCode::UInt128 => Ok(Arc::new(ColumnUInt128::new(type_.clone()))),
+                TypeCode::UInt8 => {
+                    Ok(Arc::new(ColumnUInt8::new(type_.clone())))
+                }
+                TypeCode::UInt16 => {
+                    Ok(Arc::new(ColumnUInt16::new(type_.clone())))
+                }
+                TypeCode::UInt32 => {
+                    Ok(Arc::new(ColumnUInt32::new(type_.clone())))
+                }
+                TypeCode::UInt64 => {
+                    Ok(Arc::new(ColumnUInt64::new(type_.clone())))
+                }
+                TypeCode::UInt128 => {
+                    Ok(Arc::new(ColumnUInt128::new(type_.clone())))
+                }
                 TypeCode::Int8 => Ok(Arc::new(ColumnInt8::new(type_.clone()))),
-                TypeCode::Int16 => Ok(Arc::new(ColumnInt16::new(type_.clone()))),
-                TypeCode::Int32 => Ok(Arc::new(ColumnInt32::new(type_.clone()))),
-                TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new(type_.clone()))),
-                TypeCode::Int128 => Ok(Arc::new(ColumnInt128::new(type_.clone()))),
-                TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new(type_.clone()))),
-                TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new(type_.clone()))),
-                TypeCode::String => Ok(Arc::new(ColumnString::new(type_.clone()))),
+                TypeCode::Int16 => {
+                    Ok(Arc::new(ColumnInt16::new(type_.clone())))
+                }
+                TypeCode::Int32 => {
+                    Ok(Arc::new(ColumnInt32::new(type_.clone())))
+                }
+                TypeCode::Int64 => {
+                    Ok(Arc::new(ColumnInt64::new(type_.clone())))
+                }
+                TypeCode::Int128 => {
+                    Ok(Arc::new(ColumnInt128::new(type_.clone())))
+                }
+                TypeCode::Float32 => {
+                    Ok(Arc::new(ColumnFloat32::new(type_.clone())))
+                }
+                TypeCode::Float64 => {
+                    Ok(Arc::new(ColumnFloat64::new(type_.clone())))
+                }
+                TypeCode::String => {
+                    Ok(Arc::new(ColumnString::new(type_.clone())))
+                }
                 TypeCode::Date => Ok(Arc::new(ColumnDate::new(type_.clone()))),
-                TypeCode::Date32 => Ok(Arc::new(ColumnDate32::new(type_.clone()))),
+                TypeCode::Date32 => {
+                    Ok(Arc::new(ColumnDate32::new(type_.clone())))
+                }
                 TypeCode::UUID => Ok(Arc::new(ColumnUuid::new(type_.clone()))),
                 TypeCode::IPv4 => Ok(Arc::new(ColumnIpv4::new(type_.clone()))),
                 TypeCode::IPv6 => Ok(Arc::new(ColumnIpv6::new(type_.clone()))),
-                TypeCode::Void => Ok(Arc::new(ColumnNothing::new(type_.clone()))),
+                TypeCode::Void => {
+                    Ok(Arc::new(ColumnNothing::new(type_.clone())))
+                }
                 // Geo types are compound types built from Tuple and Array
-                // They use the same column implementation but preserve the geo type name
+                // They use the same column implementation but preserve the geo
+                // type name
                 TypeCode::Point => {
                     // Point is Tuple(Float64, Float64)
                     let columns: Vec<ColumnRef> = vec![
-                        Arc::new(ColumnFloat64::new(Type::Simple(TypeCode::Float64))) as ColumnRef,
-                        Arc::new(ColumnFloat64::new(Type::Simple(TypeCode::Float64))) as ColumnRef,
+                        Arc::new(ColumnFloat64::new(Type::Simple(
+                            TypeCode::Float64,
+                        ))) as ColumnRef,
+                        Arc::new(ColumnFloat64::new(Type::Simple(
+                            TypeCode::Float64,
+                        ))) as ColumnRef,
                     ];
-                    Ok(Arc::new(crate::column::ColumnTuple::new(type_.clone(), columns)))
+                    Ok(Arc::new(crate::column::ColumnTuple::new(
+                        type_.clone(),
+                        columns,
+                    )))
                 }
                 TypeCode::Ring => {
-                    // Ring is Array(Point) - manually create with Point nested type
+                    // Ring is Array(Point) - manually create with Point nested
+                    // type
                     let point_type = Type::Simple(TypeCode::Point);
                     let nested = create_column(&point_type)?;
-                    Ok(Arc::new(ColumnArray::from_parts(type_.clone(), nested)))
+                    Ok(Arc::new(ColumnArray::from_parts(
+                        type_.clone(),
+                        nested,
+                    )))
                 }
                 TypeCode::Polygon => {
-                    // Polygon is Array(Ring) - manually create with Ring nested type
+                    // Polygon is Array(Ring) - manually create with Ring
+                    // nested type
                     let ring_type = Type::Simple(TypeCode::Ring);
                     let nested = create_column(&ring_type)?;
-                    Ok(Arc::new(ColumnArray::from_parts(type_.clone(), nested)))
+                    Ok(Arc::new(ColumnArray::from_parts(
+                        type_.clone(),
+                        nested,
+                    )))
                 }
                 TypeCode::MultiPolygon => {
-                    // MultiPolygon is Array(Polygon) - manually create with Polygon nested type
+                    // MultiPolygon is Array(Polygon) - manually create with
+                    // Polygon nested type
                     let polygon_type = Type::Simple(TypeCode::Polygon);
                     let nested = create_column(&polygon_type)?;
-                    Ok(Arc::new(ColumnArray::from_parts(type_.clone(), nested)))
+                    Ok(Arc::new(ColumnArray::from_parts(
+                        type_.clone(),
+                        nested,
+                    )))
                 }
-                _ => Err(Error::Protocol(format!("Unsupported type: {}", type_.name()))),
+                _ => Err(Error::Protocol(format!(
+                    "Unsupported type: {}",
+                    type_.name()
+                ))),
             }
         }
-        Type::FixedString { .. } => Ok(Arc::new(ColumnFixedString::new(type_.clone()))),
+        Type::FixedString { .. } => {
+            Ok(Arc::new(ColumnFixedString::new(type_.clone())))
+        }
         Type::DateTime { .. } => {
             // Use specialized ColumnDateTime with timezone support
             Ok(Arc::new(ColumnDateTime::new(type_.clone())))
@@ -108,12 +187,8 @@ pub fn create_column(type_: &Type) -> Result<ColumnRef> {
         Type::Nullable { .. } => {
             Ok(Arc::new(ColumnNullable::new(type_.clone())))
         }
-        Type::Array { .. } => {
-            Ok(Arc::new(ColumnArray::new(type_.clone())))
-        }
-        Type::Map { .. } => {
-            Ok(Arc::new(ColumnMap::new(type_.clone())))
-        }
+        Type::Array { .. } => Ok(Arc::new(ColumnArray::new(type_.clone()))),
+        Type::Map { .. } => Ok(Arc::new(ColumnMap::new(type_.clone()))),
         Type::LowCardinality { .. } => {
             Ok(Arc::new(ColumnLowCardinality::new(type_.clone())))
         }
@@ -140,10 +215,7 @@ pub struct BlockReader {
 impl BlockReader {
     /// Create a new block reader
     pub fn new(server_revision: u64) -> Self {
-        Self {
-            server_revision,
-            compression: None,
-        }
+        Self { server_revision, compression: None }
     }
 
     /// Enable compression
@@ -153,12 +225,13 @@ impl BlockReader {
     }
 
     /// Read a block from the connection
-    /// Note: Caller is responsible for skipping temp table name if needed (matches C++ ReadBlock)
+    /// Note: Caller is responsible for skipping temp table name if needed
+    /// (matches C++ ReadBlock)
     pub async fn read_block(&self, conn: &mut Connection) -> Result<Block> {
         // Read the block data
         let block_data = if let Some(_compression_method) = self.compression {
-            // Read compressed data: checksum (16) + header (9) + compressed data (N)
-            // First read checksum
+            // Read compressed data: checksum (16) + header (9) + compressed
+            // data (N) First read checksum
             let checksum = conn.read_bytes(16).await?;
 
             // Read header to determine compressed size
@@ -171,7 +244,8 @@ impl BlockReader {
             let compressed_data = conn.read_bytes(compressed_data_len).await?;
 
             // Build the full compressed block for decompression
-            let mut full_block = BytesMut::with_capacity(16 + 9 + compressed_data_len);
+            let mut full_block =
+                BytesMut::with_capacity(16 + 9 + compressed_data_len);
             full_block.extend_from_slice(&checksum);
             full_block.put_u8(method);
             full_block.put_u32_le(compressed_size as u32);
@@ -214,7 +288,9 @@ impl BlockReader {
             let type_name = conn.read_string().await?;
 
             // Check for custom serialization
-            if self.server_revision >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION {
+            if self.server_revision
+                >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION
+            {
                 let custom_len = conn.read_u8().await?;
                 if custom_len > 0 {
                     return Err(Error::Protocol(
@@ -232,7 +308,8 @@ impl BlockReader {
             if num_rows > 0 {
                 // Read column data directly from async stream
                 // For uncompressed blocks, we can read data type by type
-                self.load_column_data_async(conn, &column_type, num_rows).await?;
+                self.load_column_data_async(conn, &column_type, num_rows)
+                    .await?;
             }
 
             block.append_column(name, column)?;
@@ -247,14 +324,20 @@ impl BlockReader {
         conn: &'a mut Connection,
         type_: &'a Type,
         num_rows: usize,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + 'a>>
+    {
         Box::pin(async move {
             self.load_column_data_impl(conn, type_, num_rows).await
         })
     }
 
     /// Implementation of load_column_data_async
-    async fn load_column_data_impl(&self, conn: &mut Connection, type_: &Type, num_rows: usize) -> Result<()> {
+    async fn load_column_data_impl(
+        &self,
+        conn: &mut Connection,
+        type_: &Type,
+        num_rows: usize,
+    ) -> Result<()> {
         use crate::types::TypeCode;
 
         match type_ {
@@ -267,7 +350,10 @@ impl BlockReader {
                     TypeCode::UInt16 | TypeCode::Int16 | TypeCode::Date => {
                         let _ = conn.read_bytes(num_rows * 2).await?;
                     }
-                    TypeCode::UInt32 | TypeCode::Int32 | TypeCode::Float32 | TypeCode::Date32 => {
+                    TypeCode::UInt32
+                    | TypeCode::Int32
+                    | TypeCode::Float32
+                    | TypeCode::Date32 => {
                         let _ = conn.read_bytes(num_rows * 4).await?;
                     }
                     TypeCode::UInt64 | TypeCode::Int64 | TypeCode::Float64 => {
@@ -340,7 +426,8 @@ impl BlockReader {
                 // Read null mask first (one byte per row)
                 let _ = conn.read_bytes(num_rows).await?;
                 // Then read nested data (recursive call via boxed wrapper)
-                self.load_column_data_async(conn, nested_type, num_rows).await?;
+                self.load_column_data_async(conn, nested_type, num_rows)
+                    .await?;
             }
             Type::Array { item_type: _ } => {
                 // Read offsets array (one UInt64 per row)
@@ -348,7 +435,8 @@ impl BlockReader {
                 // Read total count of items from last offset
                 // For simplicity, just try to read the nested column
                 // This is approximate - we'd need to parse offsets properly
-                // For now, return an error since arrays in uncompressed blocks are complex
+                // For now, return an error since arrays in uncompressed blocks
+                // are complex
                 return Err(Error::Protocol(
                     "Uncompressed reading not fully implemented for Array types".to_string(),
                 ));
@@ -365,17 +453,17 @@ impl BlockReader {
     }
 
     /// Read block info
-    async fn read_block_info(&self, conn: &mut Connection) -> Result<BlockInfo> {
+    async fn read_block_info(
+        &self,
+        conn: &mut Connection,
+    ) -> Result<BlockInfo> {
         let _num1 = conn.read_varint().await?;
         let is_overflows = conn.read_u8().await?;
         let _num2 = conn.read_varint().await?;
         let bucket_num = conn.read_i32().await?;
         let _num3 = conn.read_varint().await?;
 
-        Ok(BlockInfo {
-            is_overflows,
-            bucket_num,
-        })
+        Ok(BlockInfo { is_overflows, bucket_num })
     }
 
     /// Parse block from buffer (compressed data)
@@ -398,9 +486,13 @@ impl BlockReader {
             let type_name = read_string(buffer)?;
 
             // Check for custom serialization
-            if self.server_revision >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION {
+            if self.server_revision
+                >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION
+            {
                 if buffer.is_empty() {
-                    return Err(Error::Protocol("Unexpected end of block data".to_string()));
+                    return Err(Error::Protocol(
+                        "Unexpected end of block data".to_string(),
+                    ));
                 }
                 let custom_len = buffer[0];
                 buffer.advance(1);
@@ -421,7 +513,9 @@ impl BlockReader {
             if num_rows > 0 {
                 // Load column data from buffer
                 Arc::get_mut(&mut column)
-                    .ok_or_else(|| Error::Protocol("Column not mutable".to_string()))?
+                    .ok_or_else(|| {
+                        Error::Protocol("Column not mutable".to_string())
+                    })?
                     .load_from_buffer(buffer, num_rows)?;
             }
 
@@ -432,11 +526,16 @@ impl BlockReader {
     }
 
     /// Read block info from buffer
-    fn read_block_info_from_buffer(&self, buffer: &mut &[u8]) -> Result<BlockInfo> {
+    fn read_block_info_from_buffer(
+        &self,
+        buffer: &mut &[u8],
+    ) -> Result<BlockInfo> {
         let _num1 = read_varint(buffer)?;
 
         if buffer.is_empty() {
-            return Err(Error::Protocol("Unexpected end reading block info".to_string()));
+            return Err(Error::Protocol(
+                "Unexpected end reading block info".to_string(),
+            ));
         }
         let is_overflows = buffer[0];
         buffer.advance(1);
@@ -444,62 +543,118 @@ impl BlockReader {
         let _num2 = read_varint(buffer)?;
 
         if buffer.len() < 4 {
-            return Err(Error::Protocol("Unexpected end reading bucket_num".to_string()));
+            return Err(Error::Protocol(
+                "Unexpected end reading bucket_num".to_string(),
+            ));
         }
-        let bucket_num = i32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
+        let bucket_num =
+            i32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
         buffer.advance(4);
 
         let _num3 = read_varint(buffer)?;
 
-        Ok(BlockInfo {
-            is_overflows,
-            bucket_num,
-        })
+        Ok(BlockInfo { is_overflows, bucket_num })
     }
 
     /// Create a column by type
     fn create_column_by_type(&self, type_: &Type) -> Result<ColumnRef> {
-        use crate::column::array::ColumnArray;
-        use crate::column::date::{ColumnDate, ColumnDate32, ColumnDateTime, ColumnDateTime64};
-        use crate::column::decimal::ColumnDecimal;
-        use crate::column::enum_column::{ColumnEnum8, ColumnEnum16};
-        use crate::column::ipv4::ColumnIpv4;
-        use crate::column::ipv6::ColumnIpv6;
-        use crate::column::lowcardinality::ColumnLowCardinality;
-        use crate::column::map::ColumnMap;
-        use crate::column::nothing::ColumnNothing;
-        use crate::column::nullable::ColumnNullable;
-        use crate::column::numeric::*;
-        use crate::column::string::{ColumnFixedString, ColumnString};
-        use crate::column::uuid::ColumnUuid;
+        use crate::column::{
+            array::ColumnArray,
+            date::{
+                ColumnDate,
+                ColumnDate32,
+                ColumnDateTime,
+                ColumnDateTime64,
+            },
+            decimal::ColumnDecimal,
+            enum_column::{
+                ColumnEnum16,
+                ColumnEnum8,
+            },
+            ipv4::ColumnIpv4,
+            ipv6::ColumnIpv6,
+            lowcardinality::ColumnLowCardinality,
+            map::ColumnMap,
+            nothing::ColumnNothing,
+            nullable::ColumnNullable,
+            numeric::*,
+            string::{
+                ColumnFixedString,
+                ColumnString,
+            },
+            uuid::ColumnUuid,
+        };
 
         match type_ {
             Type::Simple(code) => {
                 use crate::types::TypeCode;
                 match code {
-                    TypeCode::UInt8 => Ok(Arc::new(ColumnUInt8::new(type_.clone()))),
-                    TypeCode::UInt16 => Ok(Arc::new(ColumnUInt16::new(type_.clone()))),
-                    TypeCode::UInt32 => Ok(Arc::new(ColumnUInt32::new(type_.clone()))),
-                    TypeCode::UInt64 => Ok(Arc::new(ColumnUInt64::new(type_.clone()))),
-                    TypeCode::UInt128 => Ok(Arc::new(ColumnUInt128::new(type_.clone()))),
-                    TypeCode::Int8 => Ok(Arc::new(ColumnInt8::new(type_.clone()))),
-                    TypeCode::Int16 => Ok(Arc::new(ColumnInt16::new(type_.clone()))),
-                    TypeCode::Int32 => Ok(Arc::new(ColumnInt32::new(type_.clone()))),
-                    TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new(type_.clone()))),
-                    TypeCode::Int128 => Ok(Arc::new(ColumnInt128::new(type_.clone()))),
-                    TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new(type_.clone()))),
-                    TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new(type_.clone()))),
-                    TypeCode::String => Ok(Arc::new(ColumnString::new(type_.clone()))),
-                    TypeCode::Date => Ok(Arc::new(ColumnDate::new(type_.clone()))),
-                    TypeCode::Date32 => Ok(Arc::new(ColumnDate32::new(type_.clone()))),
-                    TypeCode::UUID => Ok(Arc::new(ColumnUuid::new(type_.clone()))),
-                    TypeCode::IPv4 => Ok(Arc::new(ColumnIpv4::new(type_.clone()))),
-                    TypeCode::IPv6 => Ok(Arc::new(ColumnIpv6::new(type_.clone()))),
-                    TypeCode::Void => Ok(Arc::new(ColumnNothing::new(type_.clone()))),
-                    _ => Err(Error::Protocol(format!("Unsupported type: {}", type_.name()))),
+                    TypeCode::UInt8 => {
+                        Ok(Arc::new(ColumnUInt8::new(type_.clone())))
+                    }
+                    TypeCode::UInt16 => {
+                        Ok(Arc::new(ColumnUInt16::new(type_.clone())))
+                    }
+                    TypeCode::UInt32 => {
+                        Ok(Arc::new(ColumnUInt32::new(type_.clone())))
+                    }
+                    TypeCode::UInt64 => {
+                        Ok(Arc::new(ColumnUInt64::new(type_.clone())))
+                    }
+                    TypeCode::UInt128 => {
+                        Ok(Arc::new(ColumnUInt128::new(type_.clone())))
+                    }
+                    TypeCode::Int8 => {
+                        Ok(Arc::new(ColumnInt8::new(type_.clone())))
+                    }
+                    TypeCode::Int16 => {
+                        Ok(Arc::new(ColumnInt16::new(type_.clone())))
+                    }
+                    TypeCode::Int32 => {
+                        Ok(Arc::new(ColumnInt32::new(type_.clone())))
+                    }
+                    TypeCode::Int64 => {
+                        Ok(Arc::new(ColumnInt64::new(type_.clone())))
+                    }
+                    TypeCode::Int128 => {
+                        Ok(Arc::new(ColumnInt128::new(type_.clone())))
+                    }
+                    TypeCode::Float32 => {
+                        Ok(Arc::new(ColumnFloat32::new(type_.clone())))
+                    }
+                    TypeCode::Float64 => {
+                        Ok(Arc::new(ColumnFloat64::new(type_.clone())))
+                    }
+                    TypeCode::String => {
+                        Ok(Arc::new(ColumnString::new(type_.clone())))
+                    }
+                    TypeCode::Date => {
+                        Ok(Arc::new(ColumnDate::new(type_.clone())))
+                    }
+                    TypeCode::Date32 => {
+                        Ok(Arc::new(ColumnDate32::new(type_.clone())))
+                    }
+                    TypeCode::UUID => {
+                        Ok(Arc::new(ColumnUuid::new(type_.clone())))
+                    }
+                    TypeCode::IPv4 => {
+                        Ok(Arc::new(ColumnIpv4::new(type_.clone())))
+                    }
+                    TypeCode::IPv6 => {
+                        Ok(Arc::new(ColumnIpv6::new(type_.clone())))
+                    }
+                    TypeCode::Void => {
+                        Ok(Arc::new(ColumnNothing::new(type_.clone())))
+                    }
+                    _ => Err(Error::Protocol(format!(
+                        "Unsupported type: {}",
+                        type_.name()
+                    ))),
                 }
             }
-            Type::FixedString { .. } => Ok(Arc::new(ColumnFixedString::new(type_.clone()))),
+            Type::FixedString { .. } => {
+                Ok(Arc::new(ColumnFixedString::new(type_.clone())))
+            }
             Type::DateTime { .. } => {
                 // Use specialized ColumnDateTime with timezone support
                 Ok(Arc::new(ColumnDateTime::new(type_.clone())))
@@ -526,9 +681,7 @@ impl BlockReader {
             Type::Array { .. } => {
                 Ok(Arc::new(ColumnArray::new(type_.clone())))
             }
-            Type::Map { .. } => {
-                Ok(Arc::new(ColumnMap::new(type_.clone())))
-            }
+            Type::Map { .. } => Ok(Arc::new(ColumnMap::new(type_.clone()))),
             Type::LowCardinality { .. } => {
                 Ok(Arc::new(ColumnLowCardinality::new(type_.clone())))
             }
@@ -556,10 +709,7 @@ pub struct BlockWriter {
 impl BlockWriter {
     /// Create a new block writer
     pub fn new(server_revision: u64) -> Self {
-        Self {
-            server_revision,
-            compression: None,
-        }
+        Self { server_revision, compression: None }
     }
 
     /// Enable compression
@@ -569,8 +719,16 @@ impl BlockWriter {
     }
 
     /// Write a block to the connection
-    pub async fn write_block(&self, conn: &mut Connection, block: &Block) -> Result<()> {
-        eprintln!("[DEBUG] Writing block: {} columns, {} rows", block.column_count(), block.row_count());
+    pub async fn write_block(
+        &self,
+        conn: &mut Connection,
+        block: &Block,
+    ) -> Result<()> {
+        eprintln!(
+            "[DEBUG] Writing block: {} columns, {} rows",
+            block.column_count(),
+            block.row_count()
+        );
 
         // Skip temporary table name if protocol supports it
         if self.server_revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
@@ -587,7 +745,8 @@ impl BlockWriter {
         if let Some(compression_method) = self.compression {
             let compressed = compress(compression_method, &buffer)?;
             eprintln!("[DEBUG] Compressed to {} bytes (includes 16-byte checksum + 9-byte header)", compressed.len());
-            // Compressed data already includes checksum + header, write it directly
+            // Compressed data already includes checksum + header, write it
+            // directly
             conn.write_bytes(&compressed).await?;
         } else {
             // Write uncompressed
@@ -601,7 +760,11 @@ impl BlockWriter {
     }
 
     /// Write block to buffer
-    fn write_block_to_buffer(&self, buffer: &mut BytesMut, block: &Block) -> Result<()> {
+    fn write_block_to_buffer(
+        &self,
+        buffer: &mut BytesMut,
+        block: &Block,
+    ) -> Result<()> {
         // Write block info if supported
         if self.server_revision >= DBMS_MIN_REVISION_WITH_BLOCK_INFO {
             write_varint(buffer, 1);
@@ -621,13 +784,15 @@ impl BlockWriter {
             write_string(buffer, &type_.name());
 
             // Custom serialization flag
-            if self.server_revision >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION {
+            if self.server_revision
+                >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION
+            {
                 buffer.put_u8(0); // No custom serialization
             }
 
             // Write column data (only if rows > 0)
             if block.row_count() > 0 {
-                column.save_prefix(buffer)?;   // Phase 1: Write prefix data (for LowCardinality, etc.)
+                column.save_prefix(buffer)?; // Phase 1: Write prefix data (for LowCardinality, etc.)
                 column.save_to_buffer(buffer)?; // Phase 2: Write body data
             }
         }
@@ -695,8 +860,9 @@ fn read_string(buffer: &mut &[u8]) -> Result<String> {
     }
 
     let string_data = &buffer[..len];
-    let s = String::from_utf8(string_data.to_vec())
-        .map_err(|e| Error::Protocol(format!("Invalid UTF-8 in string: {}", e)))?;
+    let s = String::from_utf8(string_data.to_vec()).map_err(|e| {
+        Error::Protocol(format!("Invalid UTF-8 in string: {}", e))
+    })?;
 
     buffer.advance(len);
     Ok(s)
@@ -710,8 +876,10 @@ fn write_string(buffer: &mut BytesMut, s: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::column::numeric::ColumnUInt64;
-    use crate::types::Type;
+    use crate::{
+        column::numeric::ColumnUInt64,
+        types::Type,
+    };
 
     #[test]
     fn test_block_writer_serialization() {
@@ -752,7 +920,8 @@ mod tests {
         // Deserialize it
         let reader = BlockReader::new(54449);
         let mut read_buffer = &buffer[..];
-        let decoded_block = reader.parse_block_from_buffer(&mut read_buffer).unwrap();
+        let decoded_block =
+            reader.parse_block_from_buffer(&mut read_buffer).unwrap();
 
         assert_eq!(decoded_block.column_count(), 1);
         assert_eq!(decoded_block.row_count(), 2);
@@ -782,7 +951,8 @@ mod tests {
         // Deserialize
         let reader = BlockReader::new(54449);
         let mut read_buffer = &buffer[..];
-        let decoded = reader.parse_block_from_buffer(&mut read_buffer).unwrap();
+        let decoded =
+            reader.parse_block_from_buffer(&mut read_buffer).unwrap();
 
         assert_eq!(decoded.column_count(), 2);
         assert_eq!(decoded.row_count(), 2);

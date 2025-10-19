@@ -1,6 +1,11 @@
-use clickhouse_client::column::*;
-use clickhouse_client::types::{Type, EnumItem};
 use bytes::BytesMut;
+use clickhouse_client::{
+    column::*,
+    types::{
+        EnumItem,
+        Type,
+    },
+};
 
 // ============================================================================
 // UUID Column Tests
@@ -201,9 +206,9 @@ fn test_ipv4_serialization() {
 #[test]
 fn test_ipv4_private_ranges() {
     let mut col = ColumnIpv4::new(Type::ipv4());
-    col.append_from_string("10.0.0.0").unwrap();      // Class A private
-    col.append_from_string("172.16.0.0").unwrap();    // Class B private
-    col.append_from_string("192.168.0.0").unwrap();   // Class C private
+    col.append_from_string("10.0.0.0").unwrap(); // Class A private
+    col.append_from_string("172.16.0.0").unwrap(); // Class B private
+    col.append_from_string("192.168.0.0").unwrap(); // Class C private
 
     assert_eq!(col.len(), 3);
     assert_eq!(col.as_string(0), "10.0.0.0");
@@ -429,18 +434,9 @@ fn test_decimal_serialization_int64() {
 #[test]
 fn test_enum8_append_by_value() {
     let items = vec![
-        EnumItem {
-            name: "Red".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Green".to_string(),
-            value: 2,
-        },
-        EnumItem {
-            name: "Blue".to_string(),
-            value: 3,
-        },
+        EnumItem { name: "Red".to_string(), value: 1 },
+        EnumItem { name: "Green".to_string(), value: 2 },
+        EnumItem { name: "Blue".to_string(), value: 3 },
     ];
     let mut col = ColumnEnum8::new(Type::enum8(items));
 
@@ -457,14 +453,8 @@ fn test_enum8_append_by_value() {
 #[test]
 fn test_enum8_append_by_name() {
     let items = vec![
-        EnumItem {
-            name: "Red".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Green".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "Red".to_string(), value: 1 },
+        EnumItem { name: "Green".to_string(), value: 2 },
     ];
     let mut col = ColumnEnum8::new(Type::enum8(items));
 
@@ -479,14 +469,8 @@ fn test_enum8_append_by_name() {
 #[test]
 fn test_enum8_name_lookup() {
     let items = vec![
-        EnumItem {
-            name: "Red".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Green".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "Red".to_string(), value: 1 },
+        EnumItem { name: "Green".to_string(), value: 2 },
     ];
     let mut col = ColumnEnum8::new(Type::enum8(items));
 
@@ -499,12 +483,7 @@ fn test_enum8_name_lookup() {
 
 #[test]
 fn test_enum8_invalid_name() {
-    let items = vec![
-        EnumItem {
-            name: "Red".to_string(),
-            value: 1,
-        },
-    ];
+    let items = vec![EnumItem { name: "Red".to_string(), value: 1 }];
     let mut col = ColumnEnum8::new(Type::enum8(items));
 
     let result = col.append_name("InvalidColor");
@@ -514,14 +493,8 @@ fn test_enum8_invalid_name() {
 #[test]
 fn test_enum8_serialization() {
     let items = vec![
-        EnumItem {
-            name: "Red".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Green".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "Red".to_string(), value: 1 },
+        EnumItem { name: "Green".to_string(), value: 2 },
     ];
     let mut col = ColumnEnum8::new(Type::enum8(items.clone()));
 
@@ -546,14 +519,8 @@ fn test_enum8_serialization() {
 #[test]
 fn test_enum16_append_by_value() {
     let items = vec![
-        EnumItem {
-            name: "Small".to_string(),
-            value: 100,
-        },
-        EnumItem {
-            name: "Large".to_string(),
-            value: 1000,
-        },
+        EnumItem { name: "Small".to_string(), value: 100 },
+        EnumItem { name: "Large".to_string(), value: 1000 },
     ];
     let mut col = ColumnEnum16::new(Type::enum16(items));
 
@@ -568,14 +535,8 @@ fn test_enum16_append_by_value() {
 #[test]
 fn test_enum16_append_by_name() {
     let items = vec![
-        EnumItem {
-            name: "Small".to_string(),
-            value: 100,
-        },
-        EnumItem {
-            name: "Large".to_string(),
-            value: 1000,
-        },
+        EnumItem { name: "Small".to_string(), value: 100 },
+        EnumItem { name: "Large".to_string(), value: 1000 },
     ];
     let mut col = ColumnEnum16::new(Type::enum16(items));
 
@@ -590,14 +551,8 @@ fn test_enum16_append_by_name() {
 #[test]
 fn test_enum16_serialization() {
     let items = vec![
-        EnumItem {
-            name: "Small".to_string(),
-            value: 100,
-        },
-        EnumItem {
-            name: "Large".to_string(),
-            value: 1000,
-        },
+        EnumItem { name: "Small".to_string(), value: 100 },
+        EnumItem { name: "Large".to_string(), value: 1000 },
     ];
     let mut col = ColumnEnum16::new(Type::enum16(items.clone()));
 
@@ -622,18 +577,9 @@ fn test_enum16_serialization() {
 #[test]
 fn test_enum16_negative_values() {
     let items = vec![
-        EnumItem {
-            name: "NegOne".to_string(),
-            value: -1,
-        },
-        EnumItem {
-            name: "Zero".to_string(),
-            value: 0,
-        },
-        EnumItem {
-            name: "PosOne".to_string(),
-            value: 1,
-        },
+        EnumItem { name: "NegOne".to_string(), value: -1 },
+        EnumItem { name: "Zero".to_string(), value: 0 },
+        EnumItem { name: "PosOne".to_string(), value: 1 },
     ];
     let mut col = ColumnEnum16::new(Type::enum16(items));
 
@@ -650,18 +596,9 @@ fn test_enum16_negative_values() {
 #[test]
 fn test_enum_slice() {
     let items = vec![
-        EnumItem {
-            name: "A".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "B".to_string(),
-            value: 2,
-        },
-        EnumItem {
-            name: "C".to_string(),
-            value: 3,
-        },
+        EnumItem { name: "A".to_string(), value: 1 },
+        EnumItem { name: "B".to_string(), value: 2 },
+        EnumItem { name: "C".to_string(), value: 3 },
     ];
     let mut col = ColumnEnum8::new(Type::enum8(items));
 

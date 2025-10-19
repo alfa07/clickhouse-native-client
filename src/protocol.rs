@@ -2,21 +2,22 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum ServerCode {
-    Hello = 0,               // Name, version, revision
-    Data = 1,                // Block of data, may be compressed
-    Exception = 2,           // Exception during query execution
-    Progress = 3,            // Query execution progress: rows and bytes read
-    Pong = 4,                // Response to Ping
-    EndOfStream = 5,         // All packets were sent
-    ProfileInfo = 6,         // Profiling data
-    Totals = 7,              // Block of totals, may be compressed
-    Extremes = 8,            // Block of mins and maxs, may be compressed
+    Hello = 0,                // Name, version, revision
+    Data = 1,                 // Block of data, may be compressed
+    Exception = 2,            // Exception during query execution
+    Progress = 3,             /* Query execution progress: rows and bytes
+                               * read */
+    Pong = 4,                 // Response to Ping
+    EndOfStream = 5,          // All packets were sent
+    ProfileInfo = 6,          // Profiling data
+    Totals = 7,               // Block of totals, may be compressed
+    Extremes = 8,             // Block of mins and maxs, may be compressed
     TablesStatusResponse = 9, // Response to TableStatus
-    Log = 10,                // Query execution log
-    TableColumns = 11,       // Columns' description for default values
-    PartUUIDs = 12,          // List of unique parts ids
-    ReadTaskRequest = 13,    // UUID describes a request for next task
-    ProfileEvents = 14,      // Packet with profile events from server
+    Log = 10,                 // Query execution log
+    TableColumns = 11,        // Columns' description for default values
+    PartUUIDs = 12,           // List of unique parts ids
+    ReadTaskRequest = 13,     // UUID describes a request for next task
+    ProfileEvents = 14,       // Packet with profile events from server
 }
 
 impl TryFrom<u64> for ServerCode {
@@ -39,7 +40,10 @@ impl TryFrom<u64> for ServerCode {
             12 => Ok(ServerCode::PartUUIDs),
             13 => Ok(ServerCode::ReadTaskRequest),
             14 => Ok(ServerCode::ProfileEvents),
-            _ => Err(crate::Error::Protocol(format!("Unknown server code: {}", value))),
+            _ => Err(crate::Error::Protocol(format!(
+                "Unknown server code: {}",
+                value
+            ))),
         }
     }
 }
@@ -92,7 +96,10 @@ mod tests {
     fn test_server_code_conversion() {
         assert_eq!(ServerCode::try_from(0).unwrap(), ServerCode::Hello);
         assert_eq!(ServerCode::try_from(1).unwrap(), ServerCode::Data);
-        assert_eq!(ServerCode::try_from(14).unwrap(), ServerCode::ProfileEvents);
+        assert_eq!(
+            ServerCode::try_from(14).unwrap(),
+            ServerCode::ProfileEvents
+        );
         assert!(ServerCode::try_from(99).is_err());
     }
 

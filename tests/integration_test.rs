@@ -1,9 +1,17 @@
-use clickhouse_client::{Block, Client, ClientOptions};
-use clickhouse_client::column::numeric::ColumnUInt64;
-use clickhouse_client::column::nullable::ColumnNullable;
-use clickhouse_client::types::Type;
-use std::env;
-use std::sync::Arc;
+use clickhouse_client::{
+    column::{
+        nullable::ColumnNullable,
+        numeric::ColumnUInt64,
+    },
+    types::Type,
+    Block,
+    Client,
+    ClientOptions,
+};
+use std::{
+    env,
+    sync::Arc,
+};
 
 /// Get ClickHouse host from environment or default to localhost
 fn get_clickhouse_host() -> String {
@@ -24,9 +32,8 @@ async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
 #[tokio::test]
 #[ignore] // Only run with --ignored flag when ClickHouse is running
 async fn test_connection_and_ping() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Test ping
     client.ping().await.expect("Ping failed");
@@ -36,7 +43,9 @@ async fn test_connection_and_ping() {
     println!("Connected to ClickHouse: {}", server_info.name);
     println!(
         "Version: {}.{}.{}",
-        server_info.version_major, server_info.version_minor, server_info.version_patch
+        server_info.version_major,
+        server_info.version_minor,
+        server_info.version_patch
     );
     println!("Revision: {}", server_info.revision);
     println!("Timezone: {}", server_info.timezone);
@@ -47,9 +56,8 @@ async fn test_connection_and_ping() {
 #[tokio::test]
 #[ignore]
 async fn test_create_database() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create test database
     let result = client
@@ -68,14 +76,17 @@ async fn test_create_table() {
         .expect("Failed to create isolated test client");
 
     // Create table with String, UInt64, Float64 columns
-    let create_table_sql = format!(r#"
+    let create_table_sql = format!(
+        r#"
         CREATE TABLE {}.test_table (
             name String,
             count UInt64,
             price Float64
         ) ENGINE = MergeTree()
         ORDER BY count
-    "#, db_name);
+    "#,
+        db_name
+    );
 
     client
         .query(create_table_sql.as_str())
@@ -104,14 +115,17 @@ async fn test_insert_and_select_data() {
         .expect("Failed to create isolated test client");
 
     // Create table
-    let create_table_sql = format!(r#"
+    let create_table_sql = format!(
+        r#"
         CREATE TABLE {}.data_table (
             name String,
             count UInt64,
             price Float64
         ) ENGINE = MergeTree()
         ORDER BY count
-    "#, db_name);
+    "#,
+        db_name
+    );
 
     client
         .query(create_table_sql.as_str())
@@ -119,25 +133,28 @@ async fn test_insert_and_select_data() {
         .expect("Failed to create table");
 
     // Insert data using SQL INSERT
-    let insert_sql = format!(r#"
+    let insert_sql = format!(
+        r#"
         INSERT INTO {}.data_table (name, count, price) VALUES
         ('apple', 10, 1.50),
         ('banana', 25, 0.75),
         ('orange', 15, 2.00),
         ('grape', 30, 3.25),
         ('mango', 5, 2.50)
-    "#, db_name);
+    "#,
+        db_name
+    );
 
-    client
-        .query(insert_sql.as_str())
-        .await
-        .expect("Failed to insert data");
+    client.query(insert_sql.as_str()).await.expect("Failed to insert data");
 
     println!("Inserted 5 rows");
 
     // Select all data
     let result = client
-        .query(format!("SELECT name, count, price FROM {}.data_table ORDER BY count", db_name))
+        .query(format!(
+            "SELECT name, count, price FROM {}.data_table ORDER BY count",
+            db_name
+        ))
         .await
         .expect("Failed to select data");
 
@@ -219,11 +236,7 @@ async fn test_aggregation_queries() {
         .expect("Failed to aggregate");
 
     println!("Aggregation result: {} rows", agg_result.total_rows());
-    assert_eq!(
-        agg_result.total_rows(),
-        1,
-        "Aggregation should return 1 row"
-    );
+    assert_eq!(agg_result.total_rows(), 1, "Aggregation should return 1 row");
 
     // Cleanup
     cleanup_test_database(&db_name).await;
@@ -236,18 +249,25 @@ async fn test_insert_block() {
         .await
         .expect("Failed to create isolated test client");
 
-    use clickhouse_client::column::numeric::ColumnUInt64;
-    use clickhouse_client::column::string::ColumnString;
-    use clickhouse_client::types::Type;
+    use clickhouse_client::{
+        column::{
+            numeric::ColumnUInt64,
+            string::ColumnString,
+        },
+        types::Type,
+    };
 
     // Create table
-    let create_table_sql = format!(r#"
+    let create_table_sql = format!(
+        r#"
         CREATE TABLE {}.data_table (
             name String,
             value UInt64
         ) ENGINE = MergeTree()
         ORDER BY value
-    "#, db_name);
+    "#,
+        db_name
+    );
 
     client
         .query(create_table_sql.as_str())
@@ -279,10 +299,7 @@ async fn test_insert_block() {
 
     // Insert the block
     let table_ref = format!("{}.data_table", db_name);
-    client
-        .insert(&table_ref, block)
-        .await
-        .expect("Failed to insert block");
+    client.insert(&table_ref, block).await.expect("Failed to insert block");
 
     println!("Block inserted successfully");
 
@@ -301,26 +318,20 @@ async fn test_insert_block() {
 #[tokio::test]
 #[ignore]
 async fn test_cleanup() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Drop test tables (but keep database for other tests)
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_table_create")
-        .await;
+    let _ =
+        client.query("DROP TABLE IF EXISTS test_db.test_table_create").await;
     let _ = client
         .query("DROP TABLE IF EXISTS test_db.test_table_insert_select")
         .await;
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_table_where")
-        .await;
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_table_agg")
-        .await;
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_block_insert")
-        .await;
+    let _ =
+        client.query("DROP TABLE IF EXISTS test_db.test_table_where").await;
+    let _ = client.query("DROP TABLE IF EXISTS test_db.test_table_agg").await;
+    let _ =
+        client.query("DROP TABLE IF EXISTS test_db.test_block_insert").await;
     // Note: Not dropping database to avoid conflicts with parallel tests
     // let _ = client.query("DROP DATABASE IF EXISTS test_db").await;
 
@@ -334,9 +345,8 @@ async fn test_cleanup() {
 #[tokio::test]
 #[ignore]
 async fn test_exception_handling_syntax_error() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Execute invalid SQL - should return error
     let result = client.query("SELECTTTT invalid syntax").await;
@@ -361,14 +371,12 @@ async fn test_exception_handling_syntax_error() {
 #[tokio::test]
 #[ignore]
 async fn test_exception_handling_table_not_found() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Query non-existent table
-    let result = client
-        .query("SELECT * FROM nonexistent_table_xyz_12345")
-        .await;
+    let result =
+        client.query("SELECT * FROM nonexistent_table_xyz_12345").await;
 
     assert!(result.is_err(), "Expected table not found error");
 
@@ -389,19 +397,15 @@ async fn test_exception_handling_table_not_found() {
 #[tokio::test]
 #[ignore]
 async fn test_exception_recovery() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Execute invalid query
     let _ = client.query("INVALID SQL").await;
 
     // Connection should still be usable after exception
     let result = client.ping().await;
-    assert!(
-        result.is_ok(),
-        "Connection should be usable after exception"
-    );
+    assert!(result.is_ok(), "Connection should be usable after exception");
 
     // Execute valid query after exception
     let result = client.query("SELECT 1").await;
@@ -418,17 +422,21 @@ async fn test_exception_recovery() {
 #[tokio::test]
 #[ignore]
 async fn test_nullable_column_insertion() {
-    let (mut client, db_name) = create_isolated_test_client("nullable_column_insertion")
-        .await
-        .expect("Failed to create isolated test client");
+    let (mut client, db_name) =
+        create_isolated_test_client("nullable_column_insertion")
+            .await
+            .expect("Failed to create isolated test client");
 
     // Create table with nullable column
-    let create_table_sql = format!(r#"
+    let create_table_sql = format!(
+        r#"
         CREATE TABLE {}.test_nullable (
             id UInt64,
             nullable_value Nullable(UInt64)
         ) ENGINE = Memory
-    "#, db_name);
+    "#,
+        db_name
+    );
 
     client
         .query(create_table_sql.as_str())
@@ -458,21 +466,27 @@ async fn test_nullable_column_insertion() {
     // Manually append since append_nullable is only for UInt32
     nullable_col.append_non_null();
     if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>() {
+        if let Some(col) =
+            nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>()
+        {
             col.append(100);
         }
     }
 
     nullable_col.append_null();
     if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>() {
+        if let Some(col) =
+            nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>()
+        {
             col.append(0); // Placeholder for NULL
         }
     }
 
     nullable_col.append_non_null();
     if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>() {
+        if let Some(col) =
+            nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>()
+        {
             col.append(300);
         }
     }
@@ -492,7 +506,10 @@ async fn test_nullable_column_insertion() {
 
     // Query NULL values
     let result = client
-        .query(format!("SELECT id FROM {}.test_nullable WHERE nullable_value IS NULL", db_name))
+        .query(format!(
+            "SELECT id FROM {}.test_nullable WHERE nullable_value IS NULL",
+            db_name
+        ))
         .await
         .expect("Failed to query NULL values");
 
@@ -501,7 +518,10 @@ async fn test_nullable_column_insertion() {
 
     // Query non-NULL values
     let result = client
-        .query(format!("SELECT id FROM {}.test_nullable WHERE nullable_value IS NOT NULL", db_name))
+        .query(format!(
+            "SELECT id FROM {}.test_nullable WHERE nullable_value IS NOT NULL",
+            db_name
+        ))
         .await
         .expect("Failed to query non-NULL values");
 
@@ -515,9 +535,8 @@ async fn test_nullable_column_insertion() {
 #[tokio::test]
 #[ignore]
 async fn test_select_null_literal() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // SELECT NULL should work
     let result = client
@@ -547,21 +566,29 @@ async fn test_select_null_literal() {
 #[tokio::test]
 #[ignore]
 async fn test_large_block_insert() {
-    let (mut client, db_name) = create_isolated_test_client("large_block_insert")
-        .await
-        .expect("Failed to create isolated test client");
+    let (mut client, db_name) =
+        create_isolated_test_client("large_block_insert")
+            .await
+            .expect("Failed to create isolated test client");
 
-    use clickhouse_client::column::numeric::ColumnUInt64;
-    use clickhouse_client::column::string::ColumnString;
-    use clickhouse_client::types::Type;
+    use clickhouse_client::{
+        column::{
+            numeric::ColumnUInt64,
+            string::ColumnString,
+        },
+        types::Type,
+    };
 
     // Create table
-    let create_table_sql = format!(r#"
+    let create_table_sql = format!(
+        r#"
         CREATE TABLE {}.test_large_block (
             id UInt64,
             text String
         ) ENGINE = Memory
-    "#, db_name);
+    "#,
+        db_name
+    );
 
     client
         .query(create_table_sql.as_str())
@@ -613,19 +640,25 @@ async fn test_large_block_insert() {
 #[tokio::test]
 #[ignore]
 async fn test_large_result_set() {
-    let (mut client, db_name) = create_isolated_test_client("large_result_set")
-        .await
-        .expect("Failed to create isolated test client");
+    let (mut client, db_name) =
+        create_isolated_test_client("large_result_set")
+            .await
+            .expect("Failed to create isolated test client");
 
-    use clickhouse_client::column::numeric::ColumnUInt64;
-    use clickhouse_client::types::Type;
+    use clickhouse_client::{
+        column::numeric::ColumnUInt64,
+        types::Type,
+    };
 
     // Create and populate table
-    let create_table_sql = format!(r#"
+    let create_table_sql = format!(
+        r#"
         CREATE TABLE {}.test_large_select (
             id UInt64
         ) ENGINE = Memory
-    "#, db_name);
+    "#,
+        db_name
+    );
 
     client
         .query(create_table_sql.as_str())
@@ -649,10 +682,7 @@ async fn test_large_result_set() {
     block.append_column("id", Arc::new(id_col)).unwrap();
 
     let table_ref = format!("{}.test_large_select", db_name);
-    client
-        .insert(&table_ref, block)
-        .await
-        .expect("Failed to insert data");
+    client.insert(&table_ref, block).await.expect("Failed to insert data");
 
     // Query large result set
     println!("Querying large result set...");
@@ -661,9 +691,11 @@ async fn test_large_result_set() {
         .await
         .expect("Failed to select large result");
 
-    println!("Received {} total rows in {} blocks",
-             result.total_rows(),
-             result.blocks().len());
+    println!(
+        "Received {} total rows in {} blocks",
+        result.total_rows(),
+        result.blocks().len()
+    );
 
     assert!(result.total_rows() >= 50000, "Should receive all 50,000 rows");
 
@@ -678,9 +710,8 @@ async fn test_large_result_set() {
 #[tokio::test]
 #[ignore]
 async fn test_multiple_queries_same_connection() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Execute 100 queries on the same connection
     for i in 0..100 {
@@ -699,9 +730,8 @@ async fn test_multiple_queries_same_connection() {
 #[tokio::test]
 #[ignore]
 async fn test_ping_between_queries() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Ping
     client.ping().await.expect("First ping failed");
@@ -728,11 +758,12 @@ async fn test_ping_between_queries() {
 /// Generate unique database name for test isolation
 /// Uses nanosecond timestamp to ensure uniqueness even in parallel execution
 fn unique_database_name(test_name: &str) -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    use std::time::{
+        SystemTime,
+        UNIX_EPOCH,
+    };
+    let timestamp =
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
     // Use sanitized test name (replace invalid chars)
     let safe_name = test_name.replace("-", "_").replace(" ", "_");
     format!("test_{}_{}", safe_name, timestamp)
@@ -741,7 +772,9 @@ fn unique_database_name(test_name: &str) -> String {
 /// Create test client with its own isolated database
 /// Returns (client, database_name) tuple
 /// The client is already connected to the new database
-async fn create_isolated_test_client(test_name: &str) -> Result<(Client, String), Box<dyn std::error::Error>> {
+async fn create_isolated_test_client(
+    test_name: &str,
+) -> Result<(Client, String), Box<dyn std::error::Error>> {
     let db_name = unique_database_name(test_name);
 
     // Connect to default database first to create our test database
@@ -749,8 +782,9 @@ async fn create_isolated_test_client(test_name: &str) -> Result<(Client, String)
         ClientOptions::new("localhost", 9000)
             .database("default")
             .user("default")
-            .password("")
-    ).await?;
+            .password(""),
+    )
+    .await?;
 
     // Create unique database
     temp_client.query(format!("CREATE DATABASE {}", db_name)).await?;
@@ -760,8 +794,9 @@ async fn create_isolated_test_client(test_name: &str) -> Result<(Client, String)
         ClientOptions::new("localhost", 9000)
             .database(&db_name)
             .user("default")
-            .password("")
-    ).await?;
+            .password(""),
+    )
+    .await?;
 
     Ok((client, db_name))
 }
@@ -773,24 +808,34 @@ async fn cleanup_test_database(db_name: &str) {
         ClientOptions::new("localhost", 9000)
             .database("default")
             .user("default")
-            .password("")
-    ).await {
-        let _ = client.query(format!("DROP DATABASE IF EXISTS {}", db_name)).await;
+            .password(""),
+    )
+    .await
+    {
+        let _ =
+            client.query(format!("DROP DATABASE IF EXISTS {}", db_name)).await;
     }
 }
 
 // Helper function to setup test table with data (for isolated database tests)
-async fn setup_test_table(client: &mut Client, db_name: &str, table_name: &str) {
+async fn setup_test_table(
+    client: &mut Client,
+    db_name: &str,
+    table_name: &str,
+) {
     println!("[SETUP] Creating table: {}.{}", db_name, table_name);
 
-    let create_table_sql = format!(r#"
+    let create_table_sql = format!(
+        r#"
         CREATE TABLE {}.{} (
             name String,
             count UInt64,
             price Float64
         ) ENGINE = MergeTree()
         ORDER BY count
-    "#, db_name, table_name);
+    "#,
+        db_name, table_name
+    );
 
     client
         .query(create_table_sql.as_str())
@@ -798,18 +843,21 @@ async fn setup_test_table(client: &mut Client, db_name: &str, table_name: &str) 
         .expect("Failed to create table");
     println!("[SETUP] Table created");
 
-    let insert_sql = format!(r#"
+    let insert_sql = format!(
+        r#"
         INSERT INTO {}.{} (name, count, price) VALUES
         ('apple', 10, 1.50),
         ('banana', 25, 0.75),
         ('orange', 15, 2.00),
         ('grape', 30, 3.25),
         ('mango', 5, 2.50)
-    "#, db_name, table_name);
+    "#,
+        db_name, table_name
+    );
 
-    client
-        .query(insert_sql.as_str())
-        .await
-        .expect("Failed to insert data");
-    println!("[SETUP] Data inserted, setup complete for: {}.{}", db_name, table_name);
+    client.query(insert_sql.as_str()).await.expect("Failed to insert data");
+    println!(
+        "[SETUP] Data inserted, setup complete for: {}.{}",
+        db_name, table_name
+    );
 }

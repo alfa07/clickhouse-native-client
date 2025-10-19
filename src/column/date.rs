@@ -1,10 +1,14 @@
 //! Date and DateTime column implementations
 //!
 //! **ClickHouse Documentation:**
-//! - [Date](https://clickhouse.com/docs/en/sql-reference/data-types/date) - Days since 1970-01-01 (UInt16)
-//! - [Date32](https://clickhouse.com/docs/en/sql-reference/data-types/date32) - Extended range date (Int32)
-//! - [DateTime](https://clickhouse.com/docs/en/sql-reference/data-types/datetime) - Unix timestamp (UInt32)
-//! - [DateTime64](https://clickhouse.com/docs/en/sql-reference/data-types/datetime64) - High-precision timestamp (Int64)
+//! - [Date](https://clickhouse.com/docs/en/sql-reference/data-types/date) -
+//!   Days since 1970-01-01 (UInt16)
+//! - [Date32](https://clickhouse.com/docs/en/sql-reference/data-types/date32)
+//!   - Extended range date (Int32)
+//! - [DateTime](https://clickhouse.com/docs/en/sql-reference/data-types/datetime)
+//!   - Unix timestamp (UInt32)
+//! - [DateTime64](https://clickhouse.com/docs/en/sql-reference/data-types/datetime64)
+//!   - High-precision timestamp (Int64)
 //!
 //! ## Storage Details
 //!
@@ -21,12 +25,23 @@
 //! - `DateTime('UTC')` - Store as UTC timestamp
 //! - `DateTime('Europe/Moscow')` - Store with timezone info
 //!
-//! The timezone affects how values are displayed and interpreted, but storage is always in Unix time.
+//! The timezone affects how values are displayed and interpreted, but storage
+//! is always in Unix time.
 
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 const SECONDS_PER_DAY: i64 = 86400;
@@ -43,10 +58,7 @@ pub struct ColumnDate {
 
 impl ColumnDate {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_data(mut self, data: Vec<u16>) -> Self {
@@ -102,24 +114,30 @@ impl Column for ColumnDate {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnDate>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let other =
+            other.as_any().downcast_ref::<ColumnDate>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         self.data.extend_from_slice(&other.data);
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.len() < 2 {
-                return Err(Error::Protocol("Not enough data for Date".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for Date".to_string(),
+                ));
             }
             let value = buffer.get_u16_le();
             self.data.push(value);
@@ -173,10 +191,7 @@ pub struct ColumnDate32 {
 
 impl ColumnDate32 {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_data(mut self, data: Vec<i32>) -> Self {
@@ -232,24 +247,29 @@ impl Column for ColumnDate32 {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnDate32>()
-            .ok_or_else(|| Error::TypeMismatch {
+        let other = other.as_any().downcast_ref::<ColumnDate32>().ok_or_else(
+            || Error::TypeMismatch {
                 expected: self.type_.name(),
                 actual: other.column_type().name(),
-            })?;
+            },
+        )?;
 
         self.data.extend_from_slice(&other.data);
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.len() < 4 {
-                return Err(Error::Protocol("Not enough data for Date32".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for Date32".to_string(),
+                ));
             }
             let value = buffer.get_i32_le();
             self.data.push(value);
@@ -309,11 +329,7 @@ impl ColumnDateTime {
             _ => None,
         };
 
-        Self {
-            type_,
-            data: Vec::new(),
-            timezone,
-        }
+        Self { type_, data: Vec::new(), timezone }
     }
 
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
@@ -375,12 +391,18 @@ impl Column for ColumnDateTime {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.len() < 4 {
-                return Err(Error::Protocol("Not enough data for DateTime".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for DateTime".to_string(),
+                ));
             }
             let value = buffer.get_u32_le();
             self.data.push(value);
@@ -437,19 +459,13 @@ pub struct ColumnDateTime64 {
 impl ColumnDateTime64 {
     pub fn new(type_: Type) -> Self {
         let (precision, timezone) = match &type_ {
-            Type::DateTime64 {
-                precision,
-                timezone,
-            } => (*precision, timezone.clone()),
+            Type::DateTime64 { precision, timezone } => {
+                (*precision, timezone.clone())
+            }
             _ => panic!("ColumnDateTime64 requires DateTime64 type"),
         };
 
-        Self {
-            type_,
-            data: Vec::new(),
-            precision,
-            timezone,
-        }
+        Self { type_, data: Vec::new(), precision, timezone }
     }
 
     pub fn with_data(mut self, data: Vec<i64>) -> Self {
@@ -457,7 +473,8 @@ impl ColumnDateTime64 {
         self
     }
 
-    /// Append timestamp with precision (e.g., for precision 3, value is milliseconds)
+    /// Append timestamp with precision (e.g., for precision 3, value is
+    /// milliseconds)
     pub fn append(&mut self, value: i64) {
         self.data.push(value);
     }
@@ -523,7 +540,11 @@ impl Column for ColumnDateTime64 {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         self.data.reserve(rows);
 
         for _ in 0..rows {
@@ -626,7 +647,8 @@ mod tests {
 
     #[test]
     fn test_datetime_with_timezone() {
-        let mut col = ColumnDateTime::new(Type::datetime(Some("UTC".to_string())));
+        let mut col =
+            ColumnDateTime::new(Type::datetime(Some("UTC".to_string())));
         col.append(1640995200);
 
         assert_eq!(col.timezone(), Some("UTC"));

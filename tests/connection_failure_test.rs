@@ -1,7 +1,7 @@
 //! Connection Failure Tests
 //!
-//! These tests verify proper error handling for various connection failure scenarios.
-//! Based on C++ clickhouse-cpp connection_failed_client_test.cpp
+//! These tests verify proper error handling for various connection failure
+//! scenarios. Based on C++ clickhouse-cpp connection_failed_client_test.cpp
 //!
 //! ## Test Coverage
 //! - Invalid hostname
@@ -14,19 +14,24 @@
 //! - Database doesn't exist
 //!
 //! ## Running Tests
-//! These tests are designed to fail connection attempts, so they don't require a running server
-//! (except for auth failure tests).
+//! These tests are designed to fail connection attempts, so they don't require
+//! a running server (except for auth failure tests).
 //!
 //! ```bash
 //! cargo test --test connection_failure_test -- --nocapture
 //! ```
 
-use clickhouse_client::{Client, ClientOptions, ConnectionOptions};
+use clickhouse_client::{
+    Client,
+    ClientOptions,
+    ConnectionOptions,
+};
 use std::time::Duration;
 
 #[tokio::test]
 async fn test_connection_invalid_hostname() {
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
     let opts = ClientOptions::new("invalid.nonexistent.hostname.local", 9000)
         .database("default")
         .user("default")
@@ -51,7 +56,8 @@ async fn test_connection_invalid_hostname() {
 #[tokio::test]
 async fn test_connection_invalid_port() {
     // Port 1 is typically not accessible and definitely not ClickHouse
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
     let opts = ClientOptions::new("localhost", 1)
         .database("default")
         .user("default")
@@ -75,7 +81,8 @@ async fn test_connection_invalid_port() {
 async fn test_connection_timeout() {
     // Use a non-routable IP address (TEST-NET-1 from RFC 5737)
     // 192.0.2.0/24 is reserved for documentation and should not route
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(1));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(1));
     let opts = ClientOptions::new("192.0.2.1", 9000)
         .database("default")
         .user("default")
@@ -106,7 +113,8 @@ async fn test_connection_timeout() {
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_authentication_failure_wrong_user() {
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
     let opts = ClientOptions::new("localhost", 9000)
         .database("default")
         .user("nonexistent_user_12345")
@@ -128,10 +136,10 @@ async fn test_authentication_failure_wrong_user() {
 
         // Error should mention authentication or user
         assert!(
-            err_msg.contains("Authentication") ||
-            err_msg.contains("user") ||
-            err_msg.contains("password") ||
-            err_msg.contains("Exception"),
+            err_msg.contains("Authentication")
+                || err_msg.contains("user")
+                || err_msg.contains("password")
+                || err_msg.contains("Exception"),
             "Error should indicate authentication failure"
         );
     }
@@ -143,7 +151,8 @@ async fn test_authentication_failure_wrong_user() {
 #[ignore] // Requires running ClickHouse server
 async fn test_authentication_failure_wrong_password() {
     // Try to connect with default user but wrong password
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
     let opts = ClientOptions::new("localhost", 9000)
         .database("default")
         .user("default")
@@ -162,7 +171,9 @@ async fn test_authentication_failure_wrong_password() {
         }
         Ok(_) => {
             println!("Note: Connection succeeded - default user may not have password protection");
-            println!("✓ Wrong password test completed (server allows connection)");
+            println!(
+                "✓ Wrong password test completed (server allows connection)"
+            );
         }
     }
 }
@@ -170,7 +181,8 @@ async fn test_authentication_failure_wrong_password() {
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_database_does_not_exist() {
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
     let opts = ClientOptions::new("localhost", 9000)
         .database("nonexistent_database_xyz_12345")
         .user("default")
@@ -191,12 +203,15 @@ async fn test_database_does_not_exist() {
             println!("Connection succeeded, testing query...");
 
             // Try a simple query - this should fail
-            let query_result = client.query(clickhouse_client::Query::new("SELECT 1")).await;
+            let query_result =
+                client.query(clickhouse_client::Query::new("SELECT 1")).await;
 
             match query_result {
                 Err(e) => {
                     println!("Query failed (as expected): {}", e);
-                    println!("✓ Nonexistent database test passed (failed on query)");
+                    println!(
+                        "✓ Nonexistent database test passed (failed on query)"
+                    );
                 }
                 Ok(_) => {
                     println!(
@@ -211,7 +226,8 @@ async fn test_database_does_not_exist() {
 #[tokio::test]
 async fn test_connection_refused() {
     // Try connecting to a port that's definitely not listening
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
     let opts = ClientOptions::new("localhost", 19999)
         .database("default")
         .user("default")
@@ -242,7 +258,8 @@ async fn test_tls_handshake_failure_wrong_cert() {
         .skip_verification(false) // Force verification
         .ca_cert_path("/nonexistent/ca.pem"); // Invalid path
 
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(5));
     let opts = ClientOptions::new("localhost", 9440)
         .database("default")
         .user("default")
@@ -265,8 +282,10 @@ async fn test_tls_handshake_failure_wrong_cert() {
 
 #[tokio::test]
 async fn test_connection_with_very_short_timeout() {
-    // Even connecting to a valid service might fail with extremely short timeout
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_millis(1));
+    // Even connecting to a valid service might fail with extremely short
+    // timeout
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_millis(1));
     let opts = ClientOptions::new("localhost", 9000)
         .database("default")
         .user("default")
@@ -292,7 +311,8 @@ async fn test_connection_with_very_short_timeout() {
 #[tokio::test]
 async fn test_error_message_quality() {
     // Verify that error messages are informative
-    let conn_opts = ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
+    let conn_opts =
+        ConnectionOptions::default().connect_timeout(Duration::from_secs(2));
     let opts = ClientOptions::new("definitely.invalid.hostname.test", 9000)
         .database("default")
         .user("default")

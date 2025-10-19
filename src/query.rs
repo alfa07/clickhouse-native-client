@@ -1,8 +1,17 @@
-use crate::block::Block;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::{
+    block::Block,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
 
 /// Query settings
 pub type QuerySettings = HashMap<String, String>;
@@ -29,12 +38,7 @@ impl TracingContext {
 
     /// Create a tracing context with trace and span IDs
     pub fn with_ids(trace_id: u128, span_id: u64) -> Self {
-        Self {
-            trace_id,
-            span_id,
-            tracestate: String::new(),
-            trace_flags: 0,
-        }
+        Self { trace_id, span_id, tracestate: String::new(), trace_flags: 0 }
     }
 
     /// Set trace ID
@@ -129,7 +133,6 @@ impl From<String> for Query {
 }
 
 impl Query {
-
     /// Set the query ID
     pub fn with_query_id(mut self, query_id: impl Into<String>) -> Self {
         self.query_id = query_id.into();
@@ -137,13 +140,21 @@ impl Query {
     }
 
     /// Set a query setting
-    pub fn with_setting(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn with_setting(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
         self.settings.insert(key.into(), value.into());
         self
     }
 
     /// Set a query parameter
-    pub fn with_parameter(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn with_parameter(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
         self.parameters.insert(key.into(), value.into());
         self
     }
@@ -252,7 +263,9 @@ impl Query {
         self.on_profile.as_ref()
     }
 
-    pub(crate) fn get_on_profile_events(&self) -> Option<&ProfileEventsCallback> {
+    pub(crate) fn get_on_profile_events(
+        &self,
+    ) -> Option<&ProfileEventsCallback> {
         self.on_profile_events.as_ref()
     }
 
@@ -268,7 +281,9 @@ impl Query {
         self.on_data.as_ref()
     }
 
-    pub(crate) fn get_on_data_cancelable(&self) -> Option<&DataCancelableCallback> {
+    pub(crate) fn get_on_data_cancelable(
+        &self,
+    ) -> Option<&DataCancelableCallback> {
         self.on_data_cancelable.as_ref()
     }
 }
@@ -298,13 +313,14 @@ impl Default for ClientInfo {
             initial_user: String::new(),
             initial_query_id: String::new(),
             quota_key: String::new(),
-            os_user: std::env::var("USER").unwrap_or_else(|_| "default".to_string()),
+            os_user: std::env::var("USER")
+                .unwrap_or_else(|_| "default".to_string()),
             client_hostname: "localhost".to_string(),
             client_name: "clickhouse-rust".to_string(),
             client_version_major: 1,
             client_version_minor: 0,
             client_version_patch: 0,
-            client_revision: 54459, // DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS
+            client_revision: 54459, /* DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS */
         }
     }
 }
@@ -415,11 +431,8 @@ impl ServerInfo {
             String::new()
         };
 
-        let version_patch = if revision >= 54401 {
-            read_varint(buffer)?
-        } else {
-            0
-        };
+        let version_patch =
+            if revision >= 54401 { read_varint(buffer)? } else { 0 };
 
         Ok(Self {
             name,
@@ -465,7 +478,11 @@ pub type DataCancelableCallback = Arc<dyn Fn(&Block) -> bool + Send + Sync>;
 
 impl Progress {
     /// Serialize to buffer
-    pub fn write_to(&self, buffer: &mut BytesMut, server_revision: u64) -> Result<()> {
+    pub fn write_to(
+        &self,
+        buffer: &mut BytesMut,
+        server_revision: u64,
+    ) -> Result<()> {
         write_varint(buffer, self.rows);
         write_varint(buffer, self.bytes);
         write_varint(buffer, self.total_rows);
@@ -479,7 +496,10 @@ impl Progress {
     }
 
     /// Deserialize from buffer
-    pub fn read_from(buffer: &mut &[u8], server_revision: u64) -> Result<Self> {
+    pub fn read_from(
+        buffer: &mut &[u8],
+        server_revision: u64,
+    ) -> Result<Self> {
         let rows = read_varint(buffer)?;
         let bytes = read_varint(buffer)?;
         let total_rows = read_varint(buffer)?;
@@ -490,13 +510,7 @@ impl Progress {
             (0, 0)
         };
 
-        Ok(Self {
-            rows,
-            bytes,
-            total_rows,
-            written_rows,
-            written_bytes,
-        })
+        Ok(Self { rows, bytes, total_rows, written_rows, written_bytes })
     }
 }
 
@@ -599,13 +613,7 @@ impl Exception {
             None
         };
 
-        Ok(Self {
-            code,
-            name,
-            display_text,
-            stack_trace,
-            nested,
-        })
+        Ok(Self { code, name, display_text, stack_trace, nested })
     }
 }
 
@@ -668,8 +676,9 @@ fn read_string(buffer: &mut &[u8]) -> Result<String> {
     }
 
     let string_data = &buffer[..len];
-    let s = String::from_utf8(string_data.to_vec())
-        .map_err(|e| Error::Protocol(format!("Invalid UTF-8 in string: {}", e)))?;
+    let s = String::from_utf8(string_data.to_vec()).map_err(|e| {
+        Error::Protocol(format!("Invalid UTF-8 in string: {}", e))
+    })?;
 
     buffer.advance(len);
     Ok(s)
@@ -705,7 +714,10 @@ mod tests {
             .with_setting("max_memory_usage", "10000000");
 
         assert_eq!(query.settings().len(), 2);
-        assert_eq!(query.settings().get("max_threads"), Some(&"4".to_string()));
+        assert_eq!(
+            query.settings().get("max_threads"),
+            Some(&"4".to_string())
+        );
     }
 
     #[test]
