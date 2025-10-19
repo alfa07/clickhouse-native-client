@@ -1,7 +1,11 @@
 use crate::{
-    column::{Column, ColumnRef},
+    column::{
+        Column,
+        ColumnRef,
+    },
     types::Type,
-    Error, Result,
+    Error,
+    Result,
 };
 use std::sync::Arc;
 
@@ -215,7 +219,10 @@ impl<'a> IntoIterator for &'a Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{column::numeric::ColumnUInt64, types::Type};
+    use crate::{
+        column::numeric::ColumnUInt64,
+        types::Type,
+    };
     use std::sync::Arc;
 
     #[test]
