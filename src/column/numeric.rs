@@ -199,17 +199,46 @@ impl<T: FixedSize> Column for ColumnVector<T> {
     }
 
     fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
-        self.data.reserve(rows);
-        for _ in 0..rows {
-            let value = T::read_from(buffer)?;
-            self.data.push(value);
+        // Optimize: Use bulk read instead of loop for massive performance gain
+        // C++ does: WireFormat::ReadBytes(*input, data_.data(), rows * sizeof(T))
+        let bytes_needed = rows * std::mem::size_of::<T>();
+
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
+
+        // Pre-allocate and read directly into Vec's memory
+        self.data.clear();
+        self.data.reserve(rows);
+
+        unsafe {
+            // Read bytes directly into Vec's uninitialized memory
+            let dest_ptr = self.data.as_mut_ptr() as *mut u8;
+            std::ptr::copy_nonoverlapping(buffer.as_ptr(), dest_ptr, bytes_needed);
+            self.data.set_len(rows);
+        }
+
+        // Advance buffer
+        *buffer = &buffer[bytes_needed..];
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for value in &self.data {
-            value.write_to(buffer);
+        // Optimize: Use bulk write instead of loop for massive performance gain
+        // C++ does: WireFormat::WriteBytes(*output, data_.data(), data_.size() * sizeof(T))
+        // This achieves the same with extend_from_slice on the raw bytes
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * std::mem::size_of::<T>(),
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }
