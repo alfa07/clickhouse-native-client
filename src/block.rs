@@ -1,9 +1,7 @@
-use crate::{
-    column::ColumnRef,
-    types::Type,
-    Error,
-    Result,
-};
+use crate::column::ColumnRef;
+use crate::types::Type;
+use crate::{Error, Result};
+use std::sync::Arc;
 
 /// Block metadata
 #[derive(Debug, Clone, Default)]
@@ -104,20 +102,18 @@ impl Block {
 
     /// Clear all data from all columns
     pub fn clear(&mut self) {
-        for _item in &self.columns {
-            // We can't modify through Arc, so this is a limitation
-            // In practice, we'd need interior mutability or a different design
-            // For now, we'll just reset the block
-        }
+        // Clear by removing all columns from the block
         self.columns.clear();
         self.rows = 0;
     }
 
     /// Reserve capacity in all columns
-    pub fn reserve(&mut self, _new_cap: usize) {
-        for _item in &self.columns {
-            // Same limitation as clear() - can't modify through Arc
-            // This would need a different design with RefCell or similar
+    pub fn reserve(&mut self, new_cap: usize) {
+        for item in &mut self.columns {
+            // Must panic if can't reserve to prevent inconsistent state
+            Arc::get_mut(&mut item.column)
+                .expect("Cannot reserve on shared column - column has multiple references")
+                .reserve(new_cap);
         }
     }
 
