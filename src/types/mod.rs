@@ -263,6 +263,58 @@ impl Type {
         }
     }
 
+    /// Returns the storage size in bytes for fixed-size types
+    ///
+    /// This is used for calculating buffer sizes when reading/writing
+    /// uncompressed column data. Returns `None` for variable-length types.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use clickhouse_client::types::Type;
+    ///
+    /// assert_eq!(Type::uint32().storage_size_bytes(), Some(4));
+    /// assert_eq!(Type::uint64().storage_size_bytes(), Some(8));
+    /// assert_eq!(Type::fixed_string(10).storage_size_bytes(), Some(10));
+    /// assert_eq!(Type::string().storage_size_bytes(), None); // Variable length
+    /// ```
+    pub fn storage_size_bytes(&self) -> Option<usize> {
+        match self {
+            Type::Simple(code) => match code {
+                TypeCode::Int8 | TypeCode::UInt8 => Some(1),
+                TypeCode::Int16 | TypeCode::UInt16 => Some(2),
+                TypeCode::Int32 | TypeCode::UInt32 | TypeCode::Float32 => Some(4),
+                TypeCode::Int64 | TypeCode::UInt64 | TypeCode::Float64 => Some(8),
+                TypeCode::Int128 | TypeCode::UInt128 | TypeCode::UUID => Some(16),
+                TypeCode::Date => Some(2),   // UInt16
+                TypeCode::Date32 => Some(4), // Int32
+                TypeCode::IPv4 => Some(4),
+                TypeCode::IPv6 => Some(16),
+                TypeCode::Point => Some(16), // 2x Float64
+                TypeCode::String => None,    // Variable length
+                _ => None,
+            },
+            Type::FixedString { size } => Some(*size),
+            Type::DateTime { .. } => Some(4),  // UInt32 timestamp
+            Type::DateTime64 { .. } => Some(8), // Int64 timestamp
+            Type::Enum8 { .. } => Some(1),      // Stored as Int8
+            Type::Enum16 { .. } => Some(2),     // Stored as Int16
+            Type::Decimal { precision, .. } => {
+                // Decimal storage depends on precision
+                if *precision <= 9 {
+                    Some(4) // Decimal32
+                } else if *precision <= 18 {
+                    Some(8) // Decimal64
+                } else {
+                    Some(16) // Decimal128
+                }
+            }
+            // Complex types don't have fixed storage size
+            Type::Array { .. } | Type::Nullable { .. } | Type::Tuple { .. } |
+            Type::LowCardinality { .. } | Type::Map { .. } => None,
+        }
+    }
+
     // Factory methods for simple types
     pub fn int8() -> Self {
         Type::Simple(TypeCode::Int8)

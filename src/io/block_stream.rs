@@ -341,87 +341,21 @@ impl BlockReader {
     ) -> Result<()> {
         use crate::types::TypeCode;
 
+        // Try to use the storage_size_bytes helper for fixed-size types
+        if let Some(size_per_row) = type_.storage_size_bytes() {
+            // Fixed-size type - read all rows at once
+            let _ = conn.read_bytes(num_rows * size_per_row).await?;
+            return Ok(());
+        }
+
+        // Handle variable-length and complex types
         match type_ {
-            Type::Simple(code) => {
-                match code {
-                    // Fixed-size numeric types - read all bytes at once
-                    TypeCode::UInt8 | TypeCode::Int8 => {
-                        let _ = conn.read_bytes(num_rows).await?;
-                    }
-                    TypeCode::UInt16 | TypeCode::Int16 | TypeCode::Date => {
-                        let _ = conn.read_bytes(num_rows * 2).await?;
-                    }
-                    TypeCode::UInt32
-                    | TypeCode::Int32
-                    | TypeCode::Float32
-                    | TypeCode::Date32 => {
-                        let _ = conn.read_bytes(num_rows * 4).await?;
-                    }
-                    TypeCode::UInt64 | TypeCode::Int64 | TypeCode::Float64 => {
-                        let _ = conn.read_bytes(num_rows * 8).await?;
-                    }
-                    TypeCode::UInt128 | TypeCode::Int128 => {
-                        let _ = conn.read_bytes(num_rows * 16).await?;
-                    }
-                    // String - variable length, read each string
-                    TypeCode::String => {
-                        for _ in 0..num_rows {
-                            let len = conn.read_varint().await? as usize;
-                            let _ = conn.read_bytes(len).await?;
-                        }
-                    }
-                    // Void/Nothing - skip bytes (1 byte per row)
-                    TypeCode::Void => {
-                        let _ = conn.read_bytes(num_rows).await?;
-                    }
-                    // UUID, IPv4, IPv6
-                    TypeCode::UUID => {
-                        let _ = conn.read_bytes(num_rows * 16).await?;
-                    }
-                    TypeCode::IPv4 => {
-                        let _ = conn.read_bytes(num_rows * 4).await?;
-                    }
-                    TypeCode::IPv6 => {
-                        let _ = conn.read_bytes(num_rows * 16).await?;
-                    }
-                    _ => {
-                        return Err(Error::Protocol(format!(
-                            "Uncompressed reading not implemented for type: {}",
-                            type_.name()
-                        )));
-                    }
+            Type::Simple(TypeCode::String) => {
+                // String - variable length, read each string
+                for _ in 0..num_rows {
+                    let len = conn.read_varint().await? as usize;
+                    let _ = conn.read_bytes(len).await?;
                 }
-            }
-            Type::FixedString { size } => {
-                // FixedString - read fixed bytes per row
-                let _ = conn.read_bytes(num_rows * size).await?;
-            }
-            Type::DateTime { .. } => {
-                // DateTime is stored as UInt32 (4 bytes)
-                let _ = conn.read_bytes(num_rows * 4).await?;
-            }
-            Type::DateTime64 { .. } => {
-                // DateTime64 is stored as Int64 (8 bytes)
-                let _ = conn.read_bytes(num_rows * 8).await?;
-            }
-            Type::Enum8 { .. } => {
-                // Enum8 is stored as Int8 (1 byte)
-                let _ = conn.read_bytes(num_rows).await?;
-            }
-            Type::Enum16 { .. } => {
-                // Enum16 is stored as Int16 (2 bytes)
-                let _ = conn.read_bytes(num_rows * 2).await?;
-            }
-            Type::Decimal { precision, .. } => {
-                // Decimal storage size depends on precision
-                let bytes_per_value = if *precision <= 9 {
-                    4 // Decimal32
-                } else if *precision <= 18 {
-                    8 // Decimal64
-                } else {
-                    16 // Decimal128
-                };
-                let _ = conn.read_bytes(num_rows * bytes_per_value).await?;
             }
             Type::Nullable { nested_type } => {
                 // Read null mask first (one byte per row)
