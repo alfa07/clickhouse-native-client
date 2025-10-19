@@ -64,17 +64,17 @@ impl Column for ColumnTuple {
 
     fn clear(&mut self) {
         for col in &mut self.columns {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.clear();
-            }
+            let col_mut = Arc::get_mut(col)
+                .expect("Cannot clear shared tuple column - column has multiple references");
+            col_mut.clear();
         }
     }
 
     fn reserve(&mut self, new_cap: usize) {
         for col in &mut self.columns {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.reserve(new_cap);
-            }
+            let col_mut = Arc::get_mut(col)
+                .expect("Cannot reserve on shared tuple column - column has multiple references");
+            col_mut.reserve(new_cap);
         }
     }
 
@@ -95,9 +95,11 @@ impl Column for ColumnTuple {
         }
 
         for (i, col) in self.columns.iter_mut().enumerate() {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.append_column(other.columns[i].clone())?;
-            }
+            let col_mut = Arc::get_mut(col)
+                .ok_or_else(|| Error::Protocol(
+                    "Cannot append to shared tuple column - column has multiple references".to_string()
+                ))?;
+            col_mut.append_column(other.columns[i].clone())?;
         }
 
         Ok(())
@@ -109,9 +111,11 @@ impl Column for ColumnTuple {
         rows: usize,
     ) -> Result<()> {
         for col in &mut self.columns {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.load_from_buffer(buffer, rows)?;
-            }
+            let col_mut = Arc::get_mut(col)
+                .ok_or_else(|| Error::Protocol(
+                    "Cannot load into shared tuple column - column has multiple references".to_string()
+                ))?;
+            col_mut.load_from_buffer(buffer, rows)?;
         }
         Ok(())
     }
