@@ -22,8 +22,8 @@ const CHECKSUM_SIZE: usize = 16;
 #[repr(u8)]
 enum CompressionMethodByte {
     None = 0x02,
-    LZ4 = 0x82,
-    ZSTD = 0x90,
+    Lz4 = 0x82,
+    Zstd = 0x90,
 }
 
 /// Maximum compressed block size (1GB)
@@ -36,8 +36,8 @@ pub fn compress(method: CompressionMethod, data: &[u8]) -> Result<Bytes> {
             // No compression, but still add header
             compress_none(data)
         }
-        CompressionMethod::LZ4 => compress_lz4(data),
-        CompressionMethod::ZSTD => compress_zstd(data),
+        CompressionMethod::Lz4 => compress_lz4(data),
+        CompressionMethod::Zstd => compress_zstd(data),
     }
 }
 
@@ -120,7 +120,7 @@ fn compress_lz4(data: &[u8]) -> Result<Bytes> {
         BytesMut::with_capacity(HEADER_SIZE + compressed_size);
 
     // Write header
-    header_and_data.put_u8(CompressionMethodByte::LZ4 as u8);
+    header_and_data.put_u8(CompressionMethodByte::Lz4 as u8);
     header_and_data.put_u32_le((HEADER_SIZE + compressed_size) as u32); // Total size including header
     header_and_data.put_u32_le(data.len() as u32); // Uncompressed size
 
@@ -170,7 +170,7 @@ fn compress_zstd(data: &[u8]) -> Result<Bytes> {
         BytesMut::with_capacity(HEADER_SIZE + compressed.len());
 
     // Write header
-    header_and_data.put_u8(CompressionMethodByte::ZSTD as u8);
+    header_and_data.put_u8(CompressionMethodByte::Zstd as u8);
     header_and_data.put_u32_le((HEADER_SIZE + compressed.len()) as u32); // Total size including header
     header_and_data.put_u32_le(data.len() as u32); // Uncompressed size
 
@@ -254,7 +254,7 @@ mod tests {
     fn test_compress_decompress_lz4() {
         let original = b"Hello, ClickHouse! ".repeat(100);
 
-        let compressed = compress(CompressionMethod::LZ4, &original).unwrap();
+        let compressed = compress(CompressionMethod::Lz4, &original).unwrap();
         let decompressed = decompress(&compressed).unwrap();
 
         assert_eq!(&decompressed[..], &original[..]);
@@ -269,7 +269,7 @@ mod tests {
             b"ClickHouse is a fast open-source column-oriented database"
                 .repeat(50);
 
-        let compressed = compress(CompressionMethod::ZSTD, &original).unwrap();
+        let compressed = compress(CompressionMethod::Zstd, &original).unwrap();
         let decompressed = decompress(&compressed).unwrap();
 
         assert_eq!(&decompressed[..], &original[..]);
@@ -283,7 +283,7 @@ mod tests {
         let original = b"";
 
         // Should work with empty data
-        let compressed = compress(CompressionMethod::LZ4, original).unwrap();
+        let compressed = compress(CompressionMethod::Lz4, original).unwrap();
         let decompressed = decompress(&compressed).unwrap();
 
         assert_eq!(&decompressed[..], original);
@@ -294,7 +294,7 @@ mod tests {
         // Test with larger data
         let original = vec![42u8; 100_000];
 
-        let compressed = compress(CompressionMethod::LZ4, &original).unwrap();
+        let compressed = compress(CompressionMethod::Lz4, &original).unwrap();
         let decompressed = decompress(&compressed).unwrap();
 
         assert_eq!(&decompressed[..], &original[..]);

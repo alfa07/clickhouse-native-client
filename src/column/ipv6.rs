@@ -263,22 +263,22 @@ fn format_ipv6(bytes: &[u8; 16]) -> String {
         let mut result = String::new();
 
         // Add groups before compression
-        for i in 0..start {
+        for (i, &group) in groups.iter().enumerate().take(start) {
             if i > 0 {
                 result.push(':');
             }
-            result.push_str(&format!("{:x}", groups[i]));
+            result.push_str(&format!("{:x}", group));
         }
 
         // Add compression marker
         result.push_str("::");
 
         // Add groups after compression
-        for i in end..8 {
+        for (i, &group) in groups.iter().enumerate().skip(end) {
             if i > end {
                 result.push(':');
             }
-            result.push_str(&format!("{:x}", groups[i]));
+            result.push_str(&format!("{:x}", group));
         }
 
         result

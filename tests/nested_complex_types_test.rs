@@ -17,9 +17,6 @@
 //!    --nocapture`
 
 use clickhouse_client::{
-    column::*,
-    types::Type,
-    Block,
     Client,
     ClientOptions,
     Query,
@@ -117,7 +114,7 @@ async fn test_array_lowcardinality_nullable_string() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client.query("DROP TABLE IF EXISTS test_array_lc_nullable_string").await;
+    let _ = client.query("DROP TABLE IF EXISTS test_array_lc_nullable_string").await;
 
     client
         .query(
@@ -181,8 +178,7 @@ async fn test_array_array_lowcardinality_uint64() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ =
-        client.query("DROP TABLE IF EXISTS test_array_array_lc_uint64").await;
+    let _ = client.query("DROP TABLE IF EXISTS test_array_array_lc_uint64").await;
 
     // ClickHouse 25.5+ prohibits LowCardinality on numeric types by default
     // due to performance impact. Enable it for this test.
@@ -256,7 +252,7 @@ async fn test_nullable_array_lowcardinality_string() {
             .await
             .expect("Failed to connect to ClickHouse");
 
-        client.query("DROP TABLE IF EXISTS test_nullable_array_lc").await;
+        let _ = client.query("DROP TABLE IF EXISTS test_nullable_array_lc").await;
 
         client
             .query(
@@ -325,7 +321,7 @@ async fn test_array_array_array_uint64() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client.query("DROP TABLE IF EXISTS test_array3_uint64").await;
+    let _ = client.query("DROP TABLE IF EXISTS test_array3_uint64").await;
 
     client
         .query(
@@ -384,7 +380,7 @@ async fn test_array_array_array_array_string() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client.query("DROP TABLE IF EXISTS test_array4_string").await;
+    let _ = client.query("DROP TABLE IF EXISTS test_array4_string").await;
 
     client
         .query(
@@ -451,7 +447,7 @@ async fn test_nullable_array_nullable_string() {
             .await
             .expect("Failed to connect to ClickHouse");
 
-        client
+        let _ = client
             .query("DROP TABLE IF EXISTS test_nullable_array_nullable")
             .await;
 
@@ -514,7 +510,7 @@ async fn test_array_empty_elements() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client.query("DROP TABLE IF EXISTS test_array_empty").await;
+    let _ = client.query("DROP TABLE IF EXISTS test_array_empty").await;
 
     client
         .query(
@@ -576,7 +572,7 @@ async fn test_lowcardinality_string_roundtrip() {
             .await
             .expect("Failed to connect to ClickHouse");
 
-        client.query("DROP TABLE IF EXISTS test_lc_roundtrip").await;
+        let _ = client.query("DROP TABLE IF EXISTS test_lc_roundtrip").await;
 
         client
             .query(
@@ -640,7 +636,7 @@ async fn test_tuple_with_array_lowcardinality() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client.query("DROP TABLE IF EXISTS test_tuple_array_lc").await;
+    let _ = client.query("DROP TABLE IF EXISTS test_tuple_array_lc").await;
 
     client
         .query(

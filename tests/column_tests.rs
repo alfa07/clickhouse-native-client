@@ -105,12 +105,12 @@ fn test_int64_column() {
 fn test_float_column() {
     let mut col = ColumnFloat32::new(Type::float32());
 
-    col.append(3.14);
+    col.append(std::f32::consts::PI);
     col.append(-2.71);
     col.append(0.0);
 
     assert_eq!(col.len(), 3);
-    assert!((col.at(0) - 3.14).abs() < 0.001);
+    assert!((col.at(0) - std::f32::consts::PI).abs() < 0.001);
     assert!((col.at(1) - (-2.71)).abs() < 0.001);
     assert_eq!(col.at(2), 0.0);
 }
@@ -291,23 +291,23 @@ fn test_nullable_with_nulls() {
     assert_eq!(col.len(), 5);
 
     // Check values
-    assert_eq!(col.is_null_at(0), false);
+    assert!(!col.is_null_at(0));
     assert_eq!(
         col.at(0).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(0),
         42
     );
 
-    assert_eq!(col.is_null_at(1), true);
+    assert!(col.is_null_at(1));
 
-    assert_eq!(col.is_null_at(2), false);
+    assert!(!col.is_null_at(2));
     assert_eq!(
         col.at(2).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(2),
         100
     );
 
-    assert_eq!(col.is_null_at(3), true);
+    assert!(col.is_null_at(3));
 
-    assert_eq!(col.is_null_at(4), false);
+    assert!(!col.is_null_at(4));
     assert_eq!(
         col.at(4).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(4),
         255
@@ -324,8 +324,8 @@ fn test_nullable_all_non_null() {
     col.append_nullable(Some(456));
 
     assert_eq!(col.len(), 2);
-    assert_eq!(col.is_null_at(0), false);
-    assert_eq!(col.is_null_at(1), false);
+    assert!(!col.is_null_at(0));
+    assert!(!col.is_null_at(1));
 }
 
 // ============================================================================

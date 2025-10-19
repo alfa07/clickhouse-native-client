@@ -232,7 +232,7 @@ mod tls_tests {
 
         // Test ping multiple times
         for i in 1..=5 {
-            client.ping().await.expect(&format!("Ping {} failed over TLS", i));
+            client.ping().await.unwrap_or_else(|_| panic!("Ping {} failed over TLS", i));
             println!("✓ Ping {} successful over TLS", i);
         }
     }
@@ -245,7 +245,7 @@ mod tls_tests {
             .expect("Failed to connect for multiple query test");
 
         // Execute multiple queries in sequence
-        let queries = vec![
+        let queries = [
             "SELECT 1",
             "SELECT 'Hello' AS message",
             "SELECT number FROM system.numbers LIMIT 5",
@@ -256,7 +256,7 @@ mod tls_tests {
             let result = client
                 .query(*query_str)
                 .await
-                .expect(&format!("Query {} failed over TLS", i + 1));
+                .unwrap_or_else(|_| panic!("Query {} failed over TLS", i + 1));
 
             println!(
                 "✓ Query {} returned {} rows over TLS",

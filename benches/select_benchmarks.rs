@@ -13,6 +13,8 @@
 //! 1. ClickHouse server running on localhost:9000
 //! 2. Run with: `cargo bench --bench select_benchmarks`
 
+#![allow(clippy::await_holding_refcell_ref)]
+
 use clickhouse_client::{
     Client,
     ClientOptions,
@@ -57,11 +59,13 @@ fn select_number(c: &mut Criterion) {
         b.to_async(&rt).iter(move || {
             let client = client.clone();
             async move {
-                let mut client = client.borrow_mut();
-                let result = client
-                    .query("SELECT number, number, number FROM system.numbers LIMIT 1000")
-                    .await
-                    .expect("Query failed");
+                let result = {
+                    let mut client = client.borrow_mut();
+                    client
+                        .query("SELECT number, number, number FROM system.numbers LIMIT 1000")
+                        .await
+                        .expect("Query failed")
+                };
 
                 // Force evaluation (match C++ block.GetRowCount())
                 black_box(result.total_rows())
@@ -90,16 +94,18 @@ fn select_number_more_columns(c: &mut Criterion) {
         b.to_async(&rt).iter(move || {
             let client = client.clone();
             async move {
-                let mut client = client.borrow_mut();
-                let result = client
-                    .query(
-                        "SELECT \
-                        number, number, number, number, number, \
-                        number, number, number, number, number \
-                        FROM system.numbers LIMIT 100",
-                    )
-                    .await
-                    .expect("Query failed");
+                let result = {
+                    let mut client = client.borrow_mut();
+                    client
+                        .query(
+                            "SELECT \
+                            number, number, number, number, number, \
+                            number, number, number, number, number \
+                            FROM system.numbers LIMIT 100",
+                        )
+                        .await
+                        .expect("Query failed")
+                };
 
                 // Force evaluation
                 black_box(result.total_rows())
@@ -127,11 +133,13 @@ fn select_large_result(c: &mut Criterion) {
         b.to_async(&rt).iter(move || {
             let client = client.clone();
             async move {
-                let mut client = client.borrow_mut();
-                let result = client
-                    .query("SELECT number FROM system.numbers LIMIT 10000")
-                    .await
-                    .expect("Query failed");
+                let result = {
+                    let mut client = client.borrow_mut();
+                    client
+                        .query("SELECT number FROM system.numbers LIMIT 10000")
+                        .await
+                        .expect("Query failed")
+                };
 
                 black_box(result.total_rows())
             }

@@ -16,7 +16,6 @@
 //!    --nocapture`
 
 use clickhouse_client::{
-    Block,
     Client,
     ClientOptions,
     Query,
@@ -89,7 +88,7 @@ async fn test_column_name_with_dot() {
     println!("✓ Column name with dot test passed");
 
     // Cleanup
-    client.query("DROP TABLE test_col_dot").await;
+    let _ = client.query("DROP TABLE test_col_dot").await;
 }
 
 #[tokio::test]
@@ -129,7 +128,7 @@ async fn test_column_name_with_hyphen() {
     assert_eq!(total_rows, 1);
     println!("✓ Column name with hyphen test passed");
 
-    client.query("DROP TABLE test_col_hyphen").await;
+    let _ = client.query("DROP TABLE test_col_hyphen").await;
 }
 
 #[tokio::test]
@@ -170,7 +169,7 @@ async fn test_column_name_with_space() {
     assert_eq!(total_rows, 1);
     println!("✓ Column name with spaces test passed");
 
-    client.query("DROP TABLE test_col_space").await;
+    let _ = client.query("DROP TABLE test_col_space").await;
 }
 
 // ============================================================================
@@ -214,7 +213,7 @@ async fn test_column_name_reserved_select() {
     assert_eq!(total_rows, 1);
     println!("✓ Reserved keyword 'select' as column name test passed");
 
-    client.query("DROP TABLE test_col_select").await;
+    let _ = client.query("DROP TABLE test_col_select").await;
 }
 
 #[tokio::test]
@@ -254,7 +253,7 @@ async fn test_column_name_reserved_where() {
     assert_eq!(total_rows, 1);
     println!("✓ Multiple reserved keywords as column names test passed");
 
-    client.query("DROP TABLE test_col_where").await;
+    let _ = client.query("DROP TABLE test_col_where").await;
 }
 
 // ============================================================================
@@ -307,7 +306,7 @@ async fn test_column_name_unicode_chinese() {
     assert_eq!(total_rows, 1);
     println!("✓ Unicode (Chinese) column names test passed");
 
-    client.query("DROP TABLE test_col_unicode_cn").await;
+    let _ = client.query("DROP TABLE test_col_unicode_cn").await;
 }
 
 #[tokio::test]
@@ -349,7 +348,7 @@ async fn test_column_name_unicode_russian() {
     assert_eq!(total_rows, 1);
     println!("✓ Unicode (Russian) column names test passed");
 
-    client.query("DROP TABLE test_col_unicode_ru").await;
+    let _ = client.query("DROP TABLE test_col_unicode_ru").await;
 }
 
 #[tokio::test]
@@ -391,7 +390,7 @@ async fn test_column_name_unicode_emoji() {
     assert_eq!(total_rows, 1);
     println!("✓ Emoji in column names test passed");
 
-    client.query("DROP TABLE test_col_emoji").await;
+    let _ = client.query("DROP TABLE test_col_emoji").await;
 }
 
 // ============================================================================
@@ -441,7 +440,7 @@ async fn test_column_name_very_long() {
     assert_eq!(total_rows, 1);
     println!("✓ Very long column name test passed");
 
-    client.query("DROP TABLE test_col_long").await;
+    let _ = client.query("DROP TABLE test_col_long").await;
 }
 
 // ============================================================================
@@ -535,7 +534,7 @@ async fn test_column_name_mixed_special_chars() {
     assert_eq!(total_rows, 1);
     println!("✓ Mixed special characters column names test passed");
 
-    client.query("DROP TABLE test_col_mixed").await;
+    let _ = client.query("DROP TABLE test_col_mixed").await;
 }
 
 // ============================================================================
@@ -579,5 +578,5 @@ async fn test_column_name_numeric() {
     assert_eq!(total_rows, 1);
     println!("✓ Numeric column names test passed");
 
-    client.query("DROP TABLE test_col_numeric").await;
+    let _ = client.query("DROP TABLE test_col_numeric").await;
 }

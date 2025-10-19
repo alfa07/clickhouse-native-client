@@ -71,7 +71,7 @@ async fn test_client_with_compression_lz4() {
         .database("default")
         .user("default")
         .password("")
-        .compression(Some(CompressionMethod::LZ4));
+        .compression(Some(CompressionMethod::Lz4));
 
     let mut client = Client::connect(opts).await.expect("Failed to connect");
 

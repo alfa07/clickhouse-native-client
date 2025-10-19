@@ -88,7 +88,7 @@ impl Default for ClientOptions {
             database: "default".to_string(),
             user: "default".to_string(),
             password: String::new(),
-            compression: Some(CompressionMethod::LZ4),
+            compression: Some(CompressionMethod::Lz4),
             max_compression_chunk_size: 65535,
             client_info: ClientInfo::default(),
             connection_options: ConnectionOptions::default(),
@@ -258,7 +258,7 @@ impl Client {
                     // Use server name from SSL options if provided, otherwise
                     // use host
                     let server_name =
-                        ssl_opts.server_name.as_ref().map(|s| s.as_str()).or(
+                        ssl_opts.server_name.as_deref().or(
                             if ssl_opts.use_sni { Some(host) } else { None },
                         );
 

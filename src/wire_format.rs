@@ -371,7 +371,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fixed_float() {
-        let value = 3.14159f32;
+        let value = std::f32::consts::PI;
         let mut buf = Vec::new();
         WireFormat::write_fixed(&mut buf, value).await.unwrap();
 

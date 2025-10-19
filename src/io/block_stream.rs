@@ -345,7 +345,7 @@ impl BlockReader {
                 match code {
                     // Fixed-size numeric types - read all bytes at once
                     TypeCode::UInt8 | TypeCode::Int8 => {
-                        let _ = conn.read_bytes(num_rows * 1).await?;
+                        let _ = conn.read_bytes(num_rows).await?;
                     }
                     TypeCode::UInt16 | TypeCode::Int16 | TypeCode::Date => {
                         let _ = conn.read_bytes(num_rows * 2).await?;
@@ -405,7 +405,7 @@ impl BlockReader {
             }
             Type::Enum8 { .. } => {
                 // Enum8 is stored as Int8 (1 byte)
-                let _ = conn.read_bytes(num_rows * 1).await?;
+                let _ = conn.read_bytes(num_rows).await?;
             }
             Type::Enum16 { .. } => {
                 // Enum16 is stored as Int16 (2 bytes)
