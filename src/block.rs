@@ -1,11 +1,7 @@
 use crate::{
-    column::{
-        Column,
-        ColumnRef,
-    },
+    column::{Column, ColumnRef},
     types::Type,
-    Error,
-    Result,
+    Error, Result,
 };
 use std::sync::Arc;
 
@@ -216,31 +212,10 @@ impl<'a> IntoIterator for &'a Block {
     }
 }
 
-// Index access
-impl std::ops::Index<usize> for Block {
-    type Output = ColumnRef;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        if index >= self.columns.len() {
-            panic!(
-                "Column index out of range: {} >= {}",
-                index,
-                self.columns.len()
-            );
-        }
-        // We need to return a reference, but we have Arc
-        // This is a design limitation - we'll need to restructure
-        panic!("Index access not yet supported for Block - use column() method instead");
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        column::numeric::ColumnUInt64,
-        types::Type,
-    };
+    use crate::{column::numeric::ColumnUInt64, types::Type};
     use std::sync::Arc;
 
     #[test]
