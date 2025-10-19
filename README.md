@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/alfa07/clickhouse-native-client/workflows/CI/badge.svg)](https://github.com/alfa07/clickhouse-native-client/actions)
 
+🤡 ⚠️ **Do not use in production! This is me clowning around with Claude Code**
+
 A native Rust client for ClickHouse database, converted from the C++ clickhouse-cpp library.
 
 ## Features
