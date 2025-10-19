@@ -1,6 +1,65 @@
+//! # ClickHouse Type System
+//!
+//! This module implements the ClickHouse type system for the native TCP protocol.
+//!
+//! ## ClickHouse Documentation References
+//!
+//! ### Numeric Types
+//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint) - Int8/16/32/64/128, UInt8/16/32/64/128
+//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float) - Float32, Float64
+//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal) - Decimal, Decimal32/64/128
+//!
+//! ### String Types
+//! - [String](https://clickhouse.com/docs/en/sql-reference/data-types/string) - Variable-length strings
+//! - [FixedString](https://clickhouse.com/docs/en/sql-reference/data-types/fixedstring) - Fixed-length binary strings
+//!
+//! ### Date and Time Types
+//! - [Date](https://clickhouse.com/docs/en/sql-reference/data-types/date) - Days since 1970-01-01
+//! - [Date32](https://clickhouse.com/docs/en/sql-reference/data-types/date32) - Extended date range
+//! - [DateTime](https://clickhouse.com/docs/en/sql-reference/data-types/datetime) - Unix timestamp (UInt32)
+//! - [DateTime64](https://clickhouse.com/docs/en/sql-reference/data-types/datetime64) - High precision timestamp (Int64)
+//!
+//! ### Compound Types
+//! - [Array](https://clickhouse.com/docs/en/sql-reference/data-types/array) - Arrays of elements
+//! - [Tuple](https://clickhouse.com/docs/en/sql-reference/data-types/tuple) - Fixed-size collections
+//! - [Map](https://clickhouse.com/docs/en/sql-reference/data-types/map) - Key-value pairs
+//!
+//! ### Special Types
+//! - [Nullable](https://clickhouse.com/docs/en/sql-reference/data-types/nullable) - Adds NULL support to any type
+//! - [LowCardinality](https://clickhouse.com/docs/en/sql-reference/data-types/lowcardinality) - Dictionary encoding for compression
+//! - [Enum8/Enum16](https://clickhouse.com/docs/en/sql-reference/data-types/enum) - Enumerated values
+//! - [UUID](https://clickhouse.com/docs/en/sql-reference/data-types/uuid) - Universally unique identifiers
+//! - [IPv4/IPv6](https://clickhouse.com/docs/en/sql-reference/data-types/ipv4) - IP addresses
+//!
+//! ### Geo Types
+//! - [Point](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - 2D point (Tuple(Float64, Float64))
+//! - [Ring](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - Array of Points
+//! - [Polygon](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - Array of Rings
+//! - [MultiPolygon](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - Array of Polygons
+//!
+//! ## Type Nesting Rules
+//!
+//! ClickHouse enforces strict type nesting rules (Error code 43: `ILLEGAL_TYPE_OF_ARGUMENT`):
+//!
+//! **✅ Allowed:**
+//! - `Array(Nullable(T))` - Array where each element can be NULL
+//! - `LowCardinality(Nullable(T))` - Dictionary-encoded nullable values
+//! - `Array(LowCardinality(T))` - Array of dictionary-encoded values
+//! - `Array(LowCardinality(Nullable(T)))` - Combination of all three
+//!
+//! **❌ NOT Allowed:**
+//! - `Nullable(Array(T))` - Arrays themselves cannot be NULL (use empty array instead)
+//! - `Nullable(LowCardinality(T))` - Wrong nesting order
+//! - `Nullable(Nullable(T))` - Double-nullable is invalid
+//!
+//! For more details, see the [column module documentation](crate::column).
+
 use std::sync::Arc;
 
 /// Type code enumeration matching ClickHouse types
+///
+/// Each variant represents a base type in ClickHouse. For parametric types
+/// (like Array, Nullable, etc.), see the [`Type`] enum which includes parameters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TypeCode {
     Void = 0,
