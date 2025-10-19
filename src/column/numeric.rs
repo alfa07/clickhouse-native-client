@@ -132,6 +132,16 @@ impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
         self
     }
 
+    /// Reserve capacity for additional elements (for benchmarking/optimization)
+    pub fn reserve(&mut self, additional: usize) {
+        self.data.reserve(additional);
+    }
+
+    /// Clear the column while preserving capacity (for benchmarking/optimization)
+    pub fn clear(&mut self) {
+        self.data.clear();
+    }
+
     pub fn get(&self, index: usize) -> Option<&T> {
         self.data.get(index)
     }
