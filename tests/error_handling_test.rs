@@ -141,16 +141,16 @@ async fn test_type_mismatch_error() {
         .expect("Failed to connect to ClickHouse");
 
     // Create table with specific type
-    client.query("DROP TABLE IF EXISTS test_type_mismatch").await.ok();
-    client.query("CREATE TABLE IF NOT EXISTS test_type_mismatch (id UInt64) ENGINE = Memory")
+    client.query("DROP TABLE IF EXISTS test_type_mismatch_error").await.ok();
+    client.query("CREATE TABLE IF NOT EXISTS test_type_mismatch_error (id UInt64) ENGINE = Memory")
         .await
         .expect("Failed to create table");
 
     // Try to insert wrong type (string into UInt64)
-    let result = client.query("INSERT INTO test_type_mismatch VALUES ('not a number')").await;
+    let result = client.query("INSERT INTO test_type_mismatch_error VALUES ('not a number')").await;
 
     // Cleanup
-    client.query("DROP TABLE IF EXISTS test_type_mismatch").await.ok();
+    client.query("DROP TABLE IF EXISTS test_type_mismatch_error").await.ok();
 
     // Check error
     assert!(result.is_err(), "Type mismatch should fail");
