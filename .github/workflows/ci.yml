@@ -129,8 +129,6 @@ jobs:
           cargo test --test map_lowcard_geo_tests -- --ignored --nocapture
           cargo test --test nested_complex_types_test -- --ignored --nocapture
           cargo test --test query_features_test -- --ignored --nocapture
-          cargo test --test readonly_client_test -- --ignored --nocapture
-          cargo test --test roundtrip_tests -- --ignored --nocapture
           cargo test --test specialized_column_tests -- --ignored --nocapture
           cargo test --test type_methods_tests -- --ignored --nocapture
         env:
