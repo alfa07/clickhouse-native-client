@@ -1,6 +1,12 @@
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
 use bytes::BytesMut;
 use std::sync::Arc;
 
@@ -27,10 +33,12 @@ impl ColumnTuple {
 
     /// Get mutable reference to a specific column (for appending)
     pub fn column_at_mut(&mut self, index: usize) -> &mut dyn Column {
-        Arc::get_mut(&mut self.columns[index]).expect("Cannot get mutable reference to shared column")
+        Arc::get_mut(&mut self.columns[index])
+            .expect("Cannot get mutable reference to shared column")
     }
 
-    /// Get the number of elements (rows) - all columns should have the same size
+    /// Get the number of elements (rows) - all columns should have the same
+    /// size
     pub fn len(&self) -> usize {
         if self.columns.is_empty() {
             0
@@ -56,27 +64,27 @@ impl Column for ColumnTuple {
 
     fn clear(&mut self) {
         for col in &mut self.columns {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.clear();
-            }
+            let col_mut = Arc::get_mut(col)
+                .expect("Cannot clear shared tuple column - column has multiple references");
+            col_mut.clear();
         }
     }
 
     fn reserve(&mut self, new_cap: usize) {
         for col in &mut self.columns {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.reserve(new_cap);
-            }
+            let col_mut = Arc::get_mut(col)
+                .expect("Cannot reserve on shared tuple column - column has multiple references");
+            col_mut.reserve(new_cap);
         }
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnTuple>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let other =
+            other.as_any().downcast_ref::<ColumnTuple>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         if self.columns.len() != other.columns.len() {
@@ -87,19 +95,31 @@ impl Column for ColumnTuple {
         }
 
         for (i, col) in self.columns.iter_mut().enumerate() {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.append_column(other.columns[i].clone())?;
-            }
+            let col_mut = Arc::get_mut(col).ok_or_else(|| {
+                Error::Protocol(
+                    "Cannot append to shared tuple column - column has multiple references"
+                        .to_string(),
+                )
+            })?;
+            col_mut.append_column(other.columns[i].clone())?;
         }
 
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         for col in &mut self.columns {
-            if let Some(col_mut) = Arc::get_mut(col) {
-                col_mut.load_from_buffer(buffer, rows)?;
-            }
+            let col_mut = Arc::get_mut(col).ok_or_else(|| {
+                Error::Protocol(
+                    "Cannot load into shared tuple column - column has multiple references"
+                        .to_string(),
+                )
+            })?;
+            col_mut.load_from_buffer(buffer, rows)?;
         }
         Ok(())
     }
@@ -120,7 +140,8 @@ impl Column for ColumnTuple {
     }
 
     fn clone_empty(&self) -> ColumnRef {
-        let empty_cols: Vec<ColumnRef> = self.columns.iter().map(|c| c.clone_empty()).collect();
+        let empty_cols: Vec<ColumnRef> =
+            self.columns.iter().map(|c| c.clone_empty()).collect();
         Arc::new(ColumnTuple::new(self.type_.clone(), empty_cols))
     }
 
@@ -134,16 +155,10 @@ impl Column for ColumnTuple {
             )));
         }
 
-        let sliced_cols: Result<Vec<ColumnRef>> = self
-            .columns
-            .iter()
-            .map(|col| col.slice(begin, len))
-            .collect();
+        let sliced_cols: Result<Vec<ColumnRef>> =
+            self.columns.iter().map(|col| col.slice(begin, len)).collect();
 
-        Ok(Arc::new(ColumnTuple::new(
-            self.type_.clone(),
-            sliced_cols?,
-        )))
+        Ok(Arc::new(ColumnTuple::new(self.type_.clone(), sliced_cols?)))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -158,8 +173,13 @@ impl Column for ColumnTuple {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::column::{ColumnString, ColumnUInt64};
-    use crate::types::Type;
+    use crate::{
+        column::{
+            ColumnString,
+            ColumnUInt64,
+        },
+        types::Type,
+    };
 
     #[test]
     fn test_tuple_creation() {
@@ -198,12 +218,11 @@ mod tests {
         let sliced = tuple.slice(1, 2).unwrap();
         assert_eq!(sliced.size(), 2);
 
-        let sliced_tuple = sliced.as_any().downcast_ref::<ColumnTuple>().unwrap();
+        let sliced_tuple =
+            sliced.as_any().downcast_ref::<ColumnTuple>().unwrap();
         let col_ref = sliced_tuple.column_at(0);
-        let sliced_col1 = col_ref
-            .as_any()
-            .downcast_ref::<ColumnUInt64>()
-            .unwrap();
+        let sliced_col1 =
+            col_ref.as_any().downcast_ref::<ColumnUInt64>().unwrap();
         assert_eq!(sliced_col1.at(0), 2);
         assert_eq!(sliced_col1.at(1), 3);
     }

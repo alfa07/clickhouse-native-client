@@ -1,9 +1,14 @@
 // Block tests ported from clickhouse-cpp ut/block_ut.cpp
 // These tests verify block functionality: iterators, clear, reserve, etc.
 
-use clickhouse_client::block::Block;
-use clickhouse_client::column::{ColumnString, ColumnUInt8};
-use clickhouse_client::types::Type;
+use clickhouse_client::{
+    block::Block,
+    column::{
+        ColumnString,
+        ColumnUInt8,
+    },
+    types::Type,
+};
 use std::sync::Arc;
 
 // ============================================================================
@@ -100,10 +105,8 @@ fn test_block_clear() {
 
     // Store expected column info before clearing
     let expected_column_count = block.column_count();
-    let _expected_names: Vec<String> = block
-        .iter()
-        .map(|(name, _, _)| name.to_string())
-        .collect();
+    let _expected_names: Vec<String> =
+        block.iter().map(|(name, _, _)| name.to_string()).collect();
 
     assert_eq!(expected_column_count, 2);
     assert_eq!(block.row_count(), 5);
@@ -113,11 +116,13 @@ fn test_block_clear() {
 
     // Block must report empty after being cleared
     assert_eq!(block.row_count(), 0);
-    assert_eq!(block.column_count(), 0); // In Rust, we clear columns too due to Arc limitations
+    assert_eq!(block.column_count(), 0); // In Rust, we clear columns too due
+                                         // to Arc limitations
 
     // Note: In C++, clear() preserves columns but empties them.
-    // In Rust with Arc, we can't modify shared columns, so we clear the entire structure.
-    // This is a design difference due to Rust's ownership model.
+    // In Rust with Arc, we can't modify shared columns, so we clear the entire
+    // structure. This is a design difference due to Rust's ownership
+    // model.
 }
 
 // ============================================================================
@@ -260,7 +265,10 @@ fn test_block_iterator_equality() {
 
     assert!(iter.next().is_some(), "Iterator should have first element");
     assert!(iter.next().is_some(), "Iterator should have second element");
-    assert!(iter.next().is_none(), "Iterator should be exhausted after two elements");
+    assert!(
+        iter.next().is_none(),
+        "Iterator should be exhausted after two elements"
+    );
 }
 
 #[test]
@@ -288,18 +296,14 @@ fn test_block_iterator_collect() {
     let block = make_test_block();
 
     // Collect column names using iterator
-    let names: Vec<String> = block
-        .iter()
-        .map(|(name, _, _)| name.to_string())
-        .collect();
+    let names: Vec<String> =
+        block.iter().map(|(name, _, _)| name.to_string()).collect();
 
     assert_eq!(names, vec!["foo", "bar"]);
 
     // Collect column sizes
-    let sizes: Vec<usize> = block
-        .iter()
-        .map(|(_, _, col)| col.size())
-        .collect();
+    let sizes: Vec<usize> =
+        block.iter().map(|(_, _, col)| col.size()).collect();
 
     assert_eq!(sizes, vec![5, 5]);
 }

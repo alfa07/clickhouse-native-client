@@ -1,6 +1,13 @@
-use crate::column::ColumnRef;
-use crate::types::Type;
-use crate::{Error, Result};
+use crate::{
+    column::{
+        Column,
+        ColumnRef,
+    },
+    types::Type,
+    Error,
+    Result,
+};
+use std::sync::Arc;
 
 /// Block metadata
 #[derive(Debug, Clone, Default)]
@@ -26,11 +33,7 @@ struct ColumnItem {
 impl Block {
     /// Create a new empty block
     pub fn new() -> Self {
-        Self {
-            columns: Vec::new(),
-            rows: 0,
-            info: BlockInfo::default(),
-        }
+        Self { columns: Vec::new(), rows: 0, info: BlockInfo::default() }
     }
 
     /// Create a block with reserved capacity
@@ -43,7 +46,11 @@ impl Block {
     }
 
     /// Append a named column to the block
-    pub fn append_column(&mut self, name: impl Into<String>, column: ColumnRef) -> Result<()> {
+    pub fn append_column(
+        &mut self,
+        name: impl Into<String>,
+        column: ColumnRef,
+    ) -> Result<()> {
         let name = name.into();
 
         if self.columns.is_empty() {
@@ -76,6 +83,21 @@ impl Block {
         self.columns.get(index).map(|item| item.column.clone())
     }
 
+    /// Get mutable access to column by index
+    /// Returns None if index is out of bounds
+    /// Panics if the column has multiple references
+    pub fn column_mut(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut (dyn Column + '_)> {
+        let item = self.columns.get_mut(index)?;
+        Some(
+            Arc::get_mut(&mut item.column).expect(
+                "Cannot get mutable access to shared column - column has multiple references",
+            ),
+        )
+    }
+
     /// Get column name by index
     pub fn column_name(&self, index: usize) -> Option<&str> {
         self.columns.get(index).map(|item| item.name.as_str())
@@ -87,6 +109,21 @@ impl Block {
             .iter()
             .find(|item| item.name == name)
             .map(|item| item.column.clone())
+    }
+
+    /// Get mutable access to column by name
+    /// Returns None if column with given name is not found
+    /// Panics if the column has multiple references
+    pub fn column_by_name_mut(
+        &mut self,
+        name: &str,
+    ) -> Option<&mut (dyn Column + '_)> {
+        let item = self.columns.iter_mut().find(|item| item.name == name)?;
+        Some(
+            Arc::get_mut(&mut item.column).expect(
+                "Cannot get mutable access to shared column - column has multiple references",
+            ),
+        )
     }
 
     /// Get block info
@@ -101,20 +138,18 @@ impl Block {
 
     /// Clear all data from all columns
     pub fn clear(&mut self) {
-        for _item in &self.columns {
-            // We can't modify through Arc, so this is a limitation
-            // In practice, we'd need interior mutability or a different design
-            // For now, we'll just reset the block
-        }
+        // Clear by removing all columns from the block
         self.columns.clear();
         self.rows = 0;
     }
 
     /// Reserve capacity in all columns
-    pub fn reserve(&mut self, _new_cap: usize) {
-        for _item in &self.columns {
-            // Same limitation as clear() - can't modify through Arc
-            // This would need a different design with RefCell or similar
+    pub fn reserve(&mut self, new_cap: usize) {
+        for item in &mut self.columns {
+            // Must panic if can't reserve to prevent inconsistent state
+            Arc::get_mut(&mut item.column)
+                .expect("Cannot reserve on shared column - column has multiple references")
+                .reserve(new_cap);
         }
     }
 
@@ -143,10 +178,7 @@ impl Block {
 
     /// Iterate over columns
     pub fn iter(&self) -> BlockIterator<'_> {
-        BlockIterator {
-            block: self,
-            index: 0,
-        }
+        BlockIterator { block: self, index: 0 }
     }
 
     /// Check if block is empty
@@ -174,11 +206,7 @@ impl<'a> Iterator for BlockIterator<'a> {
         if self.index < self.block.columns.len() {
             let item = &self.block.columns[self.index];
             self.index += 1;
-            Some((
-                &item.name,
-                item.column.column_type(),
-                item.column.clone(),
-            ))
+            Some((&item.name, item.column.column_type(), item.column.clone()))
         } else {
             None
         }
@@ -215,8 +243,10 @@ impl std::ops::Index<usize> for Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::column::numeric::ColumnUInt64;
-    use crate::types::Type;
+    use crate::{
+        column::numeric::ColumnUInt64,
+        types::Type,
+    };
     use std::sync::Arc;
 
     #[test]
@@ -345,14 +375,119 @@ mod tests {
     fn test_block_info() {
         let mut block = Block::new();
 
-        let info = BlockInfo {
-            is_overflows: 1,
-            bucket_num: 42,
-        };
+        let info = BlockInfo { is_overflows: 1, bucket_num: 42 };
 
         block.set_info(info.clone());
 
         assert_eq!(block.info().is_overflows, 1);
         assert_eq!(block.info().bucket_num, 42);
+    }
+
+    #[test]
+    fn test_block_column_mut_exclusive_access() {
+        let mut block = Block::new();
+
+        let mut col1 = ColumnUInt64::new(Type::uint64());
+        col1.append(42);
+
+        block.append_column("test", Arc::new(col1)).unwrap();
+
+        // Should get mutable access since block has exclusive ownership
+        let col_mut = block.column_mut(0).expect("Should get mutable access");
+
+        // Can use it to append data
+        let col_u64 =
+            col_mut.as_any_mut().downcast_mut::<ColumnUInt64>().unwrap();
+        col_u64.append(100);
+
+        // Verify data was appended
+        let col = block.column(0).unwrap();
+        let col_u64 = col.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(col_u64.len(), 2);
+        assert_eq!(col_u64.at(0), 42);
+        assert_eq!(col_u64.at(1), 100);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot get mutable access to shared column")]
+    fn test_block_column_mut_panics_on_shared() {
+        let mut block = Block::new();
+
+        let mut col1 = ColumnUInt64::new(Type::uint64());
+        col1.append(42);
+
+        block.append_column("test", Arc::new(col1)).unwrap();
+
+        // Clone the column to create a shared reference
+        let _shared_ref = block.column(0).unwrap();
+
+        // Should panic because column now has multiple references
+        let _ = block.column_mut(0);
+    }
+
+    #[test]
+    fn test_block_column_mut_out_of_bounds() {
+        let mut block = Block::new();
+
+        // Should return None for out of bounds index
+        assert!(block.column_mut(0).is_none());
+        assert!(block.column_mut(100).is_none());
+    }
+
+    #[test]
+    fn test_block_column_by_name_mut_exclusive_access() {
+        let mut block = Block::new();
+
+        let mut col1 = ColumnUInt64::new(Type::uint64());
+        col1.append(42);
+
+        block.append_column("my_column", Arc::new(col1)).unwrap();
+
+        // Should get mutable access since block has exclusive ownership
+        let col_mut = block
+            .column_by_name_mut("my_column")
+            .expect("Should get mutable access");
+
+        // Can use it to append data
+        let col_u64 =
+            col_mut.as_any_mut().downcast_mut::<ColumnUInt64>().unwrap();
+        col_u64.append(100);
+
+        // Verify data was appended
+        let col = block.column_by_name("my_column").unwrap();
+        let col_u64 = col.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(col_u64.len(), 2);
+        assert_eq!(col_u64.at(0), 42);
+        assert_eq!(col_u64.at(1), 100);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot get mutable access to shared column")]
+    fn test_block_column_by_name_mut_panics_on_shared() {
+        let mut block = Block::new();
+
+        let mut col1 = ColumnUInt64::new(Type::uint64());
+        col1.append(42);
+
+        block.append_column("my_column", Arc::new(col1)).unwrap();
+
+        // Clone the column to create a shared reference
+        let _shared_ref = block.column_by_name("my_column").unwrap();
+
+        // Should panic because column now has multiple references
+        let _ = block.column_by_name_mut("my_column");
+    }
+
+    #[test]
+    fn test_block_column_by_name_mut_not_found() {
+        let mut block = Block::new();
+
+        let mut col1 = ColumnUInt64::new(Type::uint64());
+        col1.append(42);
+
+        block.append_column("my_column", Arc::new(col1)).unwrap();
+
+        // Should return None for non-existent column name
+        assert!(block.column_by_name_mut("nonexistent").is_none());
     }
 }

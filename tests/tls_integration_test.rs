@@ -5,7 +5,8 @@
 //! ## Prerequisites
 //! 1. Generate certificates: `just generate-certs`
 //! 2. Start TLS server: `just start-db-tls`
-//! 3. Run tests: `cargo test --features tls --test tls_integration_test -- --ignored --nocapture`
+//! 3. Run tests: `cargo test --features tls --test tls_integration_test --
+//!    --ignored --nocapture`
 //!
 //! ## Test Coverage
 //! - Basic TLS connection with CA certificate
@@ -20,13 +21,20 @@
 
 #[cfg(feature = "tls")]
 mod tls_tests {
-    use clickhouse_client::{Client, ClientOptions, SSLOptions};
-    use std::env;
-    use std::path::PathBuf;
+    use clickhouse_client::{
+        Client,
+        ClientOptions,
+        SSLOptions,
+    };
+    use std::{
+        env,
+        path::PathBuf,
+    };
 
     /// Get ClickHouse TLS host from environment or default to localhost
     fn get_tls_host() -> String {
-        env::var("CLICKHOUSE_TLS_HOST").unwrap_or_else(|_| "localhost".to_string())
+        env::var("CLICKHOUSE_TLS_HOST")
+            .unwrap_or_else(|_| "localhost".to_string())
     }
 
     /// Get TLS port from environment or default to 9440
@@ -38,7 +46,8 @@ mod tls_tests {
     }
 
     /// Create a TLS client with custom CA certificate
-    async fn create_tls_client() -> Result<Client, Box<dyn std::error::Error>> {
+    async fn create_tls_client() -> Result<Client, Box<dyn std::error::Error>>
+    {
         let host = get_tls_host();
         let port = get_tls_port();
 
@@ -57,7 +66,8 @@ mod tls_tests {
     }
 
     /// Create a TLS client without SNI
-    async fn create_tls_client_no_sni() -> Result<Client, Box<dyn std::error::Error>> {
+    async fn create_tls_client_no_sni(
+    ) -> Result<Client, Box<dyn std::error::Error>> {
         let host = get_tls_host();
         let port = get_tls_port();
 
@@ -76,7 +86,8 @@ mod tls_tests {
     }
 
     /// Create a TLS client with client certificate (mutual TLS)
-    async fn create_tls_client_mutual() -> Result<Client, Box<dyn std::error::Error>> {
+    async fn create_tls_client_mutual(
+    ) -> Result<Client, Box<dyn std::error::Error>> {
         let host = get_tls_host();
         let port = get_tls_port();
 
@@ -117,7 +128,9 @@ mod tls_tests {
         println!("Connected to ClickHouse via TLS: {}", server_info.name);
         println!(
             "Version: {}.{}.{}",
-            server_info.version_major, server_info.version_minor, server_info.version_patch
+            server_info.version_major,
+            server_info.version_minor,
+            server_info.version_patch
         );
         println!("Revision: {}", server_info.revision);
 
@@ -127,9 +140,8 @@ mod tls_tests {
     #[tokio::test]
     #[ignore]
     async fn test_tls_connection_with_sni() {
-        let mut client = create_tls_client()
-            .await
-            .expect("Failed to connect with SNI");
+        let mut client =
+            create_tls_client().await.expect("Failed to connect with SNI");
 
         client.ping().await.expect("Ping failed with SNI");
 
@@ -220,10 +232,7 @@ mod tls_tests {
 
         // Test ping multiple times
         for i in 1..=5 {
-            client
-                .ping()
-                .await
-                .expect(&format!("Ping {} failed over TLS", i));
+            client.ping().await.expect(&format!("Ping {} failed over TLS", i));
             println!("✓ Ping {} successful over TLS", i);
         }
     }
@@ -287,10 +296,7 @@ mod tls_tests {
             .await
             .expect("Failed to connect with multiple endpoints");
 
-        client
-            .ping()
-            .await
-            .expect("Ping failed with multiple endpoints");
+        client.ping().await.expect("Ping failed with multiple endpoints");
 
         println!("✓ Connected with multiple endpoints (failover worked)");
     }
@@ -306,7 +312,8 @@ mod tls_tests {
             .use_system_certs(false)
             .use_sni(true);
 
-        let conn_opts = ConnectionOptions::new().connect_timeout(Duration::from_millis(100));
+        let conn_opts = ConnectionOptions::new()
+            .connect_timeout(Duration::from_millis(100));
 
         // Try to connect to a non-existent host with short timeout
         let opts = ClientOptions::new("invalid-host.example.com", 9440)
@@ -334,16 +341,14 @@ mod tls_tests {
     #[ignore]
     async fn test_tls_mutual_auth() {
         // This test requires the server to be configured for mutual TLS
-        // In relaxed mode, the server accepts connections with or without client cert
+        // In relaxed mode, the server accepts connections with or without
+        // client cert
 
         let mut client = create_tls_client_mutual()
             .await
             .expect("Failed to connect with client certificate");
 
-        client
-            .ping()
-            .await
-            .expect("Ping failed with client certificate");
+        client.ping().await.expect("Ping failed with client certificate");
 
         println!("✓ Mutual TLS (client certificate) connection successful");
     }
@@ -404,6 +409,8 @@ mod tls_tests {
 fn tls_tests_require_feature() {
     println!("\n==========================================================");
     println!("TLS tests are disabled!");
-    println!("To run TLS tests, use: cargo test --features tls --test tls_integration_test -- --ignored");
+    println!(
+        "To run TLS tests, use: cargo test --features tls --test tls_integration_test -- --ignored"
+    );
     println!("==========================================================\n");
 }

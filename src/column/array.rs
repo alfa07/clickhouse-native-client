@@ -4,16 +4,19 @@
 //!
 //! ## Overview
 //!
-//! Array columns store variable-length arrays of elements. All elements are stored in a single
-//! nested column (flattened), with offsets tracking where each array begins/ends.
+//! Array columns store variable-length arrays of elements. All elements are
+//! stored in a single nested column (flattened), with offsets tracking where
+//! each array begins/ends.
 //!
 //! ## Important Restriction
 //!
 //! **Arrays cannot be wrapped in Nullable:**
-//! - ❌ `Nullable(Array(String))` - Error: "Nested type Array(String) cannot be inside Nullable type" (Error code 43)
+//! - ❌ `Nullable(Array(String))` - Error: "Nested type Array(String) cannot
+//!   be inside Nullable type" (Error code 43)
 //! - ✅ `Array(Nullable(String))` - CORRECT: Each element can be NULL
 //!
-//! If you need to represent "no array", use an empty array `[]` instead of NULL.
+//! If you need to represent "no array", use an empty array `[]` instead of
+//! NULL.
 //!
 //! See: <https://github.com/ClickHouse/ClickHouse/issues/1062>
 //!
@@ -25,13 +28,24 @@
 //! ```
 //!
 //! Example: `[[1,2], [3], [4,5,6]]`
-//! - Offsets: `[2, 3, 6]` (2 elements in first array, 3 total after second, 6 total after third)
+//! - Offsets: `[2, 3, 6]` (2 elements in first array, 3 total after second, 6
+//!   total after third)
 //! - Nested data: `[1, 2, 3, 4, 5, 6]`
 
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for arrays of variable length
@@ -39,11 +53,13 @@ use std::sync::Arc;
 /// Stores a nested column with all array elements concatenated,
 /// and an offsets array that marks where each array ends.
 ///
-/// **Reference Implementation:** See `clickhouse-cpp/clickhouse/columns/array.cpp`
+/// **Reference Implementation:** See
+/// `clickhouse-cpp/clickhouse/columns/array.cpp`
 pub struct ColumnArray {
     type_: Type,
     nested: ColumnRef,
-    offsets: Vec<u64>, // Cumulative offsets: offsets[i] = total elements up to and including array i
+    offsets: Vec<u64>, /* Cumulative offsets: offsets[i] = total elements
+                        * up to and including array i */
 }
 
 impl ColumnArray {
@@ -52,55 +68,43 @@ impl ColumnArray {
         // Extract nested type and create nested column
         let nested = match &type_ {
             Type::Array { item_type } => {
-                crate::io::block_stream::create_column(item_type).expect("Failed to create nested column")
+                crate::io::block_stream::create_column(item_type)
+                    .expect("Failed to create nested column")
             }
             _ => panic!("ColumnArray requires Array type"),
         };
 
-        Self {
-            type_,
-            nested,
-            offsets: Vec::new(),
-        }
+        Self { type_, nested, offsets: Vec::new() }
     }
 
     /// Create a new array column with an existing nested column
     pub fn with_nested(nested: ColumnRef) -> Self {
         let nested_type = nested.column_type().clone();
-        Self {
-            type_: Type::array(nested_type),
-            nested,
-            offsets: Vec::new(),
-        }
+        Self { type_: Type::array(nested_type), nested, offsets: Vec::new() }
     }
 
-    /// Create a new array column from parts (for geo types that need custom type names)
+    /// Create a new array column from parts (for geo types that need custom
+    /// type names)
     pub(crate) fn from_parts(type_: Type, nested: ColumnRef) -> Self {
-        Self {
-            type_,
-            nested,
-            offsets: Vec::new(),
-        }
+        Self { type_, nested, offsets: Vec::new() }
     }
 
     /// Create with reserved capacity
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         let nested = match &type_ {
             Type::Array { item_type } => {
-                crate::io::block_stream::create_column(item_type).expect("Failed to create nested column")
+                crate::io::block_stream::create_column(item_type)
+                    .expect("Failed to create nested column")
             }
             _ => panic!("ColumnArray requires Array type"),
         };
 
-        Self {
-            type_,
-            nested,
-            offsets: Vec::with_capacity(capacity),
-        }
+        Self { type_, nested, offsets: Vec::with_capacity(capacity) }
     }
 
-    /// Append an array (specified by the number of elements in the nested column to consume)
-    /// The caller must ensure that `len` elements have been added to the nested column
+    /// Append an array (specified by the number of elements in the nested
+    /// column to consume) The caller must ensure that `len` elements have
+    /// been added to the nested column
     pub fn append_len(&mut self, len: u64) {
         let new_offset = if self.offsets.is_empty() {
             len
@@ -117,19 +121,15 @@ impl ColumnArray {
         }
 
         let end = self.offsets[index] as usize;
-        let start = if index == 0 {
-            0
-        } else {
-            self.offsets[index - 1] as usize
-        };
+        let start =
+            if index == 0 { 0 } else { self.offsets[index - 1] as usize };
 
         Some((start, end))
     }
 
     /// Get the length of the array at the given index
     pub fn get_array_len(&self, index: usize) -> Option<usize> {
-        self.get_array_range(index)
-            .map(|(start, end)| end - start)
+        self.get_array_range(index).map(|(start, end)| end - start)
     }
 
     /// Get the nested column
@@ -148,14 +148,17 @@ impl ColumnArray {
     }
 
     /// Append an entire array column as a single array element
-    /// This takes all the data from the provided column and adds it as one array
+    /// This takes all the data from the provided column and adds it as one
+    /// array
     pub fn append_array(&mut self, array_data: ColumnRef) {
         let len = array_data.size() as u64;
 
         // Append the array data to nested column
-        if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
-            let _ = nested_mut.append_column(array_data);
-        }
+        let nested_mut = Arc::get_mut(&mut self.nested)
+            .expect("Cannot append to shared array column - column has multiple references");
+        nested_mut
+            .append_column(array_data)
+            .expect("Failed to append array data to nested column");
 
         // Update offsets
         self.append_len(len);
@@ -192,7 +195,12 @@ impl Column for ColumnArray {
 
     fn clear(&mut self) {
         self.offsets.clear();
-        // Note: We can't clear nested due to Arc, but this is a known limitation
+        // CRITICAL: Must also clear nested data to maintain consistency
+        // If we clear offsets but not nested data, the column is in a corrupt
+        // state
+        let nested_mut = Arc::get_mut(&mut self.nested)
+            .expect("Cannot clear shared array column - column has multiple references");
+        nested_mut.clear();
     }
 
     fn reserve(&mut self, new_cap: usize) {
@@ -200,16 +208,18 @@ impl Column for ColumnArray {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnArray>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let other =
+            other.as_any().downcast_ref::<ColumnArray>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         // Check that nested types match
-        if self.nested.column_type().name() != other.nested.column_type().name() {
+        if self.nested.column_type().name()
+            != other.nested.column_type().name()
+        {
             return Err(Error::TypeMismatch {
                 expected: self.nested.column_type().name(),
                 actual: other.nested.column_type().name(),
@@ -222,10 +232,23 @@ impl Column for ColumnArray {
             self.offsets.push(offset_base + offset);
         }
 
+        // CRITICAL: Must also append the nested data!
+        // Without this, offsets point to wrong/missing data → DATA CORRUPTION
+        let nested_mut = Arc::get_mut(&mut self.nested).ok_or_else(|| {
+            Error::Protocol(
+                "Cannot append to shared array column - column has multiple references".to_string(),
+            )
+        })?;
+        nested_mut.append_column(other.nested.clone())?;
+
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         self.offsets.reserve(rows);
 
         // Read offsets (varint encoded u64)
@@ -234,16 +257,27 @@ impl Column for ColumnArray {
             self.offsets.push(offset);
         }
 
-        // Now we need to load the nested column data
-        // But we can't call load_from_buffer on nested due to Arc immutability
-        // This is a design limitation - in practice, we'd need interior mutability
+        // CRITICAL: Must also load the nested column data
+        // The total number of nested elements is the last offset value
+        let total_nested_elements =
+            self.offsets.last().copied().unwrap_or(0) as usize;
+        if total_nested_elements > 0 {
+            let nested_mut = Arc::get_mut(&mut self.nested).ok_or_else(|| {
+                Error::Protocol(
+                    "Cannot load into shared array column - column has multiple references"
+                        .to_string(),
+                )
+            })?;
+            nested_mut.load_from_buffer(buffer, total_nested_elements)?;
+        }
 
         Ok(())
     }
 
     fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
         // Delegate to nested column's save_prefix
-        // Critical for Array(LowCardinality(X)) to write LowCardinality version before offsets
+        // Critical for Array(LowCardinality(X)) to write LowCardinality
+        // version before offsets
         self.nested.save_prefix(buffer)
     }
 
@@ -274,11 +308,8 @@ impl Column for ColumnArray {
         }
 
         // Calculate the range of nested elements we need
-        let nested_start = if begin == 0 {
-            0
-        } else {
-            self.offsets[begin - 1] as usize
-        };
+        let nested_start =
+            if begin == 0 { 0 } else { self.offsets[begin - 1] as usize };
         let nested_end = self.offsets[begin + len - 1] as usize;
         let nested_len = nested_end - nested_start;
 
@@ -358,9 +389,13 @@ fn write_varint(buffer: &mut BytesMut, mut value: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::column::numeric::ColumnUInt64;
-    use crate::column::string::ColumnString;
-    use crate::types::Type;
+    use crate::{
+        column::{
+            numeric::ColumnUInt64,
+            string::ColumnString,
+        },
+        types::Type,
+    };
 
     #[test]
     fn test_array_creation() {
@@ -381,7 +416,8 @@ mod tests {
         col.append_len(3); // Array of 3 elements
 
         // Second array: [4, 5]
-        let nested_mut = Arc::get_mut(&mut col.nested).unwrap()
+        let nested_mut = Arc::get_mut(&mut col.nested)
+            .unwrap()
             .as_any_mut()
             .downcast_mut::<ColumnUInt64>()
             .unwrap();
@@ -445,14 +481,21 @@ mod tests {
 
     #[test]
     fn test_array_load_offsets() {
+        use bytes::BufMut;
+
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
         let mut col = ColumnArray::with_nested(nested);
 
-        // Encode offsets manually: 3, 5, 8
+        // Encode offsets manually: 3, 5, 8 (total 8 nested elements)
         let mut data = BytesMut::new();
         write_varint(&mut data, 3);
         write_varint(&mut data, 5);
         write_varint(&mut data, 8);
+
+        // Must also include nested data (8 UInt64 values)
+        for i in 0..8u64 {
+            data.put_u64_le(i);
+        }
 
         let mut reader = &data[..];
         col.load_from_buffer(&mut reader, 3).unwrap();
@@ -476,7 +519,8 @@ mod tests {
         col.append_len(4); // offset: 10
 
         let sliced = col.slice(1, 2).unwrap(); // Take arrays [4,5] and [6]
-        let sliced_col = sliced.as_any().downcast_ref::<ColumnArray>().unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnArray>().unwrap();
 
         assert_eq!(sliced_col.size(), 2);
         assert_eq!(sliced_col.offsets(), &[2, 3]); // Adjusted offsets
@@ -517,5 +561,150 @@ mod tests {
 
         assert_eq!(col.get_array_len(100), None);
         assert_eq!(col.get_array_range(100), None);
+    }
+
+    #[test]
+    fn test_array_append_column() {
+        // Create first array column with data: [[1, 2], [3]]
+        let mut nested1 = ColumnUInt64::new(Type::uint64());
+        nested1.append(1);
+        nested1.append(2);
+        nested1.append(3);
+
+        let mut col1 = ColumnArray::with_nested(Arc::new(nested1));
+        col1.append_len(2); // First array: [1, 2]
+        col1.append_len(1); // Second array: [3]
+
+        // Create second array column with data: [[4, 5, 6]]
+        let mut nested2 = ColumnUInt64::new(Type::uint64());
+        nested2.append(4);
+        nested2.append(5);
+        nested2.append(6);
+
+        let mut col2 = ColumnArray::with_nested(Arc::new(nested2));
+        col2.append_len(3); // Third array: [4, 5, 6]
+
+        // Append col2 to col1
+        col1.append_column(Arc::new(col2))
+            .expect("append_column should succeed");
+
+        // Verify we have 3 arrays total
+        assert_eq!(col1.size(), 3, "Should have 3 arrays after append");
+
+        // Verify array lengths
+        assert_eq!(
+            col1.get_array_len(0),
+            Some(2),
+            "First array should have 2 elements"
+        );
+        assert_eq!(
+            col1.get_array_len(1),
+            Some(1),
+            "Second array should have 1 element"
+        );
+        assert_eq!(
+            col1.get_array_len(2),
+            Some(3),
+            "Third array should have 3 elements"
+        );
+
+        // CRITICAL: Verify nested data was actually appended
+        // The nested column should contain [1, 2, 3, 4, 5, 6]
+        let nested =
+            col1.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(
+            nested.size(),
+            6,
+            "Nested column should have 6 total elements"
+        );
+
+        // Verify offsets are correct: [2, 3, 6]
+        assert_eq!(col1.offsets(), &[2, 3, 6], "Offsets should be [2, 3, 6]");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Cannot clear shared array column - column has multiple references"
+    )]
+    fn test_array_clear_panics_on_shared_nested() {
+        // Create an array column
+        let mut nested = ColumnUInt64::new(Type::uint64());
+        nested.append(1);
+        nested.append(2);
+        nested.append(3);
+
+        let nested_arc = Arc::new(nested);
+        let mut col = ColumnArray::with_nested(nested_arc.clone());
+        col.append_len(3);
+
+        // Create a second reference to the nested column
+        let _shared_ref = nested_arc.clone();
+
+        // Now nested has multiple Arc references, so clear() MUST panic
+        // to prevent data corruption (clearing offsets but not nested data)
+        col.clear();
+    }
+
+    #[test]
+    fn test_array_roundtrip_nested_data() {
+        use bytes::BytesMut;
+
+        // Create array column with actual nested data: [[1, 2], [3, 4, 5]]
+        let mut nested = ColumnUInt64::new(Type::uint64());
+        nested.append(1);
+        nested.append(2);
+        nested.append(3);
+        nested.append(4);
+        nested.append(5);
+
+        let mut col = ColumnArray::with_nested(Arc::new(nested));
+        col.append_len(2); // First array: [1, 2]
+        col.append_len(3); // Second array: [3, 4, 5]
+
+        assert_eq!(col.size(), 2, "Original should have 2 arrays");
+
+        // Save to buffer
+        let mut buffer = BytesMut::new();
+        col.save_to_buffer(&mut buffer).expect("save should succeed");
+
+        // Load into new array column
+        let nested_empty = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let mut col_loaded = ColumnArray::with_nested(nested_empty);
+
+        let mut buf_slice = &buffer[..];
+        col_loaded
+            .load_from_buffer(&mut buf_slice, 2)
+            .expect("load should succeed");
+
+        // Verify arrays structure
+        assert_eq!(col_loaded.size(), 2, "Loaded should have 2 arrays");
+        assert_eq!(
+            col_loaded.get_array_len(0),
+            Some(2),
+            "First array should have 2 elements"
+        );
+        assert_eq!(
+            col_loaded.get_array_len(1),
+            Some(3),
+            "Second array should have 3 elements"
+        );
+
+        // CRITICAL: Verify nested data was actually loaded
+        let nested_loaded =
+            col_loaded.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(
+            nested_loaded.size(),
+            5,
+            "Nested should have 5 total elements after load"
+        );
+
+        // Verify we can retrieve the actual arrays
+        let arr0 = col_loaded.at(0);
+        let arr0_data = arr0.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(arr0_data.size(), 2, "First array should have 2 elements");
+
+        let arr1 = col_loaded.at(1);
+        let arr1_data = arr1.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(arr1_data.size(), 3, "Second array should have 3 elements");
     }
 }

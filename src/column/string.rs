@@ -1,12 +1,15 @@
 //! String column implementations
 //!
 //! **ClickHouse Documentation:**
-//! - [String](https://clickhouse.com/docs/en/sql-reference/data-types/string) - Variable-length UTF-8 strings
-//! - [FixedString](https://clickhouse.com/docs/en/sql-reference/data-types/fixedstring) - Fixed-length binary strings
+//! - [String](https://clickhouse.com/docs/en/sql-reference/data-types/string)
+//!   - Variable-length UTF-8 strings
+//! - [FixedString](https://clickhouse.com/docs/en/sql-reference/data-types/fixedstring)
+//!   - Fixed-length binary strings
 //!
 //! ## String Type
 //!
-//! Variable-length UTF-8 strings. Each string is prefixed with its length (varint encoded).
+//! Variable-length UTF-8 strings. Each string is prefixed with its length
+//! (varint encoded).
 //!
 //! **Wire Format:**
 //! ```text
@@ -15,18 +18,28 @@
 //!
 //! ## FixedString Type
 //!
-//! Fixed-length binary strings, zero-padded if shorter than the specified size.
-//! Useful for storing UUIDs, hashes, or other fixed-size binary data.
+//! Fixed-length binary strings, zero-padded if shorter than the specified
+//! size. Useful for storing UUIDs, hashes, or other fixed-size binary data.
 //!
 //! **Wire Format:**
 //! ```text
 //! [bytes:UInt8 * N]  // N is the FixedString size
 //! ```
 
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for fixed-length strings (all strings padded to same length)
@@ -47,11 +60,7 @@ impl ColumnFixedString {
             _ => panic!("Expected FixedString type"),
         };
 
-        Self {
-            type_,
-            string_size,
-            data: Vec::new(),
-        }
+        Self { type_, string_size, data: Vec::new() }
     }
 
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
@@ -91,7 +100,8 @@ impl ColumnFixedString {
 
         // Pad with zeros if needed
         if bytes.len() < self.string_size {
-            self.data.resize(self.data.len() + (self.string_size - bytes.len()), 0);
+            self.data
+                .resize(self.data.len() + (self.string_size - bytes.len()), 0);
         }
     }
 
@@ -105,7 +115,8 @@ impl ColumnFixedString {
         let bytes = &self.data[start..end];
 
         // Trim null bytes from the end
-        let trimmed = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+        let trimmed =
+            bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
         Some(String::from_utf8_lossy(&bytes[..trimmed]).to_string())
     }
 
@@ -166,13 +177,20 @@ impl Column for ColumnFixedString {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         let total_bytes = self.string_size * rows;
 
         if buffer.len() < total_bytes {
             return Err(Error::Protocol(format!(
                 "Not enough data for {} FixedString({}) values: need {}, have {}",
-                rows, self.string_size, total_bytes, buffer.len()
+                rows,
+                self.string_size,
+                total_bytes,
+                buffer.len()
             )));
         }
 
@@ -194,7 +212,9 @@ impl Column for ColumnFixedString {
         if begin + len > self.size() {
             return Err(Error::InvalidArgument(format!(
                 "Slice out of bounds: begin={}, len={}, size={}",
-                begin, len, self.size()
+                begin,
+                len,
+                self.size()
             )));
         }
 
@@ -224,24 +244,15 @@ pub struct ColumnString {
 
 impl ColumnString {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
-        Self {
-            type_,
-            data: Vec::with_capacity(capacity),
-        }
+        Self { type_, data: Vec::with_capacity(capacity) }
     }
 
     pub fn from_vec(type_: Type, data: Vec<String>) -> Self {
-        Self {
-            type_,
-            data,
-        }
+        Self { type_, data }
     }
 
     /// Create a column with initial data (builder pattern)
@@ -302,19 +313,22 @@ impl Column for ColumnString {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnString>()
-            .ok_or_else(|| Error::TypeMismatch {
+        let other = other.as_any().downcast_ref::<ColumnString>().ok_or_else(
+            || Error::TypeMismatch {
                 expected: self.type_.name(),
                 actual: other.column_type().name(),
-            })?;
+            },
+        )?;
 
         self.data.extend(other.data.iter().cloned());
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         self.data.reserve(rows);
 
         for _ in 0..rows {
@@ -324,14 +338,16 @@ impl Column for ColumnString {
             if buffer.len() < len {
                 return Err(Error::Protocol(format!(
                     "Not enough data for string: need {}, have {}",
-                    len, buffer.len()
+                    len,
+                    buffer.len()
                 )));
             }
 
             // Read string data
             let string_data = &buffer[..len];
-            let s = String::from_utf8(string_data.to_vec())
-                .map_err(|e| Error::Protocol(format!("Invalid UTF-8 in string: {}", e)))?;
+            let s = String::from_utf8(string_data.to_vec()).map_err(|e| {
+                Error::Protocol(format!("Invalid UTF-8 in string: {}", e))
+            })?;
 
             self.data.push(s);
             buffer.advance(len);
@@ -358,7 +374,9 @@ impl Column for ColumnString {
         if begin + len > self.data.len() {
             return Err(Error::InvalidArgument(format!(
                 "Slice out of bounds: begin={}, len={}, size={}",
-                begin, len, self.data.len()
+                begin,
+                len,
+                self.data.len()
             )));
         }
 
@@ -382,7 +400,9 @@ fn read_varint(buffer: &mut &[u8]) -> Result<u64> {
 
     loop {
         if buffer.is_empty() {
-            return Err(Error::Protocol("Unexpected end of buffer reading varint".to_string()));
+            return Err(Error::Protocol(
+                "Unexpected end of buffer reading varint".to_string(),
+            ));
         }
 
         let byte = buffer[0];
@@ -524,7 +544,8 @@ mod tests {
         }
 
         let sliced = col.slice(2, 5).unwrap();
-        let sliced_col = sliced.as_any().downcast_ref::<ColumnString>().unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnString>().unwrap();
 
         assert_eq!(sliced_col.size(), 5);
         assert_eq!(sliced_col.get(0), Some("str_2"));

@@ -1,9 +1,12 @@
 //! Numeric column implementations
 //!
 //! **ClickHouse Documentation:**
-//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint) - Int8/16/32/64/128, UInt8/16/32/64/128
-//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float) - Float32, Float64
-//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal) - Fixed-point numbers
+//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint)
+//!   - Int8/16/32/64/128, UInt8/16/32/64/128
+//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float)
+//!   - Float32, Float64
+//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal)
+//!   - Fixed-point numbers
 //!
 //! ## Integer Types
 //!
@@ -32,15 +35,28 @@
 //!
 //! `Bool` is an alias for `UInt8` where 0 = false, 1 = true.
 
-use super::{Column, ColumnRef, ColumnTyped};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+    ColumnTyped,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
-/// Trait for types that can be read/written as fixed-size values (synchronous version for columns)
+/// Trait for types that can be read/written as fixed-size values (synchronous
+/// version for columns)
 ///
-/// All numeric types are stored in **little-endian** format in ClickHouse wire protocol.
+/// All numeric types are stored in **little-endian** format in ClickHouse wire
+/// protocol.
 pub trait FixedSize: Sized + Clone + Send + Sync + 'static {
     fn read_from(buffer: &mut &[u8]) -> Result<Self>;
     fn write_to(&self, buffer: &mut BytesMut);
@@ -52,7 +68,9 @@ macro_rules! impl_fixed_size {
         impl FixedSize for $type {
             fn read_from(buffer: &mut &[u8]) -> Result<Self> {
                 if buffer.len() < std::mem::size_of::<$type>() {
-                    return Err(Error::Protocol("Buffer underflow".to_string()));
+                    return Err(Error::Protocol(
+                        "Buffer underflow".to_string(),
+                    ));
                 }
                 Ok(buffer.$get())
             }
@@ -109,17 +127,11 @@ pub struct ColumnVector<T: FixedSize> {
 
 impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
-        Self {
-            type_,
-            data: Vec::with_capacity(capacity),
-        }
+        Self { type_, data: Vec::with_capacity(capacity) }
     }
 
     pub fn from_vec(type_: Type, data: Vec<T>) -> Self {
@@ -198,7 +210,11 @@ impl<T: FixedSize> Column for ColumnVector<T> {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         self.data.reserve(rows);
         for _ in 0..rows {
             let value = T::read_from(buffer)?;
@@ -244,7 +260,9 @@ impl<T: FixedSize> Column for ColumnVector<T> {
     }
 }
 
-impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnTyped<T> for ColumnVector<T> {
+impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnTyped<T>
+    for ColumnVector<T>
+{
     fn get(&self, index: usize) -> Option<T> {
         self.data.get(index).cloned()
     }
@@ -317,7 +335,8 @@ mod tests {
         let sliced = col.slice(2, 5).unwrap();
         assert_eq!(sliced.size(), 5);
 
-        let sliced_concrete = sliced.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        let sliced_concrete =
+            sliced.as_any().downcast_ref::<ColumnUInt64>().unwrap();
         assert_eq!(sliced_concrete.get(0), Some(&2));
         assert_eq!(sliced_concrete.get(4), Some(&6));
     }

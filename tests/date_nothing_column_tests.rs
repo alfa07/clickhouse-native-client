@@ -1,6 +1,11 @@
-use clickhouse_client::column::*;
-use clickhouse_client::types::{Type, TypeCode};
 use bytes::BytesMut;
+use clickhouse_client::{
+    column::*,
+    types::{
+        Type,
+        TypeCode,
+    },
+};
 
 // ============================================================================
 // Date Column Tests
@@ -189,7 +194,9 @@ fn test_datetime_with_timezone() {
 
 #[test]
 fn test_datetime_timezone_america_new_york() {
-    let mut col = ColumnDateTime::new(Type::datetime(Some("America/New_York".to_string())));
+    let mut col = ColumnDateTime::new(Type::datetime(Some(
+        "America/New_York".to_string(),
+    )));
     col.append(1640995200);
 
     assert_eq!(col.timezone(), Some("America/New_York"));
@@ -282,7 +289,8 @@ fn test_datetime64_nanosecond_precision() {
 
 #[test]
 fn test_datetime64_with_timezone() {
-    let mut col = ColumnDateTime64::new(Type::datetime64(3, Some("UTC".to_string())));
+    let mut col =
+        ColumnDateTime64::new(Type::datetime64(3, Some("UTC".to_string())));
     col.append(1640995200000);
 
     assert_eq!(col.timezone(), Some("UTC"));
@@ -319,7 +327,8 @@ fn test_datetime64_slice() {
     col.append(1640995200456);
 
     let sliced = col.slice(1, 2).unwrap();
-    let sliced_col = sliced.as_any().downcast_ref::<ColumnDateTime64>().unwrap();
+    let sliced_col =
+        sliced.as_any().downcast_ref::<ColumnDateTime64>().unwrap();
 
     assert_eq!(sliced_col.len(), 2);
     assert_eq!(sliced_col.precision(), 3);

@@ -4,10 +4,13 @@
 /// - Polygon: Array(Ring)
 /// - MultiPolygon: Array(Polygon)
 ///
-/// These types use the existing ColumnTuple and ColumnArray implementations
-/// with specific type constraints. No separate column implementation is needed.
-
-use crate::types::{Type, TypeCode};
+/// These types use the existing ColumnTuple and ColumnArray
+/// implementations with specific type constraints. No separate column
+/// implementation is needed.
+use crate::types::{
+    Type,
+    TypeCode,
+};
 
 /// Helper to create a Point type (Tuple(Float64, Float64))
 pub fn point_type() -> Type {
@@ -21,23 +24,17 @@ pub fn point_type() -> Type {
 
 /// Helper to create a Ring type (Array(Point))
 pub fn ring_type() -> Type {
-    Type::Array {
-        item_type: Box::new(point_type()),
-    }
+    Type::Array { item_type: Box::new(point_type()) }
 }
 
 /// Helper to create a Polygon type (Array(Ring))
 pub fn polygon_type() -> Type {
-    Type::Array {
-        item_type: Box::new(ring_type()),
-    }
+    Type::Array { item_type: Box::new(ring_type()) }
 }
 
 /// Helper to create a MultiPolygon type (Array(Polygon))
 pub fn multi_polygon_type() -> Type {
-    Type::Array {
-        item_type: Box::new(polygon_type()),
-    }
+    Type::Array { item_type: Box::new(polygon_type()) }
 }
 
 #[cfg(test)]
@@ -50,8 +47,14 @@ mod tests {
         match pt {
             Type::Tuple { item_types } => {
                 assert_eq!(item_types.len(), 2);
-                assert!(matches!(item_types[0], Type::Simple(TypeCode::Float64)));
-                assert!(matches!(item_types[1], Type::Simple(TypeCode::Float64)));
+                assert!(matches!(
+                    item_types[0],
+                    Type::Simple(TypeCode::Float64)
+                ));
+                assert!(matches!(
+                    item_types[1],
+                    Type::Simple(TypeCode::Float64)
+                ));
             }
             _ => panic!("Expected Tuple type"),
         }

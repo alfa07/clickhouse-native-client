@@ -4,19 +4,22 @@
 //!
 //! ## Overview
 //!
-//! LowCardinality is a specialized type that wraps other data types (String, FixedString, Date, DateTime, and numbers)
-//! to provide dictionary encoding. This dramatically reduces storage and improves query performance for columns
-//! with low cardinality (few unique values relative to total rows).
+//! LowCardinality is a specialized type that wraps other data types (String,
+//! FixedString, Date, DateTime, and numbers) to provide dictionary encoding.
+//! This dramatically reduces storage and improves query performance for
+//! columns with low cardinality (few unique values relative to total rows).
 //!
 //! ## Type Nesting Rules
 //!
 //! **✅ Correct nesting order:**
 //! - `LowCardinality(Nullable(String))` - Dictionary-encoded nullable strings
 //! - `Array(LowCardinality(String))` - Array of dictionary-encoded strings
-//! - `Array(LowCardinality(Nullable(String)))` - Array of nullable dictionary-encoded strings
+//! - `Array(LowCardinality(Nullable(String)))` - Array of nullable
+//!   dictionary-encoded strings
 //!
 //! **❌ Invalid nesting:**
-//! - `Nullable(LowCardinality(String))` - Error: "Nested type LowCardinality cannot be inside Nullable type"
+//! - `Nullable(LowCardinality(String))` - Error: "Nested type LowCardinality
+//!   cannot be inside Nullable type"
 //!
 //! See: <https://github.com/ClickHouse/ClickHouse/issues/42456>
 //!
@@ -36,23 +39,36 @@
 //! - Excellent for enum-like data, country codes, status flags, etc.
 //! - See ClickHouse tips: <https://www.tinybird.co/blog-posts/tips-10-null-behavior-with-lowcardinality-columns>
 
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
-use std::collections::HashMap;
-use std::sync::Arc;
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
 
 /// Column for LowCardinality type (dictionary encoding)
 ///
 /// Stores unique values in a dictionary and uses indices to reference them,
 /// providing compression for columns with many repeated values.
 ///
-/// **Reference Implementation:** See `clickhouse-cpp/clickhouse/columns/lowcardinality.cpp`
+/// **Reference Implementation:** See
+/// `clickhouse-cpp/clickhouse/columns/lowcardinality.cpp`
 pub struct ColumnLowCardinality {
     type_: Type,
-    dictionary: ColumnRef, // Stores unique values
-    indices: Vec<u64>,     // Indices into dictionary
+    dictionary: ColumnRef,         // Stores unique values
+    indices: Vec<u64>,             // Indices into dictionary
     unique_map: HashMap<u64, u64>, // Hash -> dictionary index for fast lookup
 }
 
@@ -60,13 +76,16 @@ impl ColumnLowCardinality {
     pub fn new(type_: Type) -> Self {
         // Extract the nested type from LowCardinality
         let dictionary_type = match &type_ {
-            Type::LowCardinality { nested_type } => nested_type.as_ref().clone(),
+            Type::LowCardinality { nested_type } => {
+                nested_type.as_ref().clone()
+            }
             _ => panic!("ColumnLowCardinality requires LowCardinality type"),
         };
 
         // Create the dictionary column
-        let dictionary = crate::io::block_stream::create_column(&dictionary_type)
-            .expect("Failed to create dictionary column");
+        let dictionary =
+            crate::io::block_stream::create_column(&dictionary_type)
+                .expect("Failed to create dictionary column");
 
         Self {
             type_,
@@ -132,11 +151,16 @@ impl Column for ColumnLowCardinality {
         // Full implementation would merge dictionaries and remap indices
         // For now, return an error as this is complex
         Err(Error::Protocol(
-            "append_column not fully implemented for LowCardinality".to_string(),
+            "append_column not fully implemented for LowCardinality"
+                .to_string(),
         ))
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         // LowCardinality has a complex serialization format:
         // 1. Read serialization version
         // 2. Read dictionary size
@@ -167,7 +191,8 @@ impl Column for ColumnLowCardinality {
         let dict_size = buffer.get_u64_le() as usize;
 
         // Load dictionary values
-        // This is simplified - real implementation needs to handle the nested type properly
+        // This is simplified - real implementation needs to handle the nested
+        // type properly
         for _ in 0..dict_size {
             // Skip dictionary loading for now
             // Would need: self.dictionary.load_from_buffer(buffer, 1)?;
@@ -276,10 +301,8 @@ mod tests {
         col.indices = vec![0, 1, 2, 1, 0];
 
         let sliced = col.slice(1, 3).unwrap();
-        let sliced_col = sliced
-            .as_any()
-            .downcast_ref::<ColumnLowCardinality>()
-            .unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
 
         assert_eq!(sliced_col.len(), 3);
         assert_eq!(sliced_col.index_at(0), 1);

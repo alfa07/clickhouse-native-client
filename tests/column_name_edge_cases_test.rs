@@ -12,9 +12,15 @@
 //!
 //! ## Prerequisites
 //! 1. Start ClickHouse server: `just start-db`
-//! 2. Run tests: `cargo test --test column_name_edge_cases_test -- --ignored --nocapture`
+//! 2. Run tests: `cargo test --test column_name_edge_cases_test -- --ignored
+//!    --nocapture`
 
-use clickhouse_client::{Block, Client, ClientOptions, Query};
+use clickhouse_client::{
+    Block,
+    Client,
+    ClientOptions,
+    Query,
+};
 
 /// Helper to create a test client
 async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
@@ -33,13 +39,10 @@ async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_column_name_with_dot() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_dot")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_dot").await;
 
     // Column name with dot needs backtick escaping
     client
@@ -61,7 +64,8 @@ async fn test_column_name_with_dot() {
         .expect("Failed to insert data");
 
     // Select using backtick-escaped name
-    let query = Query::new("SELECT id, `column.name` FROM test_col_dot ORDER BY id");
+    let query =
+        Query::new("SELECT id, `column.name` FROM test_col_dot ORDER BY id");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -85,21 +89,16 @@ async fn test_column_name_with_dot() {
     println!("✓ Column name with dot test passed");
 
     // Cleanup
-    client
-        .query("DROP TABLE test_col_dot")
-        .await;
+    client.query("DROP TABLE test_col_dot").await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_column_name_with_hyphen() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_hyphen")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_hyphen").await;
 
     // Column name with hyphen needs escaping
     client
@@ -130,21 +129,16 @@ async fn test_column_name_with_hyphen() {
     assert_eq!(total_rows, 1);
     println!("✓ Column name with hyphen test passed");
 
-    client
-        .query("DROP TABLE test_col_hyphen")
-        .await;
+    client.query("DROP TABLE test_col_hyphen").await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_column_name_with_space() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_space")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_space").await;
 
     // Column name with spaces
     client
@@ -164,7 +158,8 @@ async fn test_column_name_with_space() {
         .await
         .expect("Failed to insert data");
 
-    let query = Query::new("SELECT `column name with spaces` FROM test_col_space");
+    let query =
+        Query::new("SELECT `column name with spaces` FROM test_col_space");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -175,9 +170,7 @@ async fn test_column_name_with_space() {
     assert_eq!(total_rows, 1);
     println!("✓ Column name with spaces test passed");
 
-    client
-        .query("DROP TABLE test_col_space")
-        .await;
+    client.query("DROP TABLE test_col_space").await;
 }
 
 // ============================================================================
@@ -187,13 +180,10 @@ async fn test_column_name_with_space() {
 #[tokio::test]
 #[ignore]
 async fn test_column_name_reserved_select() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_select")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_select").await;
 
     // Use SQL keyword 'select' as column name
     client
@@ -224,21 +214,16 @@ async fn test_column_name_reserved_select() {
     assert_eq!(total_rows, 1);
     println!("✓ Reserved keyword 'select' as column name test passed");
 
-    client
-        .query("DROP TABLE test_col_select")
-        .await;
+    client.query("DROP TABLE test_col_select").await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_column_name_reserved_where() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_where")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_where").await;
 
     client
         .query(
@@ -269,9 +254,7 @@ async fn test_column_name_reserved_where() {
     assert_eq!(total_rows, 1);
     println!("✓ Multiple reserved keywords as column names test passed");
 
-    client
-        .query("DROP TABLE test_col_where")
-        .await;
+    client.query("DROP TABLE test_col_where").await;
 }
 
 // ============================================================================
@@ -281,13 +264,10 @@ async fn test_column_name_reserved_where() {
 #[tokio::test]
 #[ignore]
 async fn test_column_name_unicode_chinese() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_unicode_cn")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_unicode_cn").await;
 
     // Chinese characters in column name
     client
@@ -308,7 +288,8 @@ async fn test_column_name_unicode_chinese() {
         .await
         .expect("Failed to insert data");
 
-    let query = Query::new("SELECT id, `列名`, `数据` FROM test_col_unicode_cn");
+    let query =
+        Query::new("SELECT id, `列名`, `数据` FROM test_col_unicode_cn");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -326,21 +307,16 @@ async fn test_column_name_unicode_chinese() {
     assert_eq!(total_rows, 1);
     println!("✓ Unicode (Chinese) column names test passed");
 
-    client
-        .query("DROP TABLE test_col_unicode_cn")
-        .await;
+    client.query("DROP TABLE test_col_unicode_cn").await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_column_name_unicode_russian() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_unicode_ru")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_unicode_ru").await;
 
     // Russian (Cyrillic) characters
     client
@@ -361,7 +337,8 @@ async fn test_column_name_unicode_russian() {
         .await
         .expect("Failed to insert data");
 
-    let query = Query::new("SELECT `имя`, `значение` FROM test_col_unicode_ru");
+    let query =
+        Query::new("SELECT `имя`, `значение` FROM test_col_unicode_ru");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -372,21 +349,16 @@ async fn test_column_name_unicode_russian() {
     assert_eq!(total_rows, 1);
     println!("✓ Unicode (Russian) column names test passed");
 
-    client
-        .query("DROP TABLE test_col_unicode_ru")
-        .await;
+    client.query("DROP TABLE test_col_unicode_ru").await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_column_name_unicode_emoji() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_emoji")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_emoji").await;
 
     // Emoji in column name (if supported)
     client
@@ -407,7 +379,8 @@ async fn test_column_name_unicode_emoji() {
         .await
         .expect("Failed to insert data");
 
-    let query = Query::new("SELECT `column_🚀`, `data_✅` FROM test_col_emoji");
+    let query =
+        Query::new("SELECT `column_🚀`, `data_✅` FROM test_col_emoji");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -418,9 +391,7 @@ async fn test_column_name_unicode_emoji() {
     assert_eq!(total_rows, 1);
     println!("✓ Emoji in column names test passed");
 
-    client
-        .query("DROP TABLE test_col_emoji")
-        .await;
+    client.query("DROP TABLE test_col_emoji").await;
 }
 
 // ============================================================================
@@ -430,13 +401,10 @@ async fn test_column_name_unicode_emoji() {
 #[tokio::test]
 #[ignore]
 async fn test_column_name_very_long() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_long")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_long").await;
 
     // Create a very long column name (255 characters or so)
     let long_name = "a".repeat(200);
@@ -473,9 +441,7 @@ async fn test_column_name_very_long() {
     assert_eq!(total_rows, 1);
     println!("✓ Very long column name test passed");
 
-    client
-        .query("DROP TABLE test_col_long")
-        .await;
+    client.query("DROP TABLE test_col_long").await;
 }
 
 // ============================================================================
@@ -485,13 +451,10 @@ async fn test_column_name_very_long() {
 #[tokio::test]
 #[ignore]
 async fn test_column_name_with_backticks_internal() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_backtick")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_backtick").await;
 
     // Column name containing backticks needs double-backtick escaping
     // This may not be supported or may require special escaping
@@ -534,13 +497,10 @@ async fn test_column_name_with_backticks_internal() {
 #[tokio::test]
 #[ignore]
 async fn test_column_name_mixed_special_chars() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_mixed")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_mixed").await;
 
     // Mix of special characters, Unicode, and spaces
     client
@@ -558,11 +518,14 @@ async fn test_column_name_mixed_special_chars() {
     println!("✓ Table with mixed special character column names created");
 
     client
-        .query("INSERT INTO test_col_mixed VALUES (1, 'John Doe', 42, 'active')")
+        .query(
+            "INSERT INTO test_col_mixed VALUES (1, 'John Doe', 42, 'active')",
+        )
         .await
         .expect("Failed to insert data");
 
-    let query = Query::new("SELECT `user.name (full)`, `count-value_2023`, `статус🚀` FROM test_col_mixed");
+    let query =
+        Query::new("SELECT `user.name (full)`, `count-value_2023`, `статус🚀` FROM test_col_mixed");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -573,9 +536,7 @@ async fn test_column_name_mixed_special_chars() {
     assert_eq!(total_rows, 1);
     println!("✓ Mixed special characters column names test passed");
 
-    client
-        .query("DROP TABLE test_col_mixed")
-        .await;
+    client.query("DROP TABLE test_col_mixed").await;
 }
 
 // ============================================================================
@@ -585,13 +546,10 @@ async fn test_column_name_mixed_special_chars() {
 #[tokio::test]
 #[ignore]
 async fn test_column_name_numeric() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_col_numeric")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_col_numeric").await;
 
     // Column names that are purely numeric
     client
@@ -622,7 +580,5 @@ async fn test_column_name_numeric() {
     assert_eq!(total_rows, 1);
     println!("✓ Numeric column names test passed");
 
-    client
-        .query("DROP TABLE test_col_numeric")
-        .await;
+    client.query("DROP TABLE test_col_numeric").await;
 }

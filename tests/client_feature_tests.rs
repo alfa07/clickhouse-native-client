@@ -1,11 +1,13 @@
 //! Client Feature Tests
 //!
-//! These tests verify advanced client features that were missing from the initial implementation.
-//! Based on C++ clickhouse-cpp client_ut.cpp test suite.
+//! These tests verify advanced client features that were missing from the
+//! initial implementation. Based on C++ clickhouse-cpp client_ut.cpp test
+//! suite.
 //!
 //! ## Prerequisites
 //! 1. Start ClickHouse server: `just start-db`
-//! 2. Run tests: `cargo test --test client_feature_tests -- --ignored --nocapture`
+//! 2. Run tests: `cargo test --test client_feature_tests -- --ignored
+//!    --nocapture`
 //!
 //! ## Test Coverage
 //! - Client version information
@@ -16,9 +18,22 @@
 //! - Query cancellation
 //! - Connection reset
 
-use clickhouse_client::{Block, Client, ClientOptions, Query};
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use clickhouse_client::{
+    Block,
+    Client,
+    ClientOptions,
+    Query,
+};
+use std::{
+    sync::{
+        Arc,
+        Mutex,
+    },
+    time::{
+        SystemTime,
+        UNIX_EPOCH,
+    },
+};
 
 /// Helper to create a test client
 async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
@@ -32,19 +47,16 @@ async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
 
 /// Generate a unique query ID for testing
 fn generate_query_id(test_name: &str) -> String {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
+    let timestamp =
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
     format!("test_{}_{}", test_name, timestamp)
 }
 
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_query_id_tracking() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let query_id = generate_query_id("query_id_tracking");
     println!("Testing with query ID: {}", query_id);
@@ -98,9 +110,8 @@ async fn test_query_id_tracking() {
 #[tokio::test]
 #[ignore]
 async fn test_query_parameters() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Test parameterized query
     // Note: ClickHouse supports query parameters with {param:Type} syntax
@@ -110,17 +121,28 @@ async fn test_query_parameters() {
 
     println!("Testing query parameters...");
 
-    let result = client.query(query).await.expect("Query with parameters failed");
+    let result =
+        client.query(query).await.expect("Query with parameters failed");
 
     let mut found_data = false;
     for block in result.blocks() {
         if block.row_count() > 0 {
             found_data = true;
-            println!("Result block: {} rows, {} columns", block.row_count(), block.column_count());
+            println!(
+                "Result block: {} rows, {} columns",
+                block.row_count(),
+                block.column_count()
+            );
 
             // Verify columns exist (parameter substitution worked)
-            assert!(block.column_by_name("id").is_some(), "id column should exist");
-            assert!(block.column_by_name("name").is_some(), "name column should exist");
+            assert!(
+                block.column_by_name("id").is_some(),
+                "id column should exist"
+            );
+            assert!(
+                block.column_by_name("name").is_some(),
+                "name column should exist"
+            );
             println!("✓ Parameters were substituted correctly");
         }
     }
@@ -132,9 +154,8 @@ async fn test_query_parameters() {
 #[tokio::test]
 #[ignore]
 async fn test_client_name_in_logs() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let query_id = generate_query_id("client_name");
     println!("Testing client name with query ID: {}", query_id);
@@ -181,9 +202,8 @@ async fn test_client_name_in_logs() {
 #[tokio::test]
 #[ignore]
 async fn test_simple_aggregate_function_type() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create a table with SimpleAggregateFunction column
     client
@@ -205,16 +225,15 @@ async fn test_simple_aggregate_function_type() {
 
     // Insert some data using SQL INSERT
     client
-        .query(
-            "INSERT INTO test_simple_agg_func VALUES (1, 100), (2, 200), (3, 300)",
-        )
+        .query("INSERT INTO test_simple_agg_func VALUES (1, 100), (2, 200), (3, 300)")
         .await
         .expect("Failed to insert data");
 
     println!("Inserted data into table");
 
     // Select data back
-    let query = Query::new("SELECT id, value FROM test_simple_agg_func ORDER BY id");
+    let query =
+        Query::new("SELECT id, value FROM test_simple_agg_func ORDER BY id");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -228,7 +247,10 @@ async fn test_simple_aggregate_function_type() {
 
         if block.row_count() > 0 {
             // Verify value column exists
-            assert!(block.column_by_name("value").is_some(), "value column should exist");
+            assert!(
+                block.column_by_name("value").is_some(),
+                "value column should exist"
+            );
         }
     }
 
@@ -245,9 +267,8 @@ async fn test_simple_aggregate_function_type() {
 #[tokio::test]
 #[ignore]
 async fn test_multiple_query_settings() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Test query with multiple settings
     let query = Query::new("SELECT version()")
@@ -257,13 +278,17 @@ async fn test_multiple_query_settings() {
 
     println!("Testing query with multiple settings...");
 
-    let result = client.query(query).await.expect("Query with settings failed");
+    let result =
+        client.query(query).await.expect("Query with settings failed");
 
     let mut found_version = false;
     for block in result.blocks() {
         if block.row_count() > 0 {
             found_version = true;
-            println!("Query with settings succeeded, got {} rows", block.row_count());
+            println!(
+                "Query with settings succeeded, got {} rows",
+                block.row_count()
+            );
         }
     }
 
@@ -275,9 +300,8 @@ async fn test_multiple_query_settings() {
 #[ignore]
 async fn test_query_with_id_and_settings_and_callbacks() {
     // Test combining multiple query features
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let query_id = generate_query_id("combined_features");
     let progress_count = Arc::new(Mutex::new(0));
@@ -312,12 +336,13 @@ async fn test_query_with_id_and_settings_and_callbacks() {
 #[tokio::test]
 #[ignore]
 async fn test_select_with_empty_result() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Query that returns no rows
-    let query = Query::new("SELECT number FROM system.numbers WHERE number > 1000000 LIMIT 0");
+    let query = Query::new(
+        "SELECT number FROM system.numbers WHERE number > 1000000 LIMIT 0",
+    );
 
     let result = client.query(query).await.expect("Empty query failed");
 
@@ -333,18 +358,20 @@ async fn test_select_with_empty_result() {
 #[tokio::test]
 #[ignore]
 async fn test_query_exception_with_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let exception_caught = Arc::new(Mutex::new(false));
     let exception_clone = exception_caught.clone();
 
     // This query should fail (invalid syntax)
-    let query = Query::new("SELECT FROM invalid_syntax")
-        .on_exception(move |e| {
+    let query =
+        Query::new("SELECT FROM invalid_syntax").on_exception(move |e| {
             *exception_clone.lock().unwrap() = true;
-            println!("Exception caught in callback: code={}, name={}", e.code, e.name);
+            println!(
+                "Exception caught in callback: code={}, name={}",
+                e.code, e.name
+            );
         });
 
     let result = client.query(query).await;
@@ -359,7 +386,9 @@ async fn test_query_exception_with_callback() {
     // Exception callback should have been invoked
     let was_caught = *exception_caught.lock().unwrap();
     if !was_caught {
-        println!("Note: Exception callback may not be invoked for all error types");
+        println!(
+            "Note: Exception callback may not be invoked for all error types"
+        );
     }
 
     println!("✓ Exception callback test completed");
@@ -368,9 +397,8 @@ async fn test_query_exception_with_callback() {
 #[tokio::test]
 #[ignore]
 async fn test_server_version_info() {
-    let client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let server_info = client.server_info();
 
@@ -395,9 +423,8 @@ async fn test_server_version_info() {
 #[tokio::test]
 #[ignore]
 async fn test_ping_functionality() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     println!("Testing ping...");
 

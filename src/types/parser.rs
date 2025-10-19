@@ -6,9 +6,14 @@
 //! **Reference:** `cpp/clickhouse-cpp/clickhouse/types/type_parser.{h,cpp}`
 
 use super::TypeCode;
-use crate::{Error, Result};
-use std::cell::RefCell;
-use std::collections::HashMap;
+use crate::{
+    Error,
+    Result,
+};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+};
 
 /// Token types used during parsing
 /// Mirrors C++ `TypeParser::Token::Type`
@@ -19,11 +24,11 @@ enum TokenType {
     Name,
     Number,
     String,
-    LPar,        // Left parenthesis (
-    RPar,        // Right parenthesis )
+    LPar, // Left parenthesis (
+    RPar, // Right parenthesis )
     Comma,
     QuotedString, // String with quotation marks included
-    EOS,         // End of string
+    EOS,          // End of string
 }
 
 /// Token with type and value
@@ -128,10 +133,12 @@ impl<'a> TypeParser<'a> {
                 TokenType::QuotedString => {
                     unsafe {
                         let current = self.current_type.unwrap();
-                        (*current).meta = TypeMeta::String;  // Use String meta for quoted strings
-                        // Remove quotes from value
+                        (*current).meta = TypeMeta::String; // Use String meta for quoted strings
+                                                            // Remove quotes from value
                         if token.value.len() >= 2 {
-                            (*current).value_string = token.value[1..token.value.len() - 1].to_string();
+                            (*current).value_string = token.value
+                                [1..token.value.len() - 1]
+                                .to_string();
                         } else {
                             (*current).value_string = String::new();
                         }
@@ -139,30 +146,24 @@ impl<'a> TypeParser<'a> {
                     }
                 }
 
-                TokenType::Name => {
-                    unsafe {
-                        let current = self.current_type.unwrap();
-                        (*current).meta = get_type_meta(token.value);
-                        (*current).name = token.value.to_string();
-                        (*current).code = get_type_code(token.value);
-                    }
-                }
+                TokenType::Name => unsafe {
+                    let current = self.current_type.unwrap();
+                    (*current).meta = get_type_meta(token.value);
+                    (*current).name = token.value.to_string();
+                    (*current).code = get_type_code(token.value);
+                },
 
-                TokenType::Number => {
-                    unsafe {
-                        let current = self.current_type.unwrap();
-                        (*current).meta = TypeMeta::Number;
-                        (*current).value = token.value.parse::<i64>().unwrap_or(0);
-                    }
-                }
+                TokenType::Number => unsafe {
+                    let current = self.current_type.unwrap();
+                    (*current).meta = TypeMeta::Number;
+                    (*current).value = token.value.parse::<i64>().unwrap_or(0);
+                },
 
-                TokenType::String => {
-                    unsafe {
-                        let current = self.current_type.unwrap();
-                        (*current).meta = TypeMeta::String;
-                        (*current).value_string = token.value.to_string();
-                    }
-                }
+                TokenType::String => unsafe {
+                    let current = self.current_type.unwrap();
+                    (*current).meta = TypeMeta::String;
+                    (*current).value_string = token.value.to_string();
+                },
 
                 TokenType::LPar => {
                     unsafe {
@@ -329,10 +330,7 @@ impl<'a> TypeParser<'a> {
             }
         }
 
-        Token {
-            token_type: TokenType::EOS,
-            value: "",
-        }
+        Token { token_type: TokenType::EOS, value: "" }
     }
 }
 
@@ -414,7 +412,8 @@ fn validate_ast(ast: &TypeAst) -> bool {
 
 /// Thread-local cache for parsed type names
 /// Each thread maintains its own cache for zero-overhead lookups.
-/// Optimized for Rust: uses thread_local instead of global mutex (unlike C++ implementation).
+/// Optimized for Rust: uses thread_local instead of global mutex (unlike C++
+/// implementation).
 thread_local! {
     static TYPE_CACHE: RefCell<HashMap<String, TypeAst>> =
         RefCell::new(HashMap::new());
@@ -434,7 +433,10 @@ pub fn parse_type_name(type_name: &str) -> Result<TypeAst> {
         let mut parser = TypeParser::new(type_name);
 
         if !parser.parse(&mut ast) {
-            return Err(Error::Protocol(format!("Failed to parse type: {}", type_name)));
+            return Err(Error::Protocol(format!(
+                "Failed to parse type: {}",
+                type_name
+            )));
         }
 
         // Cache the result in thread-local storage

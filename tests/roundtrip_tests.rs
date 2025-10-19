@@ -1,9 +1,11 @@
 // Roundtrip tests - test serialization and deserialization of columns
 // These test that data can be saved to a buffer and loaded back correctly
 
-use clickhouse_client::column::*;
-use clickhouse_client::types::Type;
 use bytes::BytesMut;
+use clickhouse_client::{
+    column::*,
+    types::Type,
+};
 use std::sync::Arc;
 
 // ============================================================================
@@ -11,7 +13,9 @@ use std::sync::Arc;
 // ============================================================================
 
 /// Helper to roundtrip a column through serialization
-fn roundtrip_column<T: Column + 'static>(col: &T) -> Result<Arc<dyn Column>, clickhouse_client::Error> {
+fn roundtrip_column<T: Column + 'static>(
+    col: &T,
+) -> Result<Arc<dyn Column>, clickhouse_client::Error> {
     let mut buffer = BytesMut::new();
 
     // Save to buffer
@@ -122,12 +126,13 @@ fn test_roundtrip_fixed_string() {
     let size = 10;
     let mut col = ColumnFixedString::new(Type::fixed_string(size));
 
-    col.append("abc".to_string());       // Will be padded to 10 bytes
+    col.append("abc".to_string()); // Will be padded to 10 bytes
     col.append("1234567890".to_string()); // Exactly 10 bytes
-    col.append("".to_string());           // Empty, padded to 10 bytes
+    col.append("".to_string()); // Empty, padded to 10 bytes
 
     let result = roundtrip_column(&col).unwrap();
-    let result_fixed = result.as_any().downcast_ref::<ColumnFixedString>().unwrap();
+    let result_fixed =
+        result.as_any().downcast_ref::<ColumnFixedString>().unwrap();
 
     assert_eq!(result_fixed.len(), 3);
 
@@ -147,9 +152,9 @@ fn test_roundtrip_fixed_string() {
 #[test]
 fn test_roundtrip_date() {
     let mut col = ColumnDate::new(Type::date());
-    col.append(0);      // 1970-01-01
-    col.append(19000);  // 2022-01-05 (approximately)
-    col.append(10000);  // 1997-05-19
+    col.append(0); // 1970-01-01
+    col.append(19000); // 2022-01-05 (approximately)
+    col.append(10000); // 1997-05-19
 
     let result = roundtrip_column(&col).unwrap();
     let result_date = result.as_any().downcast_ref::<ColumnDate>().unwrap();
@@ -164,15 +169,11 @@ fn test_roundtrip_date() {
 // Array Column Roundtrip Tests
 // ============================================================================
 //
-// NOTE: Array and Nullable column roundtrip tests are currently limited due to Arc
-// immutability. The load_from_buffer() method cannot modify nested columns through Arc.
-// In production, block_stream.rs uses a different mechanism that creates new columns.
-//
-// These tests are commented out until we implement interior mutability or an alternative
-// approach for nested column deserialization.
+// These tests verify that Array columns properly serialize and deserialize
+// nested data. Fixed: load_from_buffer() now properly loads nested column data
+// using Arc::get_mut.
 
 #[test]
-#[ignore]
 fn test_roundtrip_array_uint64() {
     let inner_type = Type::uint64();
     let col_type = Type::array(inner_type.clone());
@@ -213,7 +214,6 @@ fn test_roundtrip_array_uint64() {
 }
 
 #[test]
-#[ignore]
 fn test_roundtrip_array_string() {
     let inner_type = Type::string();
     let col_type = Type::array(inner_type.clone());
@@ -252,10 +252,11 @@ fn test_roundtrip_array_string() {
 // ============================================================================
 // Nullable Column Roundtrip Tests
 // ============================================================================
-// NOTE: Same Arc immutability limitation as Array columns
+// These tests verify that Nullable columns properly serialize and deserialize
+// nested data. Fixed: load_from_buffer() now properly loads nested column data
+// using Arc::get_mut.
 
 #[test]
-#[ignore]
 fn test_roundtrip_nullable_uint32() {
     let inner_type = Type::uint32();
     let null_type = Type::nullable(inner_type.clone());
@@ -268,7 +269,8 @@ fn test_roundtrip_nullable_uint32() {
     col.append_nullable(Some(255));
 
     let result = roundtrip_column(&col).unwrap();
-    let result_nullable = result.as_any().downcast_ref::<ColumnNullable>().unwrap();
+    let result_nullable =
+        result.as_any().downcast_ref::<ColumnNullable>().unwrap();
 
     assert_eq!(result_nullable.len(), 5);
 
@@ -305,7 +307,10 @@ fn test_roundtrip_tuple() {
     inner2.append("test".to_string());
     inner2.append("hello".to_string());
 
-    let col = ColumnTuple::new(tuple_type, vec![Arc::new(inner1) as ColumnRef, Arc::new(inner2) as ColumnRef]);
+    let col = ColumnTuple::new(
+        tuple_type,
+        vec![Arc::new(inner1) as ColumnRef, Arc::new(inner2) as ColumnRef],
+    );
 
     let result = roundtrip_column(&col).unwrap();
     let result_tuple = result.as_any().downcast_ref::<ColumnTuple>().unwrap();

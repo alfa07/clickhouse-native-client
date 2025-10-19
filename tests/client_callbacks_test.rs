@@ -1,10 +1,12 @@
 //! Callback Tests for ClickHouse Client
 //!
-//! These tests verify the callback functionality for progress, profile, events, logs, exceptions, and data.
+//! These tests verify the callback functionality for progress, profile,
+//! events, logs, exceptions, and data.
 //!
 //! ## Prerequisites
 //! 1. Start ClickHouse server: `just start-db`
-//! 2. Run tests: `cargo test --test client_callbacks_test -- --ignored --nocapture`
+//! 2. Run tests: `cargo test --test client_callbacks_test -- --ignored
+//!    --nocapture`
 //!
 //! ## Test Coverage
 //! - Progress callbacks during long-running queries
@@ -18,8 +20,15 @@
 //! - Callbacks combined with query ID
 //! - Callbacks combined with settings
 
-use clickhouse_client::{Client, ClientOptions, Query};
-use std::sync::{Arc, Mutex};
+use clickhouse_client::{
+    Client,
+    ClientOptions,
+    Query,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 /// Helper to create a test client
 async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
@@ -34,9 +43,8 @@ async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_on_progress_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Use Arc<Mutex> to share progress_count across callback boundary
     let progress_count = Arc::new(Mutex::new(0));
@@ -59,9 +67,8 @@ async fn test_on_progress_callback() {
 #[tokio::test]
 #[ignore]
 async fn test_on_profile_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let profile_received = Arc::new(Mutex::new(false));
     let profile_received_clone = profile_received.clone();
@@ -69,22 +76,30 @@ async fn test_on_profile_callback() {
     let query = Query::new("SELECT number FROM system.numbers LIMIT 1000")
         .on_profile(move |p| {
             *profile_received_clone.lock().unwrap() = true;
-            println!("Profile: {} rows in {} blocks, {} bytes", p.rows, p.blocks, p.bytes);
-            println!("  rows_before_limit: {}, applied_limit: {}", p.rows_before_limit, p.applied_limit);
+            println!(
+                "Profile: {} rows in {} blocks, {} bytes",
+                p.rows, p.blocks, p.bytes
+            );
+            println!(
+                "  rows_before_limit: {}, applied_limit: {}",
+                p.rows_before_limit, p.applied_limit
+            );
         });
 
     client.query(query).await.expect("Query failed");
 
     // ProfileInfo may or may not be sent for all queries
-    println!("Profile callback received: {}", *profile_received.lock().unwrap());
+    println!(
+        "Profile callback received: {}",
+        *profile_received.lock().unwrap()
+    );
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_on_profile_events_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let events_count = Arc::new(Mutex::new(0));
     let events_count_clone = events_count.clone();
@@ -92,7 +107,11 @@ async fn test_on_profile_events_callback() {
     let query = Query::new("SELECT * FROM system.numbers LIMIT 10000")
         .on_profile_events(move |block| {
             *events_count_clone.lock().unwrap() += 1;
-            println!("ProfileEvents block: {} rows, {} columns", block.row_count(), block.column_count());
+            println!(
+                "ProfileEvents block: {} rows, {} columns",
+                block.row_count(),
+                block.column_count()
+            );
             true // Continue receiving events
         });
 
@@ -105,9 +124,8 @@ async fn test_on_profile_events_callback() {
 #[tokio::test]
 #[ignore]
 async fn test_on_server_log_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let log_count = Arc::new(Mutex::new(0));
     let log_count_clone = log_count.clone();
@@ -128,9 +146,8 @@ async fn test_on_server_log_callback() {
 #[tokio::test]
 #[ignore]
 async fn test_on_exception_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let exception_received = Arc::new(Mutex::new(false));
     let exception_received_clone = exception_received.clone();
@@ -138,7 +155,10 @@ async fn test_on_exception_callback() {
     let query = Query::new("SELECT * FROM nonexistent_table_12345")
         .on_exception(move |e| {
             *exception_received_clone.lock().unwrap() = true;
-            println!("Exception: {} (code {}): {}", e.name, e.code, e.display_text);
+            println!(
+                "Exception: {} (code {}): {}",
+                e.name, e.code, e.display_text
+            );
         });
 
     // Query should fail
@@ -146,15 +166,17 @@ async fn test_on_exception_callback() {
     assert!(result.is_err(), "Query should have failed");
 
     // Exception callback should have been invoked
-    assert!(*exception_received.lock().unwrap(), "Exception callback should have been invoked");
+    assert!(
+        *exception_received.lock().unwrap(),
+        "Exception callback should have been invoked"
+    );
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_on_data_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let data_count = Arc::new(Mutex::new(0));
     let total_rows = Arc::new(Mutex::new(0));
@@ -172,16 +194,18 @@ async fn test_on_data_callback() {
 
     let count = *data_count.lock().unwrap();
     let rows = *total_rows.lock().unwrap();
-    println!("Data callback invoked {} times, received {} total rows", count, rows);
+    println!(
+        "Data callback invoked {} times, received {} total rows",
+        count, rows
+    );
     assert!(rows > 0, "Should have received data");
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_on_data_cancelable_callback() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let data_count = Arc::new(Mutex::new(0));
     let total_rows = Arc::new(Mutex::new(0));
@@ -197,7 +221,12 @@ async fn test_on_data_cancelable_callback() {
             *count += 1;
             *rows += block.row_count();
 
-            println!("Data block {}: {} rows (total: {})", *count, block.row_count(), *rows);
+            println!(
+                "Data block {}: {} rows (total: {})",
+                *count,
+                block.row_count(),
+                *rows
+            );
 
             // Cancel after first block or after receiving some rows
             *rows < 100 || *count < 1
@@ -207,16 +236,21 @@ async fn test_on_data_cancelable_callback() {
 
     let count = *data_count.lock().unwrap();
     let rows = *total_rows.lock().unwrap();
-    println!("Received {} blocks with {} total rows before cancellation", count, rows);
-    assert!(rows < 1000000, "Query should have been cancelled before completion");
+    println!(
+        "Received {} blocks with {} total rows before cancellation",
+        count, rows
+    );
+    assert!(
+        rows < 1000000,
+        "Query should have been cancelled before completion"
+    );
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_multiple_callbacks() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let progress_count = Arc::new(Mutex::new(0));
     let data_count = Arc::new(Mutex::new(0));
@@ -250,14 +284,19 @@ async fn test_multiple_callbacks() {
 #[tokio::test]
 #[ignore]
 async fn test_callback_with_query_id() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let data_received = Arc::new(Mutex::new(false));
     let data_received_clone = data_received.clone();
 
-    let query_id = format!("test_callback_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    let query_id = format!(
+        "test_callback_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
 
     let query = Query::new("SELECT number FROM system.numbers LIMIT 100")
         .with_query_id(&query_id)
@@ -268,16 +307,18 @@ async fn test_callback_with_query_id() {
 
     client.query(query).await.expect("Query failed");
 
-    assert!(*data_received.lock().unwrap(), "Data callback should have been invoked");
+    assert!(
+        *data_received.lock().unwrap(),
+        "Data callback should have been invoked"
+    );
     println!("Query ID {} completed with callback", query_id);
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_callback_with_settings() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let data_count = Arc::new(Mutex::new(0));
     let data_count_clone = data_count.clone();
@@ -286,7 +327,10 @@ async fn test_callback_with_settings() {
         .with_setting("max_block_size", "100")
         .on_data(move |block| {
             *data_count_clone.lock().unwrap() += 1;
-            println!("Data block: {} rows (max_block_size=100)", block.row_count());
+            println!(
+                "Data block: {} rows (max_block_size=100)",
+                block.row_count()
+            );
         });
 
     client.query(query).await.expect("Query failed");

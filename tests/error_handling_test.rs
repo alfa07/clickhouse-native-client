@@ -4,7 +4,8 @@
 //!
 //! ## Prerequisites
 //! 1. Start ClickHouse server: `just start-db` (for some tests)
-//! 2. Run tests: `cargo test --test error_handling_test -- --ignored --nocapture`
+//! 2. Run tests: `cargo test --test error_handling_test -- --ignored
+//!    --nocapture`
 //!
 //! ## Test Coverage
 //! - Connection refused errors
@@ -15,7 +16,11 @@
 //! - Invalid SQL syntax errors
 //! - Type mismatch errors
 
-use clickhouse_client::{Client, ClientOptions, ConnectionOptions};
+use clickhouse_client::{
+    Client,
+    ClientOptions,
+    ConnectionOptions,
+};
 use std::time::Duration;
 
 /// Helper to create a test client
@@ -44,7 +49,9 @@ async fn test_connection_refused() {
         println!("Expected connection error: {}", e);
         let error_string = e.to_string();
         assert!(
-            error_string.contains("Connection") || error_string.contains("refused") || error_string.contains("connect"),
+            error_string.contains("Connection")
+                || error_string.contains("refused")
+                || error_string.contains("connect"),
             "Error should mention connection failure"
         );
     }
@@ -52,8 +59,8 @@ async fn test_connection_refused() {
 
 #[tokio::test]
 async fn test_connection_timeout() {
-    let conn_opts = ConnectionOptions::new()
-        .connect_timeout(Duration::from_millis(10)); // Very short timeout
+    let conn_opts =
+        ConnectionOptions::new().connect_timeout(Duration::from_millis(10)); // Very short timeout
 
     // Try to connect to a non-routable IP (will timeout)
     let opts = ClientOptions::new("192.0.2.1", 9000) // TEST-NET-1, non-routable
@@ -78,10 +85,13 @@ async fn test_connection_timeout() {
 
 #[tokio::test]
 async fn test_invalid_host() {
-    let opts = ClientOptions::new("invalid-hostname-that-does-not-exist-12345.example", 9000)
-        .database("default")
-        .user("default")
-        .password("");
+    let opts = ClientOptions::new(
+        "invalid-hostname-that-does-not-exist-12345.example",
+        9000,
+    )
+    .database("default")
+    .user("default")
+    .password("");
 
     let result = Client::connect(opts).await;
 
@@ -94,9 +104,8 @@ async fn test_invalid_host() {
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_server_exception() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Query non-existent table
     let result = client.query("SELECT * FROM nonexistent_table_xyz_123").await;
@@ -106,7 +115,9 @@ async fn test_server_exception() {
         let error_string = e.to_string();
         println!("Server exception: {}", error_string);
         assert!(
-            error_string.contains("Exception") || error_string.contains("doesn't exist") || error_string.contains("Unknown table"),
+            error_string.contains("Exception")
+                || error_string.contains("doesn't exist")
+                || error_string.contains("Unknown table"),
             "Error should indicate table doesn't exist"
         );
     }
@@ -115,19 +126,20 @@ async fn test_server_exception() {
 #[tokio::test]
 #[ignore]
 async fn test_invalid_sql_syntax() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Invalid SQL syntax
-    let result = client.query("SELECTTT * FROMM system.numbers LIMITT 1").await;
+    let result =
+        client.query("SELECTTT * FROMM system.numbers LIMITT 1").await;
 
     assert!(result.is_err(), "Invalid SQL should fail");
     if let Err(e) = result {
         let error_string = e.to_string();
         println!("Syntax error: {}", error_string);
         assert!(
-            error_string.contains("Syntax") || error_string.contains("Exception"),
+            error_string.contains("Syntax")
+                || error_string.contains("Exception"),
             "Error should indicate syntax problem"
         );
     }
@@ -136,18 +148,20 @@ async fn test_invalid_sql_syntax() {
 #[tokio::test]
 #[ignore]
 async fn test_type_mismatch_error() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create table with specific type
     client.query("DROP TABLE IF EXISTS test_type_mismatch_error").await.ok();
-    client.query("CREATE TABLE IF NOT EXISTS test_type_mismatch_error (id UInt64) ENGINE = Memory")
+    client
+        .query("CREATE TABLE IF NOT EXISTS test_type_mismatch_error (id UInt64) ENGINE = Memory")
         .await
         .expect("Failed to create table");
 
     // Try to insert wrong type (string into UInt64)
-    let result = client.query("INSERT INTO test_type_mismatch_error VALUES ('not a number')").await;
+    let result = client
+        .query("INSERT INTO test_type_mismatch_error VALUES ('not a number')")
+        .await;
 
     // Cleanup
     client.query("DROP TABLE IF EXISTS test_type_mismatch_error").await.ok();
@@ -162,16 +176,17 @@ async fn test_type_mismatch_error() {
 #[tokio::test]
 #[ignore]
 async fn test_division_by_zero() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Division by zero
     let result = client.query("SELECT 1 / 0").await;
 
     // ClickHouse may return inf or throw error depending on settings
     match result {
-        Ok(r) => println!("Division by zero returned: {} rows", r.total_rows()),
+        Ok(r) => {
+            println!("Division by zero returned: {} rows", r.total_rows())
+        }
         Err(e) => println!("Division by zero error: {}", e),
     }
 }
@@ -186,11 +201,14 @@ async fn test_permission_denied() {
         .user("default") // default user may not have CREATE USER permission
         .password("");
 
-    let mut client = Client::connect(opts).await.expect("Connection should succeed");
+    let mut client =
+        Client::connect(opts).await.expect("Connection should succeed");
 
-    let result = client.query("CREATE USER test_user IDENTIFIED BY 'password'").await;
+    let result =
+        client.query("CREATE USER test_user IDENTIFIED BY 'password'").await;
 
-    // May fail with permission denied or succeed if default user has permissions
+    // May fail with permission denied or succeed if default user has
+    // permissions
     match result {
         Ok(_) => {
             println!("CREATE USER succeeded (default user has permissions)");
@@ -206,16 +224,20 @@ async fn test_permission_denied() {
 #[tokio::test]
 #[ignore]
 async fn test_query_too_complex() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create a query that's too complex (nested joins)
     // Note: This may not fail on all ClickHouse versions
     let complex_query = format!(
         "SELECT * FROM system.numbers AS t1 {} LIMIT 1",
         (0..100)
-            .map(|i| format!("JOIN system.numbers AS t{} ON t{}.number = t{}.number", i+2, i+1, i+2))
+            .map(|i| format!(
+                "JOIN system.numbers AS t{} ON t{}.number = t{}.number",
+                i + 2,
+                i + 1,
+                i + 2
+            ))
             .collect::<Vec<_>>()
             .join(" ")
     );
@@ -231,25 +253,28 @@ async fn test_query_too_complex() {
 #[tokio::test]
 #[ignore]
 async fn test_table_already_exists() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create table
     client.query("DROP TABLE IF EXISTS test_exists").await.ok();
-    client.query("CREATE TABLE test_exists (id UInt64) ENGINE = Memory")
+    client
+        .query("CREATE TABLE test_exists (id UInt64) ENGINE = Memory")
         .await
         .expect("First CREATE should succeed");
 
     // Try to create again without IF NOT EXISTS
-    let result = client.query("CREATE TABLE test_exists (id UInt64) ENGINE = Memory").await;
+    let result = client
+        .query("CREATE TABLE test_exists (id UInt64) ENGINE = Memory")
+        .await;
 
     assert!(result.is_err(), "Duplicate table creation should fail");
     if let Err(e) = result {
         let error_string = e.to_string();
         println!("Expected 'table exists' error: {}", error_string);
         assert!(
-            error_string.contains("already exists") || error_string.contains("Exception"),
+            error_string.contains("already exists")
+                || error_string.contains("Exception"),
             "Error should indicate table already exists"
         );
     }
@@ -261,13 +286,13 @@ async fn test_table_already_exists() {
 #[tokio::test]
 #[ignore]
 async fn test_unsupported_aggregate_function_type() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create table with AggregateFunction column
     client.query("DROP TABLE IF EXISTS test_agg_func").await.ok();
-    client.query("CREATE TABLE test_agg_func (col AggregateFunction(sum, UInt64)) ENGINE = Memory")
+    client
+        .query("CREATE TABLE test_agg_func (col AggregateFunction(sum, UInt64)) ENGINE = Memory")
         .await
         .ok(); // May fail if not supported
 
@@ -279,12 +304,15 @@ async fn test_unsupported_aggregate_function_type() {
 
     // Our client should error on AggregateFunction columns
     match result {
-        Ok(_) => println!("Note: AggregateFunction query unexpectedly succeeded"),
+        Ok(_) => {
+            println!("Note: AggregateFunction query unexpectedly succeeded")
+        }
         Err(e) => {
             println!("Expected AggregateFunction error: {}", e);
             let error_string = e.to_string();
             assert!(
-                error_string.contains("AggregateFunction") || error_string.contains("not supported"),
+                error_string.contains("AggregateFunction")
+                    || error_string.contains("not supported"),
                 "Error should mention AggregateFunction is not supported"
             );
         }
@@ -294,7 +322,8 @@ async fn test_unsupported_aggregate_function_type() {
 #[tokio::test]
 #[ignore]
 async fn test_connection_drop_during_query() {
-    // This is a complex test that would require dropping the network connection
-    // during a long-running query. Skipping for now as it requires special setup.
+    // This is a complex test that would require dropping the network
+    // connection during a long-running query. Skipping for now as it
+    // requires special setup.
     println!("Connection drop test requires manual network manipulation");
 }
