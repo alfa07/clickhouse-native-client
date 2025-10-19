@@ -1,6 +1,10 @@
-// Type methods tests - test Type helper methods like name(), enum helpers, etc.
+// Type methods tests - test Type helper methods like name(), enum helpers,
+// etc.
 
-use clickhouse_client::types::{Type, EnumItem};
+use clickhouse_client::types::{
+    EnumItem,
+    Type,
+};
 
 // ============================================================================
 // Type Name Generation Tests
@@ -32,10 +36,7 @@ fn test_type_name_tuple() {
 
 #[test]
 fn test_type_name_enum8_single() {
-    let t = Type::enum8(vec![EnumItem {
-        name: "One".to_string(),
-        value: 1,
-    }]);
+    let t = Type::enum8(vec![EnumItem { name: "One".to_string(), value: 1 }]);
     assert_eq!(t.name(), "Enum8('One' = 1)");
 }
 
@@ -48,14 +49,8 @@ fn test_type_name_enum8_empty() {
 #[test]
 fn test_type_name_enum8_multiple() {
     let t = Type::enum8(vec![
-        EnumItem {
-            name: "One".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Two".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "One".to_string(), value: 1 },
+        EnumItem { name: "Two".to_string(), value: 2 },
     ]);
     assert_eq!(t.name(), "Enum8('One' = 1, 'Two' = 2)");
 }
@@ -122,14 +117,8 @@ fn test_type_name_complex_nested() {
 #[test]
 fn test_enum8_has_enum_value() {
     let enum8 = Type::enum8(vec![
-        EnumItem {
-            name: "One".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Two".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "One".to_string(), value: 1 },
+        EnumItem { name: "Two".to_string(), value: 2 },
     ]);
 
     assert_eq!(enum8.name(), "Enum8('One' = 1, 'Two' = 2)");
@@ -141,14 +130,8 @@ fn test_enum8_has_enum_value() {
 #[test]
 fn test_enum8_has_enum_name() {
     let enum8 = Type::enum8(vec![
-        EnumItem {
-            name: "One".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Two".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "One".to_string(), value: 1 },
+        EnumItem { name: "Two".to_string(), value: 2 },
     ]);
 
     assert!(enum8.has_enum_name("One"));
@@ -159,14 +142,8 @@ fn test_enum8_has_enum_name() {
 #[test]
 fn test_enum8_get_enum_name() {
     let enum8 = Type::enum8(vec![
-        EnumItem {
-            name: "One".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Two".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "One".to_string(), value: 1 },
+        EnumItem { name: "Two".to_string(), value: 2 },
     ]);
 
     assert_eq!(enum8.get_enum_name(1), Some("One"));
@@ -177,14 +154,8 @@ fn test_enum8_get_enum_name() {
 #[test]
 fn test_enum8_get_enum_value() {
     let enum8 = Type::enum8(vec![
-        EnumItem {
-            name: "One".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Two".to_string(),
-            value: 2,
-        },
+        EnumItem { name: "One".to_string(), value: 1 },
+        EnumItem { name: "Two".to_string(), value: 2 },
     ]);
 
     assert_eq!(enum8.get_enum_value("One"), Some(1));
@@ -195,24 +166,12 @@ fn test_enum8_get_enum_value() {
 #[test]
 fn test_enum16_has_enum_value() {
     let enum16 = Type::enum16(vec![
-        EnumItem {
-            name: "Green".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Red".to_string(),
-            value: 2,
-        },
-        EnumItem {
-            name: "Yellow".to_string(),
-            value: 3,
-        },
+        EnumItem { name: "Green".to_string(), value: 1 },
+        EnumItem { name: "Red".to_string(), value: 2 },
+        EnumItem { name: "Yellow".to_string(), value: 3 },
     ]);
 
-    assert_eq!(
-        enum16.name(),
-        "Enum16('Green' = 1, 'Red' = 2, 'Yellow' = 3)"
-    );
+    assert_eq!(enum16.name(), "Enum16('Green' = 1, 'Red' = 2, 'Yellow' = 3)");
     assert!(enum16.has_enum_value(1));
     assert!(enum16.has_enum_value(2));
     assert!(enum16.has_enum_value(3));
@@ -222,18 +181,9 @@ fn test_enum16_has_enum_value() {
 #[test]
 fn test_enum16_has_enum_name() {
     let enum16 = Type::enum16(vec![
-        EnumItem {
-            name: "Green".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Red".to_string(),
-            value: 2,
-        },
-        EnumItem {
-            name: "Yellow".to_string(),
-            value: 3,
-        },
+        EnumItem { name: "Green".to_string(), value: 1 },
+        EnumItem { name: "Red".to_string(), value: 2 },
+        EnumItem { name: "Yellow".to_string(), value: 3 },
     ]);
 
     assert!(enum16.has_enum_name("Green"));
@@ -245,18 +195,9 @@ fn test_enum16_has_enum_name() {
 #[test]
 fn test_enum16_get_enum_name() {
     let enum16 = Type::enum16(vec![
-        EnumItem {
-            name: "Green".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Red".to_string(),
-            value: 2,
-        },
-        EnumItem {
-            name: "Yellow".to_string(),
-            value: 3,
-        },
+        EnumItem { name: "Green".to_string(), value: 1 },
+        EnumItem { name: "Red".to_string(), value: 2 },
+        EnumItem { name: "Yellow".to_string(), value: 3 },
     ]);
 
     assert_eq!(enum16.get_enum_name(1), Some("Green"));
@@ -268,18 +209,9 @@ fn test_enum16_get_enum_name() {
 #[test]
 fn test_enum16_get_enum_value() {
     let enum16 = Type::enum16(vec![
-        EnumItem {
-            name: "Green".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Red".to_string(),
-            value: 2,
-        },
-        EnumItem {
-            name: "Yellow".to_string(),
-            value: 3,
-        },
+        EnumItem { name: "Green".to_string(), value: 1 },
+        EnumItem { name: "Red".to_string(), value: 2 },
+        EnumItem { name: "Yellow".to_string(), value: 3 },
     ]);
 
     assert_eq!(enum16.get_enum_value("Green"), Some(1));
@@ -291,18 +223,9 @@ fn test_enum16_get_enum_value() {
 #[test]
 fn test_enum_items() {
     let enum16 = Type::enum16(vec![
-        EnumItem {
-            name: "Green".to_string(),
-            value: 1,
-        },
-        EnumItem {
-            name: "Red".to_string(),
-            value: 2,
-        },
-        EnumItem {
-            name: "Yellow".to_string(),
-            value: 3,
-        },
+        EnumItem { name: "Green".to_string(), value: 1 },
+        EnumItem { name: "Red".to_string(), value: 2 },
+        EnumItem { name: "Yellow".to_string(), value: 3 },
     ]);
 
     let items = enum16.enum_items().unwrap();

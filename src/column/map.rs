@@ -1,6 +1,13 @@
-use super::{Column, ColumnRef, ColumnArray};
-use crate::types::Type;
-use crate::{Error, Result};
+use super::{
+    Column,
+    ColumnArray,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
 use bytes::BytesMut;
 use std::sync::Arc;
 
@@ -15,20 +22,16 @@ impl ColumnMap {
     pub fn new(type_: Type) -> Self {
         // Extract key and value types from Map type
         let (key_type, value_type) = match &type_ {
-            Type::Map {
-                key_type,
-                value_type,
-            } => (key_type.as_ref().clone(), value_type.as_ref().clone()),
+            Type::Map { key_type, value_type } => {
+                (key_type.as_ref().clone(), value_type.as_ref().clone())
+            }
             _ => panic!("ColumnMap requires Map type"),
         };
 
         // Create the underlying Array(Tuple(K, V)) type
-        let tuple_type = Type::Tuple {
-            item_types: vec![key_type, value_type],
-        };
-        let array_type = Type::Array {
-            item_type: Box::new(tuple_type),
-        };
+        let tuple_type =
+            Type::Tuple { item_types: vec![key_type, value_type] };
+        let array_type = Type::Array { item_type: Box::new(tuple_type) };
 
         // Create the array column with the correct type
         let data: ColumnRef = Arc::new(ColumnArray::new(array_type));
@@ -88,12 +91,12 @@ impl Column for ColumnMap {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let _other = other
-            .as_any()
-            .downcast_ref::<ColumnMap>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let _other =
+            other.as_any().downcast_ref::<ColumnMap>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         // Append not easily supported through ColumnRef
@@ -102,13 +105,19 @@ impl Column for ColumnMap {
         ))
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         // Create a new column with correct array type and load into it
         let mut new_col = ColumnMap::new(self.type_.clone());
 
         // Get mutable access to the underlying array
         if let Some(array) = Arc::get_mut(&mut new_col.data) {
-            if let Some(array_mut) = array.as_any_mut().downcast_mut::<ColumnArray>() {
+            if let Some(array_mut) =
+                array.as_any_mut().downcast_mut::<ColumnArray>()
+            {
                 array_mut.load_from_buffer(buffer, rows)?;
                 self.data = new_col.data;
                 return Ok(());
@@ -152,10 +161,7 @@ impl Column for ColumnMap {
 // Note: ColumnArray doesn't implement Clone, so we need to work around this
 impl Clone for ColumnMap {
     fn clone(&self) -> Self {
-        Self {
-            type_: self.type_.clone(),
-            data: self.data.clone(),
-        }
+        Self { type_: self.type_.clone(), data: self.data.clone() }
     }
 }
 

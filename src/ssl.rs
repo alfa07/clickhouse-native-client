@@ -3,7 +3,12 @@
 //! This module is only available when the `tls` feature is enabled.
 
 #[cfg(feature = "tls")]
-use rustls::{Certificate, ClientConfig, PrivateKey, RootCertStore};
+use rustls::{
+    Certificate,
+    ClientConfig,
+    PrivateKey,
+    RootCertStore,
+};
 #[cfg(feature = "tls")]
 use std::fs::File;
 #[cfg(feature = "tls")]
@@ -14,7 +19,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 #[cfg(feature = "tls")]
-use crate::{Error, Result};
+use crate::{
+    Error,
+    Result,
+};
 
 /// SSL/TLS configuration options
 #[cfg(feature = "tls")]
@@ -80,7 +88,11 @@ impl SSLOptions {
     }
 
     /// Set client certificate (for mutual TLS)
-    pub fn client_cert(mut self, cert_path: PathBuf, key_path: PathBuf) -> Self {
+    pub fn client_cert(
+        mut self,
+        cert_path: PathBuf,
+        key_path: PathBuf,
+    ) -> Self {
         self.client_cert_path = Some(cert_path);
         self.client_key_path = Some(key_path);
         self
@@ -110,43 +122,63 @@ impl SSLOptions {
 
         // Load system certificates if requested
         if self.use_system_certs {
-            let certs = rustls_native_certs::load_native_certs()
-                .map_err(|e| Error::Connection(format!("Failed to load system certs: {}", e)))?;
+            let certs =
+                rustls_native_certs::load_native_certs().map_err(|e| {
+                    Error::Connection(format!(
+                        "Failed to load system certs: {}",
+                        e
+                    ))
+                })?;
 
             for cert in certs {
-                root_store
-                    .add(&Certificate(cert.0))
-                    .map_err(|e| Error::Connection(format!("Failed to add system cert: {}", e)))?;
+                root_store.add(&Certificate(cert.0)).map_err(|e| {
+                    Error::Connection(format!(
+                        "Failed to add system cert: {}",
+                        e
+                    ))
+                })?;
             }
         }
 
         // Load CA certificates from files
         for ca_path in &self.ca_cert_paths {
             let file = File::open(ca_path).map_err(|e| {
-                Error::Connection(format!("Failed to open CA cert {:?}: {}", ca_path, e))
+                Error::Connection(format!(
+                    "Failed to open CA cert {:?}: {}",
+                    ca_path, e
+                ))
             })?;
             let mut reader = BufReader::new(file);
 
             let certs = rustls_pemfile::certs(&mut reader).map_err(|e| {
-                Error::Connection(format!("Failed to parse CA cert {:?}: {}", ca_path, e))
+                Error::Connection(format!(
+                    "Failed to parse CA cert {:?}: {}",
+                    ca_path, e
+                ))
             })?;
 
             for cert in certs {
-                root_store
-                    .add(&Certificate(cert))
-                    .map_err(|e| Error::Connection(format!("Failed to add CA cert: {}", e)))?;
+                root_store.add(&Certificate(cert)).map_err(|e| {
+                    Error::Connection(format!("Failed to add CA cert: {}", e))
+                })?;
             }
         }
 
         // Load CA certificates from directory
         if let Some(ca_dir) = &self.ca_cert_directory {
             let entries = std::fs::read_dir(ca_dir).map_err(|e| {
-                Error::Connection(format!("Failed to read CA cert directory {:?}: {}", ca_dir, e))
+                Error::Connection(format!(
+                    "Failed to read CA cert directory {:?}: {}",
+                    ca_dir, e
+                ))
             })?;
 
             for entry in entries {
                 let entry = entry.map_err(|e| {
-                    Error::Connection(format!("Failed to read directory entry: {}", e))
+                    Error::Connection(format!(
+                        "Failed to read directory entry: {}",
+                        e
+                    ))
                 })?;
                 let path = entry.path();
 
@@ -164,43 +196,65 @@ impl SSLOptions {
         }
 
         // Build the client config
-        // Note: skip_verification is not currently supported in this rustls version
-        // If you need to skip verification, consider using a different TLS library or older rustls version
+        // Note: skip_verification is not currently supported in this rustls
+        // version If you need to skip verification, consider using a
+        // different TLS library or older rustls version
         let config = if let (Some(cert_path), Some(key_path)) =
             (&self.client_cert_path, &self.client_key_path)
         {
             // Mutual TLS with client certificate
             let cert_file = File::open(cert_path).map_err(|e| {
-                Error::Connection(format!("Failed to open client cert {:?}: {}", cert_path, e))
+                Error::Connection(format!(
+                    "Failed to open client cert {:?}: {}",
+                    cert_path, e
+                ))
             })?;
             let mut cert_reader = BufReader::new(cert_file);
 
             let certs = rustls_pemfile::certs(&mut cert_reader)
                 .map_err(|e| {
-                    Error::Connection(format!("Failed to parse client cert {:?}: {}", cert_path, e))
+                    Error::Connection(format!(
+                        "Failed to parse client cert {:?}: {}",
+                        cert_path, e
+                    ))
                 })?
                 .into_iter()
                 .map(Certificate)
                 .collect();
 
             let key_file = File::open(key_path).map_err(|e| {
-                Error::Connection(format!("Failed to open client key {:?}: {}", key_path, e))
+                Error::Connection(format!(
+                    "Failed to open client key {:?}: {}",
+                    key_path, e
+                ))
             })?;
             let mut key_reader = BufReader::new(key_file);
 
             let key = rustls_pemfile::pkcs8_private_keys(&mut key_reader)
                 .map_err(|e| {
-                    Error::Connection(format!("Failed to parse client key {:?}: {}", key_path, e))
+                    Error::Connection(format!(
+                        "Failed to parse client key {:?}: {}",
+                        key_path, e
+                    ))
                 })?
                 .into_iter()
                 .next()
-                .ok_or_else(|| Error::Connection("No private key found in key file".to_string()))?;
+                .ok_or_else(|| {
+                    Error::Connection(
+                        "No private key found in key file".to_string(),
+                    )
+                })?;
 
             ClientConfig::builder()
                 .with_safe_defaults()
                 .with_root_certificates(root_store)
                 .with_client_auth_cert(certs, PrivateKey(key))
-                .map_err(|e| Error::Connection(format!("Failed to set client auth: {}", e)))?
+                .map_err(|e| {
+                    Error::Connection(format!(
+                        "Failed to set client auth: {}",
+                        e
+                    ))
+                })?
         } else {
             // Standard TLS with server certificate verification
             ClientConfig::builder()

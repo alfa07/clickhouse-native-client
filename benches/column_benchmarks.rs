@@ -1,7 +1,8 @@
 //! Column Serialization/Deserialization Benchmarks
 //!
-//! These benchmarks match the C++ performance tests in cpp/clickhouse-cpp/ut/performance_tests.cpp
-//! to allow direct performance comparison for column operations.
+//! These benchmarks match the C++ performance tests in
+//! cpp/clickhouse-cpp/ut/performance_tests.cpp to allow direct performance
+//! comparison for column operations.
 //!
 //! ## Benchmarks:
 //! - Column append operations (1M items)
@@ -12,11 +13,22 @@
 //! `cargo bench --bench column_benchmarks`
 
 use bytes::BytesMut;
-use clickhouse_client::column::numeric::ColumnUInt64;
-use clickhouse_client::column::string::ColumnString;
-use clickhouse_client::column::Column;
-use clickhouse_client::types::Type;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use clickhouse_client::{
+    column::{
+        numeric::ColumnUInt64,
+        string::ColumnString,
+        Column,
+    },
+    types::Type,
+};
+use criterion::{
+    black_box,
+    criterion_group,
+    criterion_main,
+    BenchmarkId,
+    Criterion,
+    Throughput,
+};
 
 const ITEMS_1M: usize = 1_000_000;
 const ITEMS_100K: usize = 100_000;
@@ -26,7 +38,14 @@ const ITEMS_100K: usize = 100_000;
 #[inline]
 fn generate_uint64(index: usize) -> u64 {
     let base = (index % 255) as u64;
-    base << 56 | base << 48 | base << 40 | base << 32 | base << 24 | base << 16 | base << 8 | base
+    base << 56
+        | base << 48
+        | base << 40
+        | base << 32
+        | base << 24
+        | base << 16
+        | base << 8
+        | base
 }
 
 /// Generate string value for index
@@ -38,7 +57,8 @@ fn generate_string(index: usize) -> String {
     const RESULT_SIZE: usize = 7;
 
     let start_pos = index % (TEMPLATE.len() - RESULT_SIZE);
-    String::from_utf8_lossy(&TEMPLATE[start_pos..start_pos + RESULT_SIZE]).to_string()
+    String::from_utf8_lossy(&TEMPLATE[start_pos..start_pos + RESULT_SIZE])
+        .to_string()
 }
 
 /// Benchmark: Append 1M items to UInt64 column
@@ -91,8 +111,7 @@ fn column_uint64_save(c: &mut Criterion) {
     group.bench_function(BenchmarkId::new("UInt64", "1M_items"), |b| {
         b.iter(|| {
             let mut buffer = BytesMut::new();
-            col.save_to_buffer(&mut buffer)
-                .expect("Failed to serialize");
+            col.save_to_buffer(&mut buffer).expect("Failed to serialize");
             black_box(buffer.len())
         });
     });
@@ -114,8 +133,7 @@ fn column_string_save(c: &mut Criterion) {
     group.bench_function(BenchmarkId::new("String", "1M_items"), |b| {
         b.iter(|| {
             let mut buffer = BytesMut::new();
-            col.save_to_buffer(&mut buffer)
-                .expect("Failed to serialize");
+            col.save_to_buffer(&mut buffer).expect("Failed to serialize");
             black_box(buffer.len())
         });
     });
@@ -226,8 +244,7 @@ fn column_uint64_save_fair(c: &mut Criterion) {
     group.bench_function(BenchmarkId::new("UInt64", "1M_items_reuse"), |b| {
         b.iter(|| {
             buffer.clear(); // Keeps capacity like C++ buffer.clear()!
-            col.save_to_buffer(&mut buffer)
-                .expect("Failed to serialize");
+            col.save_to_buffer(&mut buffer).expect("Failed to serialize");
             black_box(buffer.len())
         });
     });
@@ -252,7 +269,8 @@ fn column_uint64_load_fair(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(serialized.len() as u64));
 
     // Pre-allocate column with capacity (like C++ does with column.Clear())
-    let mut reusable_col = ColumnUInt64::with_capacity(Type::uint64(), ITEMS_1M);
+    let mut reusable_col =
+        ColumnUInt64::with_capacity(Type::uint64(), ITEMS_1M);
 
     group.bench_function(BenchmarkId::new("UInt64", "1M_items_reuse"), |b| {
         b.iter(|| {

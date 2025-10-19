@@ -1,45 +1,68 @@
 //! # ClickHouse Type System
 //!
-//! This module implements the ClickHouse type system for the native TCP protocol.
+//! This module implements the ClickHouse type system for the native TCP
+//! protocol.
 //!
 //! ## ClickHouse Documentation References
 //!
 //! ### Numeric Types
-//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint) - Int8/16/32/64/128, UInt8/16/32/64/128
-//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float) - Float32, Float64
-//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal) - Decimal, Decimal32/64/128
+//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint)
+//!   - Int8/16/32/64/128, UInt8/16/32/64/128
+//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float)
+//!   - Float32, Float64
+//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal)
+//!   - Decimal, Decimal32/64/128
 //!
 //! ### String Types
-//! - [String](https://clickhouse.com/docs/en/sql-reference/data-types/string) - Variable-length strings
-//! - [FixedString](https://clickhouse.com/docs/en/sql-reference/data-types/fixedstring) - Fixed-length binary strings
+//! - [String](https://clickhouse.com/docs/en/sql-reference/data-types/string)
+//!   - Variable-length strings
+//! - [FixedString](https://clickhouse.com/docs/en/sql-reference/data-types/fixedstring)
+//!   - Fixed-length binary strings
 //!
 //! ### Date and Time Types
-//! - [Date](https://clickhouse.com/docs/en/sql-reference/data-types/date) - Days since 1970-01-01
-//! - [Date32](https://clickhouse.com/docs/en/sql-reference/data-types/date32) - Extended date range
-//! - [DateTime](https://clickhouse.com/docs/en/sql-reference/data-types/datetime) - Unix timestamp (UInt32)
-//! - [DateTime64](https://clickhouse.com/docs/en/sql-reference/data-types/datetime64) - High precision timestamp (Int64)
+//! - [Date](https://clickhouse.com/docs/en/sql-reference/data-types/date) -
+//!   Days since 1970-01-01
+//! - [Date32](https://clickhouse.com/docs/en/sql-reference/data-types/date32)
+//!   - Extended date range
+//! - [DateTime](https://clickhouse.com/docs/en/sql-reference/data-types/datetime)
+//!   - Unix timestamp (UInt32)
+//! - [DateTime64](https://clickhouse.com/docs/en/sql-reference/data-types/datetime64)
+//!   - High precision timestamp (Int64)
 //!
 //! ### Compound Types
-//! - [Array](https://clickhouse.com/docs/en/sql-reference/data-types/array) - Arrays of elements
-//! - [Tuple](https://clickhouse.com/docs/en/sql-reference/data-types/tuple) - Fixed-size collections
-//! - [Map](https://clickhouse.com/docs/en/sql-reference/data-types/map) - Key-value pairs
+//! - [Array](https://clickhouse.com/docs/en/sql-reference/data-types/array) -
+//!   Arrays of elements
+//! - [Tuple](https://clickhouse.com/docs/en/sql-reference/data-types/tuple) -
+//!   Fixed-size collections
+//! - [Map](https://clickhouse.com/docs/en/sql-reference/data-types/map) -
+//!   Key-value pairs
 //!
 //! ### Special Types
-//! - [Nullable](https://clickhouse.com/docs/en/sql-reference/data-types/nullable) - Adds NULL support to any type
-//! - [LowCardinality](https://clickhouse.com/docs/en/sql-reference/data-types/lowcardinality) - Dictionary encoding for compression
-//! - [Enum8/Enum16](https://clickhouse.com/docs/en/sql-reference/data-types/enum) - Enumerated values
-//! - [UUID](https://clickhouse.com/docs/en/sql-reference/data-types/uuid) - Universally unique identifiers
-//! - [IPv4/IPv6](https://clickhouse.com/docs/en/sql-reference/data-types/ipv4) - IP addresses
+//! - [Nullable](https://clickhouse.com/docs/en/sql-reference/data-types/nullable)
+//!   - Adds NULL support to any type
+//! - [LowCardinality](https://clickhouse.com/docs/en/sql-reference/data-types/lowcardinality)
+//!   - Dictionary encoding for compression
+//! - [Enum8/Enum16](https://clickhouse.com/docs/en/sql-reference/data-types/enum)
+//!   - Enumerated values
+//! - [UUID](https://clickhouse.com/docs/en/sql-reference/data-types/uuid) -
+//!   Universally unique identifiers
+//! - [IPv4/IPv6](https://clickhouse.com/docs/en/sql-reference/data-types/ipv4)
+//!   - IP addresses
 //!
 //! ### Geo Types
-//! - [Point](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - 2D point (Tuple(Float64, Float64))
-//! - [Ring](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - Array of Points
-//! - [Polygon](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - Array of Rings
-//! - [MultiPolygon](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - Array of Polygons
+//! - [Point](https://clickhouse.com/docs/en/sql-reference/data-types/geo) - 2D
+//!   point (Tuple(Float64, Float64))
+//! - [Ring](https://clickhouse.com/docs/en/sql-reference/data-types/geo) -
+//!   Array of Points
+//! - [Polygon](https://clickhouse.com/docs/en/sql-reference/data-types/geo) -
+//!   Array of Rings
+//! - [MultiPolygon](https://clickhouse.com/docs/en/sql-reference/data-types/geo)
+//!   - Array of Polygons
 //!
 //! ## Type Nesting Rules
 //!
-//! ClickHouse enforces strict type nesting rules (Error code 43: `ILLEGAL_TYPE_OF_ARGUMENT`):
+//! ClickHouse enforces strict type nesting rules (Error code 43:
+//! `ILLEGAL_TYPE_OF_ARGUMENT`):
 //!
 //! **✅ Allowed:**
 //! - `Array(Nullable(T))` - Array where each element can be NULL
@@ -48,7 +71,8 @@
 //! - `Array(LowCardinality(Nullable(T)))` - Combination of all three
 //!
 //! **❌ NOT Allowed:**
-//! - `Nullable(Array(T))` - Arrays themselves cannot be NULL (use empty array instead)
+//! - `Nullable(Array(T))` - Arrays themselves cannot be NULL (use empty array
+//!   instead)
 //! - `Nullable(LowCardinality(T))` - Wrong nesting order
 //! - `Nullable(Nullable(T))` - Double-nullable is invalid
 //!
@@ -59,7 +83,8 @@ use std::sync::Arc;
 /// Type code enumeration matching ClickHouse types
 ///
 /// Each variant represents a base type in ClickHouse. For parametric types
-/// (like Array, Nullable, etc.), see the [`Type`] enum which includes parameters.
+/// (like Array, Nullable, etc.), see the [`Type`] enum which includes
+/// parameters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TypeCode {
     Void = 0,
@@ -192,18 +217,33 @@ impl Type {
             Type::Simple(code) => code.name().to_string(),
             Type::FixedString { size } => format!("FixedString({})", size),
             Type::DateTime { timezone: None } => "DateTime".to_string(),
-            Type::DateTime { timezone: Some(tz) } => format!("DateTime('{}')", tz),
-            Type::DateTime64 { precision, timezone: None } => format!("DateTime64({})", precision),
+            Type::DateTime { timezone: Some(tz) } => {
+                format!("DateTime('{}')", tz)
+            }
+            Type::DateTime64 { precision, timezone: None } => {
+                format!("DateTime64({})", precision)
+            }
             Type::DateTime64 { precision, timezone: Some(tz) } => {
                 format!("DateTime64({}, '{}')", precision, tz)
             }
-            Type::Decimal { precision, scale } => format!("Decimal({}, {})", precision, scale),
-            Type::Enum8 { items } => format!("Enum8({})", format_enum_items(items)),
-            Type::Enum16 { items } => format!("Enum16({})", format_enum_items(items)),
-            Type::Array { item_type } => format!("Array({})", item_type.name()),
-            Type::Nullable { nested_type } => format!("Nullable({})", nested_type.name()),
+            Type::Decimal { precision, scale } => {
+                format!("Decimal({}, {})", precision, scale)
+            }
+            Type::Enum8 { items } => {
+                format!("Enum8({})", format_enum_items(items))
+            }
+            Type::Enum16 { items } => {
+                format!("Enum16({})", format_enum_items(items))
+            }
+            Type::Array { item_type } => {
+                format!("Array({})", item_type.name())
+            }
+            Type::Nullable { nested_type } => {
+                format!("Nullable({})", nested_type.name())
+            }
             Type::Tuple { item_types } => {
-                let types: Vec<String> = item_types.iter().map(|t| t.name()).collect();
+                let types: Vec<String> =
+                    item_types.iter().map(|t| t.name()).collect();
                 format!("Tuple({})", types.join(", "))
             }
             Type::LowCardinality { nested_type } => {
@@ -305,15 +345,11 @@ impl Type {
     }
 
     pub fn array(item_type: Type) -> Self {
-        Type::Array {
-            item_type: Box::new(item_type),
-        }
+        Type::Array { item_type: Box::new(item_type) }
     }
 
     pub fn nullable(nested_type: Type) -> Self {
-        Type::Nullable {
-            nested_type: Box::new(nested_type),
-        }
+        Type::Nullable { nested_type: Box::new(nested_type) }
     }
 
     pub fn tuple(item_types: Vec<Type>) -> Self {
@@ -329,9 +365,7 @@ impl Type {
     }
 
     pub fn low_cardinality(nested_type: Type) -> Self {
-        Type::LowCardinality {
-            nested_type: Box::new(nested_type),
-        }
+        Type::LowCardinality { nested_type: Box::new(nested_type) }
     }
 
     pub fn map(key_type: Type, value_type: Type) -> Self {
@@ -344,16 +378,24 @@ impl Type {
     // Enum helper methods
     pub fn has_enum_value(&self, value: i16) -> bool {
         match self {
-            Type::Enum8 { items } => items.iter().any(|item| item.value == value),
-            Type::Enum16 { items } => items.iter().any(|item| item.value == value),
+            Type::Enum8 { items } => {
+                items.iter().any(|item| item.value == value)
+            }
+            Type::Enum16 { items } => {
+                items.iter().any(|item| item.value == value)
+            }
             _ => false,
         }
     }
 
     pub fn has_enum_name(&self, name: &str) -> bool {
         match self {
-            Type::Enum8 { items } => items.iter().any(|item| item.name == name),
-            Type::Enum16 { items } => items.iter().any(|item| item.name == name),
+            Type::Enum8 { items } => {
+                items.iter().any(|item| item.name == name)
+            }
+            Type::Enum16 { items } => {
+                items.iter().any(|item| item.name == name)
+            }
             _ => false,
         }
     }
@@ -416,28 +458,32 @@ impl Type {
 
         // Handle empty/whitespace-only strings
         if type_str.is_empty() {
-            return Err(crate::Error::Protocol("Empty type string".to_string()));
+            return Err(crate::Error::Protocol(
+                "Empty type string".to_string(),
+            ));
         }
 
         // Find the first '(' to split type name from parameters
         if let Some(paren_pos) = type_str.find('(') {
             if !type_str.ends_with(')') {
-                return Err(crate::Error::Protocol(format!("Mismatched parentheses in type: {}", type_str)));
+                return Err(crate::Error::Protocol(format!(
+                    "Mismatched parentheses in type: {}",
+                    type_str
+                )));
             }
 
             let type_name = &type_str[..paren_pos];
             let params_str = &type_str[paren_pos + 1..type_str.len() - 1];
 
             return match type_name {
-                "Nullable" => {
-                    Ok(Type::nullable(Type::parse(params_str)?))
-                }
-                "Array" => {
-                    Ok(Type::array(Type::parse(params_str)?))
-                }
+                "Nullable" => Ok(Type::nullable(Type::parse(params_str)?)),
+                "Array" => Ok(Type::array(Type::parse(params_str)?)),
                 "FixedString" => {
                     let size = params_str.parse::<usize>().map_err(|_| {
-                        crate::Error::Protocol(format!("Invalid FixedString size: {}", params_str))
+                        crate::Error::Protocol(format!(
+                            "Invalid FixedString size: {}",
+                            params_str
+                        ))
                     })?;
                     Ok(Type::fixed_string(size))
                 }
@@ -450,11 +496,18 @@ impl Type {
                     // DateTime64(3, 'UTC') or DateTime64(3)
                     let params = parse_comma_separated(params_str)?;
                     if params.is_empty() {
-                        return Err(crate::Error::Protocol("DateTime64 requires precision parameter".to_string()));
+                        return Err(crate::Error::Protocol(
+                            "DateTime64 requires precision parameter"
+                                .to_string(),
+                        ));
                     }
-                    let precision = params[0].parse::<usize>().map_err(|_| {
-                        crate::Error::Protocol(format!("Invalid DateTime64 precision: {}", params[0]))
-                    })?;
+                    let precision =
+                        params[0].parse::<usize>().map_err(|_| {
+                            crate::Error::Protocol(format!(
+                                "Invalid DateTime64 precision: {}",
+                                params[0]
+                            ))
+                        })?;
                     let timezone = if params.len() > 1 {
                         Some(parse_string_literal(&params[1])?)
                     } else {
@@ -466,21 +519,36 @@ impl Type {
                     // Decimal(12, 5)
                     let params = parse_comma_separated(params_str)?;
                     if params.len() != 2 {
-                        return Err(crate::Error::Protocol(format!("Decimal requires 2 parameters, got {}", params.len())));
+                        return Err(crate::Error::Protocol(format!(
+                            "Decimal requires 2 parameters, got {}",
+                            params.len()
+                        )));
                     }
-                    let precision = params[0].parse::<usize>().map_err(|_| {
-                        crate::Error::Protocol(format!("Invalid Decimal precision: {}", params[0]))
-                    })?;
+                    let precision =
+                        params[0].parse::<usize>().map_err(|_| {
+                            crate::Error::Protocol(format!(
+                                "Invalid Decimal precision: {}",
+                                params[0]
+                            ))
+                        })?;
                     let scale = params[1].parse::<usize>().map_err(|_| {
-                        crate::Error::Protocol(format!("Invalid Decimal scale: {}", params[1]))
+                        crate::Error::Protocol(format!(
+                            "Invalid Decimal scale: {}",
+                            params[1]
+                        ))
                     })?;
                     Ok(Type::decimal(precision, scale))
                 }
                 "Decimal32" | "Decimal64" | "Decimal128" => {
-                    // Decimal32(7) - single precision parameter, scale defaults to 0
-                    let precision = params_str.parse::<usize>().map_err(|_| {
-                        crate::Error::Protocol(format!("Invalid {} precision: {}", type_name, params_str))
-                    })?;
+                    // Decimal32(7) - single precision parameter, scale
+                    // defaults to 0
+                    let precision =
+                        params_str.parse::<usize>().map_err(|_| {
+                            crate::Error::Protocol(format!(
+                                "Invalid {} precision: {}",
+                                type_name, params_str
+                            ))
+                        })?;
                     Ok(Type::decimal(precision, 0))
                 }
                 "Enum8" => {
@@ -500,7 +568,10 @@ impl Type {
                     // Map(Int32, String)
                     let params = parse_comma_separated(params_str)?;
                     if params.len() != 2 {
-                        return Err(crate::Error::Protocol(format!("Map requires 2 type parameters, got {}", params.len())));
+                        return Err(crate::Error::Protocol(format!(
+                            "Map requires 2 type parameters, got {}",
+                            params.len()
+                        )));
                     }
                     let key_type = Type::parse(&params[0])?;
                     let value_type = Type::parse(&params[1])?;
@@ -510,7 +581,10 @@ impl Type {
                     // Tuple(UInt8, String, Date)
                     let params = parse_comma_separated(params_str)?;
                     if params.is_empty() {
-                        return Err(crate::Error::Protocol("Tuple requires at least one type parameter".to_string()));
+                        return Err(crate::Error::Protocol(
+                            "Tuple requires at least one type parameter"
+                                .to_string(),
+                        ));
                     }
                     let mut item_types = Vec::new();
                     for param in params {
@@ -525,19 +599,25 @@ impl Type {
                     if params.len() < 2 {
                         return Err(crate::Error::Protocol("SimpleAggregateFunction requires at least 2 parameters".to_string()));
                     }
-                    // First param is function name, second is type - we just care about the type
+                    // First param is function name, second is type - we just
+                    // care about the type
                     Type::parse(&params[1])
                 }
                 "AggregateFunction" => {
                     // AggregateFunction is not supported for reading
-                    // Matches C++ client behavior which throws UnimplementedError
-                    // These columns contain internal aggregation state which requires
-                    // specialized deserialization logic for each aggregate function
+                    // Matches C++ client behavior which throws
+                    // UnimplementedError These columns
+                    // contain internal aggregation state which requires
+                    // specialized deserialization logic for each aggregate
+                    // function
                     Err(crate::Error::Protocol(
                         "AggregateFunction columns are not supported. Use SimpleAggregateFunction or finalize the aggregation with -State combinators.".to_string()
                     ))
                 }
-                _ => Err(crate::Error::Protocol(format!("Unknown parametric type: {}", type_name)))
+                _ => Err(crate::Error::Protocol(format!(
+                    "Unknown parametric type: {}",
+                    type_name
+                ))),
             };
         }
 
@@ -563,11 +643,11 @@ impl Type {
             "IPv4" => Ok(Type::ipv4()),
             "IPv6" => Ok(Type::ipv6()),
             "Bool" => Ok(Type::uint8()), // Bool is an alias for UInt8
-            "Nothing" => Ok(Type::Simple(TypeCode::Void)), // Nothing type for NULL columns
+            "Nothing" => Ok(Type::Simple(TypeCode::Void)), /* Nothing type for NULL columns */
             "Point" => Ok(Type::point()), // Point is Tuple(Float64, Float64)
-            "Ring" => Ok(Type::ring()), // Ring is Array(Point)
+            "Ring" => Ok(Type::ring()),   // Ring is Array(Point)
             "Polygon" => Ok(Type::polygon()), // Polygon is Array(Ring)
-            "MultiPolygon" => Ok(Type::multi_polygon()), // MultiPolygon is Array(Polygon)
+            "MultiPolygon" => Ok(Type::multi_polygon()), /* MultiPolygon is Array(Polygon) */
             _ => Err(crate::Error::Protocol(format!(
                 "Unknown type: {}",
                 type_str
@@ -581,10 +661,15 @@ impl Type {
 /// Parse a string literal from 'quoted' or "quoted" format
 fn parse_string_literal(s: &str) -> crate::Result<String> {
     let s = s.trim();
-    if (s.starts_with('\'') && s.ends_with('\'')) || (s.starts_with('"') && s.ends_with('"')) {
+    if (s.starts_with('\'') && s.ends_with('\''))
+        || (s.starts_with('"') && s.ends_with('"'))
+    {
         Ok(s[1..s.len() - 1].to_string())
     } else {
-        Err(crate::Error::Protocol(format!("Expected quoted string, got: {}", s)))
+        Err(crate::Error::Protocol(format!(
+            "Expected quoted string, got: {}",
+            s
+        )))
     }
 }
 
@@ -651,7 +736,10 @@ fn parse_enum_items(s: &str) -> crate::Result<Vec<EnumItem>> {
 
         let name = parse_string_literal(eq_parts[0].trim())?;
         let value = eq_parts[1].trim().parse::<i16>().map_err(|_| {
-            crate::Error::Protocol(format!("Invalid enum value: {}", eq_parts[1]))
+            crate::Error::Protocol(format!(
+                "Invalid enum value: {}",
+                eq_parts[1]
+            ))
         })?;
 
         items.push(EnumItem { name, value });
@@ -664,7 +752,9 @@ impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Type::Simple(a), Type::Simple(b)) => a == b,
-            (Type::FixedString { size: a }, Type::FixedString { size: b }) => a == b,
+            (Type::FixedString { size: a }, Type::FixedString { size: b }) => {
+                a == b
+            }
             (
                 Type::DateTime { timezone: tz_a },
                 Type::DateTime { timezone: tz_b },
@@ -679,12 +769,20 @@ impl PartialEq for Type {
             ) => p_a == p_b && s_a == s_b,
             (Type::Enum8 { items: a }, Type::Enum8 { items: b }) => a == b,
             (Type::Enum16 { items: a }, Type::Enum16 { items: b }) => a == b,
-            (Type::Array { item_type: a }, Type::Array { item_type: b }) => a == b,
-            (Type::Nullable { nested_type: a }, Type::Nullable { nested_type: b }) => a == b,
-            (Type::Tuple { item_types: a }, Type::Tuple { item_types: b }) => a == b,
-            (Type::LowCardinality { nested_type: a }, Type::LowCardinality { nested_type: b }) => {
+            (Type::Array { item_type: a }, Type::Array { item_type: b }) => {
                 a == b
             }
+            (
+                Type::Nullable { nested_type: a },
+                Type::Nullable { nested_type: b },
+            ) => a == b,
+            (Type::Tuple { item_types: a }, Type::Tuple { item_types: b }) => {
+                a == b
+            }
+            (
+                Type::LowCardinality { nested_type: a },
+                Type::LowCardinality { nested_type: b },
+            ) => a == b,
             (
                 Type::Map { key_type: k_a, value_type: v_a },
                 Type::Map { key_type: k_b, value_type: v_b },

@@ -11,13 +11,19 @@
 //! ## Prerequisites
 //! 1. Start ClickHouse server: `just start-db`
 //! 2. Server must allow readonly connections
-//! 3. Run tests: `cargo test --test readonly_client_test -- --ignored --nocapture`
+//! 3. Run tests: `cargo test --test readonly_client_test -- --ignored
+//!    --nocapture`
 //!
 //! ## Note
 //! Readonly mode is typically set at user level or via settings.
 //! These tests use the 'readonly' setting in queries.
 
-use clickhouse_client::{Block, Client, ClientOptions, Query};
+use clickhouse_client::{
+    Block,
+    Client,
+    ClientOptions,
+    Query,
+};
 
 /// Helper to create a test client
 async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
@@ -36,9 +42,8 @@ async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_readonly_select_system_tables() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // SELECT from system tables should work in readonly mode
     let query = Query::new("SELECT name, engine FROM system.tables LIMIT 5")
@@ -46,7 +51,10 @@ async fn test_readonly_select_system_tables() {
 
     println!("Testing SELECT with readonly=1...");
 
-    let result = client.query(query).await.expect("SELECT should work in readonly mode");
+    let result = client
+        .query(query)
+        .await
+        .expect("SELECT should work in readonly mode");
 
     let mut total_rows = 0;
     for block in result.blocks() {
@@ -65,9 +73,8 @@ async fn test_readonly_select_system_tables() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_select_numbers() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // SELECT from system.numbers should work
     let query = Query::new("SELECT number FROM system.numbers LIMIT 100")
@@ -87,14 +94,16 @@ async fn test_readonly_select_numbers() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_select_with_where() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let query = Query::new("SELECT number FROM system.numbers WHERE number < 50 LIMIT 100")
-        .with_setting("readonly", "1");
+    let query = Query::new(
+        "SELECT number FROM system.numbers WHERE number < 50 LIMIT 100",
+    )
+    .with_setting("readonly", "1");
 
-    let result = client.query(query).await.expect("SELECT with WHERE should work");
+    let result =
+        client.query(query).await.expect("SELECT with WHERE should work");
 
     let mut total_rows = 0;
     for block in result.blocks() {
@@ -108,21 +117,27 @@ async fn test_readonly_select_with_where() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_select_with_aggregation() {
-    let mut client = create_test_client()
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
+
+    let query =
+        Query::new("SELECT count(*) as cnt FROM system.numbers LIMIT 1000")
+            .with_setting("readonly", "1");
+
+    let result = client
+        .query(query)
         .await
-        .expect("Failed to connect to ClickHouse");
-
-    let query = Query::new("SELECT count(*) as cnt FROM system.numbers LIMIT 1000")
-        .with_setting("readonly", "1");
-
-    let result = client.query(query).await.expect("SELECT with aggregation should work");
+        .expect("SELECT with aggregation should work");
 
     let mut total_rows = 0;
     for block in result.blocks() {
         total_rows += block.row_count();
         if block.row_count() > 0 {
             // Verify count column exists
-            assert!(block.column_by_name("cnt").is_some(), "cnt column should exist");
+            assert!(
+                block.column_by_name("cnt").is_some(),
+                "cnt column should exist"
+            );
         }
     }
 
@@ -137,14 +152,11 @@ async fn test_readonly_select_with_aggregation() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_insert_fails() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // First create a table (without readonly)
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_readonly_insert")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_readonly_insert").await;
 
     client
         .query(
@@ -159,8 +171,9 @@ async fn test_readonly_insert_fails() {
     println!("✓ Table created (not in readonly mode)");
 
     // Now try to INSERT with readonly=1 (should fail)
-    let query = Query::new("INSERT INTO test_readonly_insert VALUES (1, 'test')")
-        .with_setting("readonly", "1");
+    let query =
+        Query::new("INSERT INTO test_readonly_insert VALUES (1, 'test')")
+            .with_setting("readonly", "1");
 
     let result = client.query(query).await;
 
@@ -172,9 +185,9 @@ async fn test_readonly_insert_fails() {
 
         // Error should mention readonly or permissions
         assert!(
-            err_msg.to_lowercase().contains("readonly") ||
-            err_msg.to_lowercase().contains("permission") ||
-            err_msg.to_lowercase().contains("cannot"),
+            err_msg.to_lowercase().contains("readonly")
+                || err_msg.to_lowercase().contains("permission")
+                || err_msg.to_lowercase().contains("cannot"),
             "Error should indicate readonly restriction"
         );
     }
@@ -188,9 +201,8 @@ async fn test_readonly_insert_fails() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_insert_into_temp_table_fails() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create temp table
     client
@@ -213,7 +225,9 @@ async fn test_readonly_insert_into_temp_table_fails() {
     if result.is_err() {
         println!("✓ INSERT into temp table fails in readonly mode (strict)");
     } else {
-        println!("Note: Server allows INSERT into temp tables in readonly mode");
+        println!(
+            "Note: Server allows INSERT into temp tables in readonly mode"
+        );
     }
 }
 
@@ -224,9 +238,8 @@ async fn test_readonly_insert_into_temp_table_fails() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_create_table_fails() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Try to CREATE TABLE with readonly=1 (should fail)
     let query = Query::new(
@@ -245,8 +258,8 @@ async fn test_readonly_create_table_fails() {
         println!("Expected error: {}", err_msg);
 
         assert!(
-            err_msg.to_lowercase().contains("readonly") ||
-            err_msg.to_lowercase().contains("cannot"),
+            err_msg.to_lowercase().contains("readonly")
+                || err_msg.to_lowercase().contains("cannot"),
             "Error should indicate readonly restriction"
         );
     }
@@ -257,14 +270,11 @@ async fn test_readonly_create_table_fails() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_drop_table_fails() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create a table first (without readonly)
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_readonly_drop")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_readonly_drop").await;
 
     client
         .query(
@@ -296,14 +306,11 @@ async fn test_readonly_drop_table_fails() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_alter_table_fails() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create table
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_readonly_alter")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_readonly_alter").await;
 
     client
         .query(
@@ -315,8 +322,9 @@ async fn test_readonly_alter_table_fails() {
         .expect("Failed to create table");
 
     // Try to ALTER with readonly=1 (should fail)
-    let query = Query::new("ALTER TABLE test_readonly_alter ADD COLUMN value String")
-        .with_setting("readonly", "1");
+    let query =
+        Query::new("ALTER TABLE test_readonly_alter ADD COLUMN value String")
+            .with_setting("readonly", "1");
 
     let result = client.query(query).await;
 
@@ -339,9 +347,8 @@ async fn test_readonly_alter_table_fails() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_mode_levels() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Test different readonly levels (0, 1, 2)
     // readonly=0: no restrictions
@@ -349,22 +356,19 @@ async fn test_readonly_mode_levels() {
     // readonly=2: SELECTs + some DDL on temp tables
 
     // Test readonly=0 (should allow SELECT)
-    let query0 = Query::new("SELECT 1 as value")
-        .with_setting("readonly", "0");
+    let query0 = Query::new("SELECT 1 as value").with_setting("readonly", "0");
 
     let result0 = client.query(query0).await;
     assert!(result0.is_ok(), "readonly=0 should allow SELECT");
 
     // Test readonly=1 (should allow SELECT)
-    let query1 = Query::new("SELECT 1 as value")
-        .with_setting("readonly", "1");
+    let query1 = Query::new("SELECT 1 as value").with_setting("readonly", "1");
 
     let result1 = client.query(query1).await;
     assert!(result1.is_ok(), "readonly=1 should allow SELECT");
 
     // Test readonly=2 (should allow SELECT)
-    let query2 = Query::new("SELECT 1 as value")
-        .with_setting("readonly", "2");
+    let query2 = Query::new("SELECT 1 as value").with_setting("readonly", "2");
 
     let result2 = client.query(query2).await;
     assert!(result2.is_ok(), "readonly=2 should allow SELECT");
@@ -379,9 +383,8 @@ async fn test_readonly_mode_levels() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_complex_select() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Complex SELECT with JOINs and subqueries should work
     let query = Query::new(
@@ -397,7 +400,8 @@ async fn test_readonly_complex_select() {
     )
     .with_setting("readonly", "1");
 
-    let result = client.query(query).await.expect("Complex SELECT should work");
+    let result =
+        client.query(query).await.expect("Complex SELECT should work");
 
     let mut total_rows = 0;
     for block in result.blocks() {
@@ -415,14 +419,11 @@ async fn test_readonly_complex_select() {
 #[tokio::test]
 #[ignore]
 async fn test_readonly_error_messages_are_clear() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create table for testing
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_readonly_errors")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_readonly_errors").await;
 
     client
         .query(
@@ -458,7 +459,10 @@ async fn test_readonly_error_messages_are_clear() {
             );
         } else {
             // Some operations might succeed in certain readonly modes
-            println!("Note: {} succeeded (may be allowed in this readonly mode)", op_name);
+            println!(
+                "Note: {} succeeded (may be allowed in this readonly mode)",
+                op_name
+            );
         }
     }
 

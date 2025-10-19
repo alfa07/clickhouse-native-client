@@ -1,7 +1,16 @@
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// UUID value stored as 128 bits (2x u64)
@@ -20,13 +29,18 @@ impl Uuid {
     pub fn parse(s: &str) -> Result<Self> {
         let s = s.replace("-", "");
         if s.len() != 32 {
-            return Err(Error::Protocol(format!("Invalid UUID format: {}", s)));
+            return Err(Error::Protocol(format!(
+                "Invalid UUID format: {}",
+                s
+            )));
         }
 
-        let high = u64::from_str_radix(&s[0..16], 16)
-            .map_err(|e| Error::Protocol(format!("Invalid UUID hex: {}", e)))?;
-        let low = u64::from_str_radix(&s[16..32], 16)
-            .map_err(|e| Error::Protocol(format!("Invalid UUID hex: {}", e)))?;
+        let high = u64::from_str_radix(&s[0..16], 16).map_err(|e| {
+            Error::Protocol(format!("Invalid UUID hex: {}", e))
+        })?;
+        let low = u64::from_str_radix(&s[16..32], 16).map_err(|e| {
+            Error::Protocol(format!("Invalid UUID hex: {}", e))
+        })?;
 
         Ok(Self { high, low })
     }
@@ -52,10 +66,7 @@ pub struct ColumnUuid {
 
 impl ColumnUuid {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_data(mut self, data: Vec<Uuid>) -> Self {
@@ -108,26 +119,32 @@ impl Column for ColumnUuid {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnUuid>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let other =
+            other.as_any().downcast_ref::<ColumnUuid>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         self.data.extend_from_slice(&other.data);
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         use bytes::Buf;
 
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.len() < 16 {
-                return Err(Error::Protocol("Not enough data for UUID".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for UUID".to_string(),
+                ));
             }
 
             let high = buffer.get_u64_le();
@@ -181,7 +198,8 @@ mod tests {
 
     #[test]
     fn test_uuid_parse() {
-        let uuid = Uuid::parse("550e8400-e29b-41d4-a716-446655440000").unwrap();
+        let uuid =
+            Uuid::parse("550e8400-e29b-41d4-a716-446655440000").unwrap();
         assert_eq!(uuid.high, 0x550e8400e29b41d4);
         assert_eq!(uuid.low, 0xa716446655440000);
     }
@@ -189,10 +207,7 @@ mod tests {
     #[test]
     fn test_uuid_to_string() {
         let uuid = Uuid::new(0x550e8400e29b41d4, 0xa716446655440000);
-        assert_eq!(
-            uuid.to_string(),
-            "550e8400-e29b-41d4-a716-446655440000"
-        );
+        assert_eq!(uuid.to_string(), "550e8400-e29b-41d4-a716-446655440000");
     }
 
     #[test]
@@ -202,7 +217,10 @@ mod tests {
         col.append(Uuid::new(0, 0));
 
         assert_eq!(col.len(), 2);
-        assert_eq!(col.at(0), Uuid::new(0x123456789abcdef0, 0xfedcba9876543210));
+        assert_eq!(
+            col.at(0),
+            Uuid::new(0x123456789abcdef0, 0xfedcba9876543210)
+        );
         assert_eq!(col.at(1), Uuid::new(0, 0));
     }
 
@@ -213,9 +231,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(col.len(), 1);
-        assert_eq!(
-            col.as_string(0),
-            "550e8400-e29b-41d4-a716-446655440000"
-        );
+        assert_eq!(col.as_string(0), "550e8400-e29b-41d4-a716-446655440000");
     }
 }

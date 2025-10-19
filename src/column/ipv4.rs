@@ -1,21 +1,28 @@
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for IPv4 addresses (stored as UInt32)
 pub struct ColumnIpv4 {
     type_: Type,
-    data: Vec<u32>, // IPv4 addresses stored as 32-bit integers (network byte order)
+    data: Vec<u32>, /* IPv4 addresses stored as 32-bit integers (network
+                     * byte order) */
 }
 
 impl ColumnIpv4 {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
@@ -27,14 +34,17 @@ impl ColumnIpv4 {
     pub fn append_from_string(&mut self, s: &str) -> Result<()> {
         let parts: Vec<&str> = s.split('.').collect();
         if parts.len() != 4 {
-            return Err(Error::Protocol(format!("Invalid IPv4 format: {}", s)));
+            return Err(Error::Protocol(format!(
+                "Invalid IPv4 format: {}",
+                s
+            )));
         }
 
         let mut ip: u32 = 0;
         for (i, part) in parts.iter().enumerate() {
-            let octet = part
-                .parse::<u8>()
-                .map_err(|e| Error::Protocol(format!("Invalid IPv4 octet: {}", e)))?;
+            let octet = part.parse::<u8>().map_err(|e| {
+                Error::Protocol(format!("Invalid IPv4 octet: {}", e))
+            })?;
             // Network byte order: most significant byte first
             ip |= (octet as u32) << (24 - i * 8);
         }
@@ -92,26 +102,32 @@ impl Column for ColumnIpv4 {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnIpv4>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let other =
+            other.as_any().downcast_ref::<ColumnIpv4>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         self.data.extend_from_slice(&other.data);
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         use bytes::Buf;
 
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.len() < 4 {
-                return Err(Error::Protocol("Not enough data for IPv4".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for IPv4".to_string(),
+                ));
             }
 
             let ip = buffer.get_u32_le();
