@@ -504,6 +504,11 @@ impl Connection {
         WireFormat::write_string(&mut self.writer, s).await
     }
 
+    /// Write a quoted string for query parameters
+    pub async fn write_quoted_string(&mut self, s: &str) -> Result<()> {
+        WireFormat::write_quoted_string(&mut self.writer, s).await
+    }
+
     /// Read exact number of bytes into a buffer
     pub async fn read_bytes(&mut self, len: usize) -> Result<Bytes> {
         let mut buf = vec![0u8; len];
