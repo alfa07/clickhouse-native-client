@@ -21,7 +21,13 @@ socket2 = "0.5"
 
 [dev-dependencies]
 tokio-test = "0.4"
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 
 [features]
 default = []
 tls = ["tokio-rustls", "rustls", "rustls-native-certs", "rustls-pemfile"]
+
+# Benchmarks will be added once core API is stabilized
+# [[bench]]
+# name = "column_benchmarks"
+# harness = false
