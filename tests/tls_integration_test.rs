@@ -232,7 +232,10 @@ mod tls_tests {
 
         // Test ping multiple times
         for i in 1..=5 {
-            client.ping().await.unwrap_or_else(|_| panic!("Ping {} failed over TLS", i));
+            client
+                .ping()
+                .await
+                .unwrap_or_else(|_| panic!("Ping {} failed over TLS", i));
             println!("✓ Ping {} successful over TLS", i);
         }
     }
