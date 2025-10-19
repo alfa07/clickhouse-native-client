@@ -1,3 +1,33 @@
+//! Array column implementation
+//!
+//! **ClickHouse Documentation:** <https://clickhouse.com/docs/en/sql-reference/data-types/array>
+//!
+//! ## Overview
+//!
+//! Array columns store variable-length arrays of elements. All elements are stored in a single
+//! nested column (flattened), with offsets tracking where each array begins/ends.
+//!
+//! ## Important Restriction
+//!
+//! **Arrays cannot be wrapped in Nullable:**
+//! - ❌ `Nullable(Array(String))` - Error: "Nested type Array(String) cannot be inside Nullable type" (Error code 43)
+//! - ✅ `Array(Nullable(String))` - CORRECT: Each element can be NULL
+//!
+//! If you need to represent "no array", use an empty array `[]` instead of NULL.
+//!
+//! See: <https://github.com/ClickHouse/ClickHouse/issues/1062>
+//!
+//! ## Wire Format
+//!
+//! ```text
+//! [offsets: UInt64 * num_arrays]  // Cumulative element counts
+//! [nested_column_data]             // All elements concatenated
+//! ```
+//!
+//! Example: `[[1,2], [3], [4,5,6]]`
+//! - Offsets: `[2, 3, 6]` (2 elements in first array, 3 total after second, 6 total after third)
+//! - Nested data: `[1, 2, 3, 4, 5, 6]`
+
 use super::{Column, ColumnRef};
 use crate::types::Type;
 use crate::{Error, Result};
@@ -5,8 +35,11 @@ use bytes::{Buf, BufMut, BytesMut};
 use std::sync::Arc;
 
 /// Column for arrays of variable length
+///
 /// Stores a nested column with all array elements concatenated,
-/// and an offsets array that marks where each array ends
+/// and an offsets array that marks where each array ends.
+///
+/// **Reference Implementation:** See `clickhouse-cpp/clickhouse/columns/array.cpp`
 pub struct ColumnArray {
     type_: Type,
     nested: ColumnRef,

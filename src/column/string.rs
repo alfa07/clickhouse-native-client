@@ -1,3 +1,28 @@
+//! String column implementations
+//!
+//! **ClickHouse Documentation:**
+//! - [String](https://clickhouse.com/docs/en/sql-reference/data-types/string) - Variable-length UTF-8 strings
+//! - [FixedString](https://clickhouse.com/docs/en/sql-reference/data-types/fixedstring) - Fixed-length binary strings
+//!
+//! ## String Type
+//!
+//! Variable-length UTF-8 strings. Each string is prefixed with its length (varint encoded).
+//!
+//! **Wire Format:**
+//! ```text
+//! For each string: [length:varint][bytes:UInt8 * length]
+//! ```
+//!
+//! ## FixedString Type
+//!
+//! Fixed-length binary strings, zero-padded if shorter than the specified size.
+//! Useful for storing UUIDs, hashes, or other fixed-size binary data.
+//!
+//! **Wire Format:**
+//! ```text
+//! [bytes:UInt8 * N]  // N is the FixedString size
+//! ```
+
 use super::{Column, ColumnRef};
 use crate::types::Type;
 use crate::{Error, Result};
@@ -5,6 +30,10 @@ use bytes::{Buf, BufMut, BytesMut};
 use std::sync::Arc;
 
 /// Column for fixed-length strings (all strings padded to same length)
+///
+/// Stores binary data of exactly `N` bytes per element, zero-padded if needed.
+///
+/// **ClickHouse Reference:** <https://clickhouse.com/docs/en/sql-reference/data-types/fixedstring>
 pub struct ColumnFixedString {
     type_: Type,
     string_size: usize,

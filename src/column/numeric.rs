@@ -1,3 +1,37 @@
+//! Numeric column implementations
+//!
+//! **ClickHouse Documentation:**
+//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint) - Int8/16/32/64/128, UInt8/16/32/64/128
+//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float) - Float32, Float64
+//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal) - Fixed-point numbers
+//!
+//! ## Integer Types
+//!
+//! All integer types are stored in **little-endian** format:
+//!
+//! | Type | Rust Type | Storage | Min | Max |
+//! |------|-----------|---------|-----|-----|
+//! | `Int8` | `i8` | 1 byte | -128 | 127 |
+//! | `Int16` | `i16` | 2 bytes | -32,768 | 32,767 |
+//! | `Int32` | `i32` | 4 bytes | -2³¹ | 2³¹-1 |
+//! | `Int64` | `i64` | 8 bytes | -2⁶³ | 2⁶³-1 |
+//! | `Int128` | `i128` | 16 bytes | -2¹²⁷ | 2¹²⁷-1 |
+//! | `UInt8` | `u8` | 1 byte | 0 | 255 |
+//! | `UInt16` | `u16` | 2 bytes | 0 | 65,535 |
+//! | `UInt32` | `u32` | 4 bytes | 0 | 2³²-1 |
+//! | `UInt64` | `u64` | 8 bytes | 0 | 2⁶⁴-1 |
+//! | `UInt128` | `u128` | 16 bytes | 0 | 2¹²⁸-1 |
+//!
+//! ## Floating-Point Types
+//!
+//! IEEE 754 floating-point numbers, stored in little-endian:
+//! - `Float32` - Single precision (32-bit)
+//! - `Float64` - Double precision (64-bit)
+//!
+//! ## Bool Type
+//!
+//! `Bool` is an alias for `UInt8` where 0 = false, 1 = true.
+
 use super::{Column, ColumnRef, ColumnTyped};
 use crate::types::Type;
 use crate::{Error, Result};
@@ -5,6 +39,8 @@ use bytes::{Buf, BufMut, BytesMut};
 use std::sync::Arc;
 
 /// Trait for types that can be read/written as fixed-size values (synchronous version for columns)
+///
+/// All numeric types are stored in **little-endian** format in ClickHouse wire protocol.
 pub trait FixedSize: Sized + Clone + Send + Sync + 'static {
     fn read_from(buffer: &mut &[u8]) -> Result<Self>;
     fn write_to(&self, buffer: &mut BytesMut);

@@ -1,3 +1,28 @@
+//! Date and DateTime column implementations
+//!
+//! **ClickHouse Documentation:**
+//! - [Date](https://clickhouse.com/docs/en/sql-reference/data-types/date) - Days since 1970-01-01 (UInt16)
+//! - [Date32](https://clickhouse.com/docs/en/sql-reference/data-types/date32) - Extended range date (Int32)
+//! - [DateTime](https://clickhouse.com/docs/en/sql-reference/data-types/datetime) - Unix timestamp (UInt32)
+//! - [DateTime64](https://clickhouse.com/docs/en/sql-reference/data-types/datetime64) - High-precision timestamp (Int64)
+//!
+//! ## Storage Details
+//!
+//! | Type | Storage | Range | Precision |
+//! |------|---------|-------|-----------|
+//! | `Date` | UInt16 | 1970-01-01 to 2149-06-06 | 1 day |
+//! | `Date32` | Int32 | 1900-01-01 to 2299-12-31 | 1 day |
+//! | `DateTime` | UInt32 | 1970-01-01 00:00:00 to 2106-02-07 06:28:15 UTC | 1 second |
+//! | `DateTime64(P)` | Int64 | Large range | 10^-P seconds (P=0..9) |
+//!
+//! ## Timezones
+//!
+//! `DateTime` and `DateTime64` support optional timezone parameter:
+//! - `DateTime('UTC')` - Store as UTC timestamp
+//! - `DateTime('Europe/Moscow')` - Store with timezone info
+//!
+//! The timezone affects how values are displayed and interpreted, but storage is always in Unix time.
+
 use super::{Column, ColumnRef};
 use crate::types::Type;
 use crate::{Error, Result};
@@ -7,7 +32,10 @@ use std::sync::Arc;
 const SECONDS_PER_DAY: i64 = 86400;
 
 /// Column for Date type (stored as UInt16 - days since Unix epoch 1970-01-01)
-/// Range: 1970-01-01 to 2149-06-06
+///
+/// **Range:** 1970-01-01 to 2149-06-06
+///
+/// **ClickHouse Reference:** <https://clickhouse.com/docs/en/sql-reference/data-types/date>
 pub struct ColumnDate {
     type_: Type,
     data: Vec<u16>, // Days since Unix epoch

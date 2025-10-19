@@ -1,3 +1,41 @@
+//! LowCardinality column implementation (dictionary encoding)
+//!
+//! **ClickHouse Documentation:** <https://clickhouse.com/docs/en/sql-reference/data-types/lowcardinality>
+//!
+//! ## Overview
+//!
+//! LowCardinality is a specialized type that wraps other data types (String, FixedString, Date, DateTime, and numbers)
+//! to provide dictionary encoding. This dramatically reduces storage and improves query performance for columns
+//! with low cardinality (few unique values relative to total rows).
+//!
+//! ## Type Nesting Rules
+//!
+//! **✅ Correct nesting order:**
+//! - `LowCardinality(Nullable(String))` - Dictionary-encoded nullable strings
+//! - `Array(LowCardinality(String))` - Array of dictionary-encoded strings
+//! - `Array(LowCardinality(Nullable(String)))` - Array of nullable dictionary-encoded strings
+//!
+//! **❌ Invalid nesting:**
+//! - `Nullable(LowCardinality(String))` - Error: "Nested type LowCardinality cannot be inside Nullable type"
+//!
+//! See: <https://github.com/ClickHouse/ClickHouse/issues/42456>
+//!
+//! ## Wire Format
+//!
+//! LowCardinality uses a complex serialization format:
+//! ```text
+//! [serialization_version: UInt64]
+//! [index_type: UInt64]
+//! [dictionary: Column]
+//! [indices: UInt8/UInt16/UInt32/UInt64 * num_rows]
+//! ```
+//!
+//! ## Performance Tips
+//!
+//! - Best for columns with cardinality < 10,000 unique values
+//! - Excellent for enum-like data, country codes, status flags, etc.
+//! - See ClickHouse tips: <https://www.tinybird.co/blog-posts/tips-10-null-behavior-with-lowcardinality-columns>
+
 use super::{Column, ColumnRef};
 use crate::types::Type;
 use crate::{Error, Result};
@@ -6,8 +44,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Column for LowCardinality type (dictionary encoding)
-/// LowCardinality columns store unique values in a dictionary and use indices to reference them
-/// This provides compression for columns with many repeated values
+///
+/// Stores unique values in a dictionary and uses indices to reference them,
+/// providing compression for columns with many repeated values.
+///
+/// **Reference Implementation:** See `clickhouse-cpp/clickhouse/columns/lowcardinality.cpp`
 pub struct ColumnLowCardinality {
     type_: Type,
     dictionary: ColumnRef, // Stores unique values

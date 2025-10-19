@@ -8,7 +8,7 @@ use std::sync::Arc;
 pub type QuerySettings = HashMap<String, String>;
 
 /// OpenTelemetry tracing context (W3C Trace Context)
-/// See: https://www.w3.org/TR/trace-context/
+/// See: <https://www.w3.org/TR/trace-context/>
 #[derive(Clone, Debug, Default)]
 pub struct TracingContext {
     /// Trace ID (128-bit identifier)
