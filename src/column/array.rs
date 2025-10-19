@@ -156,7 +156,8 @@ impl ColumnArray {
         // Append the array data to nested column
         let nested_mut = Arc::get_mut(&mut self.nested)
             .expect("Cannot append to shared array column - column has multiple references");
-        nested_mut.append_column(array_data)
+        nested_mut
+            .append_column(array_data)
             .expect("Failed to append array data to nested column");
 
         // Update offsets
@@ -195,7 +196,8 @@ impl Column for ColumnArray {
     fn clear(&mut self) {
         self.offsets.clear();
         // CRITICAL: Must also clear nested data to maintain consistency
-        // If we clear offsets but not nested data, the column is in a corrupt state
+        // If we clear offsets but not nested data, the column is in a corrupt
+        // state
         let nested_mut = Arc::get_mut(&mut self.nested)
             .expect("Cannot clear shared array column - column has multiple references");
         nested_mut.clear();
@@ -256,7 +258,8 @@ impl Column for ColumnArray {
 
         // CRITICAL: Must also load the nested column data
         // The total number of nested elements is the last offset value
-        let total_nested_elements = self.offsets.last().copied().unwrap_or(0) as usize;
+        let total_nested_elements =
+            self.offsets.last().copied().unwrap_or(0) as usize;
         if total_nested_elements > 0 {
             let nested_mut = Arc::get_mut(&mut self.nested)
                 .ok_or_else(|| Error::Protocol(
@@ -579,27 +582,47 @@ mod tests {
         col2.append_len(3); // Third array: [4, 5, 6]
 
         // Append col2 to col1
-        col1.append_column(Arc::new(col2)).expect("append_column should succeed");
+        col1.append_column(Arc::new(col2))
+            .expect("append_column should succeed");
 
         // Verify we have 3 arrays total
         assert_eq!(col1.size(), 3, "Should have 3 arrays after append");
 
         // Verify array lengths
-        assert_eq!(col1.get_array_len(0), Some(2), "First array should have 2 elements");
-        assert_eq!(col1.get_array_len(1), Some(1), "Second array should have 1 element");
-        assert_eq!(col1.get_array_len(2), Some(3), "Third array should have 3 elements");
+        assert_eq!(
+            col1.get_array_len(0),
+            Some(2),
+            "First array should have 2 elements"
+        );
+        assert_eq!(
+            col1.get_array_len(1),
+            Some(1),
+            "Second array should have 1 element"
+        );
+        assert_eq!(
+            col1.get_array_len(2),
+            Some(3),
+            "Third array should have 3 elements"
+        );
 
         // CRITICAL: Verify nested data was actually appended
         // The nested column should contain [1, 2, 3, 4, 5, 6]
-        let nested = col1.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
-        assert_eq!(nested.size(), 6, "Nested column should have 6 total elements");
+        let nested =
+            col1.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(
+            nested.size(),
+            6,
+            "Nested column should have 6 total elements"
+        );
 
         // Verify offsets are correct: [2, 3, 6]
         assert_eq!(col1.offsets(), &[2, 3, 6], "Offsets should be [2, 3, 6]");
     }
 
     #[test]
-    #[should_panic(expected = "Cannot clear shared array column - column has multiple references")]
+    #[should_panic(
+        expected = "Cannot clear shared array column - column has multiple references"
+    )]
     fn test_array_clear_panics_on_shared_nested() {
         // Create an array column
         let mut nested = ColumnUInt64::new(Type::uint64());
@@ -646,16 +669,31 @@ mod tests {
         let mut col_loaded = ColumnArray::with_nested(nested_empty);
 
         let mut buf_slice = &buffer[..];
-        col_loaded.load_from_buffer(&mut buf_slice, 2).expect("load should succeed");
+        col_loaded
+            .load_from_buffer(&mut buf_slice, 2)
+            .expect("load should succeed");
 
         // Verify arrays structure
         assert_eq!(col_loaded.size(), 2, "Loaded should have 2 arrays");
-        assert_eq!(col_loaded.get_array_len(0), Some(2), "First array should have 2 elements");
-        assert_eq!(col_loaded.get_array_len(1), Some(3), "Second array should have 3 elements");
+        assert_eq!(
+            col_loaded.get_array_len(0),
+            Some(2),
+            "First array should have 2 elements"
+        );
+        assert_eq!(
+            col_loaded.get_array_len(1),
+            Some(3),
+            "Second array should have 3 elements"
+        );
 
         // CRITICAL: Verify nested data was actually loaded
-        let nested_loaded = col_loaded.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
-        assert_eq!(nested_loaded.size(), 5, "Nested should have 5 total elements after load");
+        let nested_loaded =
+            col_loaded.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        assert_eq!(
+            nested_loaded.size(),
+            5,
+            "Nested should have 5 total elements after load"
+        );
 
         // Verify we can retrieve the actual arrays
         let arr0 = col_loaded.at(0);
