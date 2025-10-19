@@ -2,11 +2,11 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum ServerCode {
-    Hello = 0,                // Name, version, revision
-    Data = 1,                 // Block of data, may be compressed
-    Exception = 2,            // Exception during query execution
-    Progress = 3,             /* Query execution progress: rows and bytes
-                               * read */
+    Hello = 0,     // Name, version, revision
+    Data = 1,      // Block of data, may be compressed
+    Exception = 2, // Exception during query execution
+    Progress = 3,  /* Query execution progress: rows and bytes
+                    * read */
     Pong = 4,                 // Response to Ping
     EndOfStream = 5,          // All packets were sent
     ProfileInfo = 6,          // Profiling data
