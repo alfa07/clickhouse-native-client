@@ -27,7 +27,10 @@ criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 default = []
 tls = ["tokio-rustls", "rustls", "rustls-native-certs", "rustls-pemfile"]
 
-# Benchmarks will be added once core API is stabilized
-# [[bench]]
-# name = "column_benchmarks"
-# harness = false
+[[bench]]
+name = "select_benchmarks"
+harness = false
+
+[[bench]]
+name = "column_benchmarks"
+harness = false
