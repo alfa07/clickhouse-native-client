@@ -67,14 +67,17 @@ async fn test_create_table() {
         .await
         .expect("Failed to connect to ClickHouse");
 
+    // Ensure database exists (for parallel test execution)
+    let _ = client.query("CREATE DATABASE IF NOT EXISTS test_db").await;
+
     // Drop table if exists
     let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_table")
+        .query("DROP TABLE IF EXISTS test_db.test_table_create")
         .await;
 
     // Create table with String, UInt64, Float64 columns
     let create_table_sql = r#"
-        CREATE TABLE test_db.test_table (
+        CREATE TABLE test_db.test_table_create (
             name String,
             count UInt64,
             price Float64
@@ -105,13 +108,16 @@ async fn test_insert_and_select_data() {
         .await
         .expect("Failed to connect to ClickHouse");
 
+    // Ensure database exists (for parallel test execution)
+    let _ = client.query("CREATE DATABASE IF NOT EXISTS test_db").await;
+
     // Setup: Create table
     let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_table")
+        .query("DROP TABLE IF EXISTS test_db.test_table_insert_select")
         .await;
 
     let create_table_sql = r#"
-        CREATE TABLE test_db.test_table (
+        CREATE TABLE test_db.test_table_insert_select (
             name String,
             count UInt64,
             price Float64
@@ -126,7 +132,7 @@ async fn test_insert_and_select_data() {
 
     // Insert data using SQL INSERT
     let insert_sql = r#"
-        INSERT INTO test_db.test_table (name, count, price) VALUES
+        INSERT INTO test_db.test_table_insert_select (name, count, price) VALUES
         ('apple', 10, 1.50),
         ('banana', 25, 0.75),
         ('orange', 15, 2.00),
@@ -143,7 +149,7 @@ async fn test_insert_and_select_data() {
 
     // Select all data
     let result = client
-        .query("SELECT name, count, price FROM test_db.test_table ORDER BY count")
+        .query("SELECT name, count, price FROM test_db.test_table_insert_select ORDER BY count")
         .await
         .expect("Failed to select data");
 
@@ -178,11 +184,11 @@ async fn test_select_with_where() {
         .expect("Failed to connect to ClickHouse");
 
     // Setup: Create and populate table
-    setup_test_table(&mut client).await;
+    setup_test_table(&mut client, "test_table_where").await;
 
     // Select with WHERE clause
     let result = client
-        .query("SELECT name, count, price FROM test_db.test_table WHERE count > 10 ORDER BY count")
+        .query("SELECT name, count, price FROM test_db.test_table_where WHERE count > 10 ORDER BY count")
         .await
         .expect("Failed to select with WHERE");
 
@@ -201,11 +207,11 @@ async fn test_aggregation_queries() {
         .expect("Failed to connect to ClickHouse");
 
     // Setup: Create and populate table
-    setup_test_table(&mut client).await;
+    setup_test_table(&mut client, "test_table_agg").await;
 
     // COUNT query
     let count_result = client
-        .query("SELECT COUNT(*) as total FROM test_db.test_table")
+        .query("SELECT COUNT(*) as total FROM test_db.test_table_agg")
         .await
         .expect("Failed to count rows");
 
@@ -214,7 +220,7 @@ async fn test_aggregation_queries() {
 
     // SUM and AVG query
     let agg_result = client
-        .query("SELECT SUM(count) as total_count, AVG(price) as avg_price FROM test_db.test_table")
+        .query("SELECT SUM(count) as total_count, AVG(price) as avg_price FROM test_db.test_table_agg")
         .await
         .expect("Failed to aggregate");
 
@@ -232,6 +238,9 @@ async fn test_insert_block() {
     let mut client = create_test_client()
         .await
         .expect("Failed to connect to ClickHouse");
+
+    // Ensure database exists (for parallel test execution)
+    let _ = client.query("CREATE DATABASE IF NOT EXISTS test_db").await;
 
     // Setup: Create table
     let _ = client
@@ -302,14 +311,24 @@ async fn test_cleanup() {
         .await
         .expect("Failed to connect to ClickHouse");
 
-    // Drop test tables and database
+    // Drop test tables (but keep database for other tests)
     let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_table")
+        .query("DROP TABLE IF EXISTS test_db.test_table_create")
+        .await;
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_table_insert_select")
+        .await;
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_table_where")
+        .await;
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_db.test_table_agg")
         .await;
     let _ = client
         .query("DROP TABLE IF EXISTS test_db.test_block_insert")
         .await;
-    let _ = client.query("DROP DATABASE IF EXISTS test_db").await;
+    // Note: Not dropping database to avoid conflicts with parallel tests
+    // let _ = client.query("DROP DATABASE IF EXISTS test_db").await;
 
     println!("Cleanup completed");
 }
@@ -408,6 +427,9 @@ async fn test_nullable_column_insertion() {
     let mut client = create_test_client()
         .await
         .expect("Failed to connect to ClickHouse");
+
+    // Ensure database exists (for parallel test execution)
+    let _ = client.query("CREATE DATABASE IF NOT EXISTS test_db").await;
 
     // Create table with nullable column
     let _ = client
@@ -537,6 +559,9 @@ async fn test_large_block_insert() {
         .await
         .expect("Failed to connect to ClickHouse");
 
+    // Ensure database exists (for parallel test execution)
+    let _ = client.query("CREATE DATABASE IF NOT EXISTS test_db").await;
+
     use clickhouse_client::column::numeric::ColumnUInt64;
     use clickhouse_client::column::string::ColumnString;
     use clickhouse_client::types::Type;
@@ -601,6 +626,9 @@ async fn test_large_result_set() {
     let mut client = create_test_client()
         .await
         .expect("Failed to connect to ClickHouse");
+
+    // Ensure database exists (for parallel test execution)
+    let _ = client.query("CREATE DATABASE IF NOT EXISTS test_db").await;
 
     use clickhouse_client::column::numeric::ColumnUInt64;
     use clickhouse_client::types::Type;
@@ -706,36 +734,40 @@ async fn test_ping_between_queries() {
 }
 
 // Helper function to setup test table with data
-async fn setup_test_table(client: &mut Client) {
+async fn setup_test_table(client: &mut Client, table_name: &str) {
+    // Ensure database exists (for parallel test execution)
+    let _ = client.query("CREATE DATABASE IF NOT EXISTS test_db").await;
+
+    let drop_query = format!("DROP TABLE IF EXISTS test_db.{}", table_name);
     let _ = client
-        .query("DROP TABLE IF EXISTS test_db.test_table")
+        .query(drop_query.as_str())
         .await;
 
-    let create_table_sql = r#"
-        CREATE TABLE test_db.test_table (
+    let create_table_sql = format!(r#"
+        CREATE TABLE test_db.{} (
             name String,
             count UInt64,
             price Float64
         ) ENGINE = MergeTree()
         ORDER BY count
-    "#;
+    "#, table_name);
 
     client
-        .query(create_table_sql)
+        .query(create_table_sql.as_str())
         .await
         .expect("Failed to create table");
 
-    let insert_sql = r#"
-        INSERT INTO test_db.test_table (name, count, price) VALUES
+    let insert_sql = format!(r#"
+        INSERT INTO test_db.{} (name, count, price) VALUES
         ('apple', 10, 1.50),
         ('banana', 25, 0.75),
         ('orange', 15, 2.00),
         ('grape', 30, 3.25),
         ('mango', 5, 2.50)
-    "#;
+    "#, table_name);
 
     client
-        .query(insert_sql)
+        .query(insert_sql.as_str())
         .await
         .expect("Failed to insert data");
 }
