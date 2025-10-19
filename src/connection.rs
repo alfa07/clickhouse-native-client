@@ -234,11 +234,9 @@ impl Connection {
                     keepalive.with_interval(options.tcp_keepalive_interval);
             }
 
-            #[cfg(target_os = "linux")]
-            {
-                keepalive =
-                    keepalive.with_retries(options.tcp_keepalive_count);
-            }
+            // Note: with_retries is not available in socket2 0.5.x
+            // TCP_KEEPCNT can be set via raw socket options if needed
+            // For now, we rely on system defaults for keepalive retry count
 
             socket.set_tcp_keepalive(&keepalive).map_err(|e| {
                 Error::Connection(format!(
@@ -352,11 +350,9 @@ impl Connection {
                     keepalive.with_interval(options.tcp_keepalive_interval);
             }
 
-            #[cfg(target_os = "linux")]
-            {
-                keepalive =
-                    keepalive.with_retries(options.tcp_keepalive_count);
-            }
+            // Note: with_retries is not available in socket2 0.5.x
+            // TCP_KEEPCNT can be set via raw socket options if needed
+            // For now, we rely on system defaults for keepalive retry count
 
             socket.set_tcp_keepalive(&keepalive).map_err(|e| {
                 Error::Connection(format!(
