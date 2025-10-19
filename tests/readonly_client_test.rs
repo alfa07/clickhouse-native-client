@@ -19,7 +19,6 @@
 //! These tests use the 'readonly' setting in queries.
 
 use clickhouse_client::{
-    Block,
     Client,
     ClientOptions,
     Query,

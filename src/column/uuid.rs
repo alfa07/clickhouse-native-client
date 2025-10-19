@@ -46,15 +46,21 @@ impl Uuid {
     }
 
     /// Format UUID as string: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-    pub fn to_string(&self) -> String {
+    pub fn as_string(&self) -> String {
         format!(
             "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
             (self.high >> 32) as u32,
             ((self.high >> 16) & 0xFFFF) as u16,
             (self.high & 0xFFFF) as u16,
             (self.low >> 48) as u16,
-            (self.low & 0xFFFFFFFFFFFF) as u64,
+            self.low & 0xFFFFFFFFFFFF,
         )
+    }
+}
+
+impl std::fmt::Display for Uuid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_string())
     }
 }
 
@@ -89,7 +95,7 @@ impl ColumnUuid {
     }
 
     pub fn as_string(&self, index: usize) -> String {
-        self.data[index].to_string()
+        self.data[index].as_string()
     }
 
     pub fn len(&self) -> usize {
@@ -207,7 +213,9 @@ mod tests {
     #[test]
     fn test_uuid_to_string() {
         let uuid = Uuid::new(0x550e8400e29b41d4, 0xa716446655440000);
-        assert_eq!(uuid.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+        assert_eq!(uuid.as_string(), "550e8400-e29b-41d4-a716-446655440000");
+        // Also test Display trait
+        assert_eq!(format!("{}", uuid), "550e8400-e29b-41d4-a716-446655440000");
     }
 
     #[test]

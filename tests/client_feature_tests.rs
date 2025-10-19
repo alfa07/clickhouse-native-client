@@ -19,7 +19,6 @@
 //! - Connection reset
 
 use clickhouse_client::{
-    Block,
     Client,
     ClientOptions,
     Query,
@@ -197,11 +196,11 @@ async fn test_client_name_in_logs() {
 
     let mut found_client_name = false;
     for block in result.blocks() {
-        if block.row_count() > 0 {
-            if block.column_by_name("client_name").is_some() {
-                found_client_name = true;
-                println!("Found client_name column in query_log");
-            }
+        if block.row_count() > 0
+            && block.column_by_name("client_name").is_some()
+        {
+            found_client_name = true;
+            println!("Found client_name column in query_log");
         }
     }
 
@@ -452,7 +451,10 @@ async fn test_ping_functionality() {
 
     // Ping multiple times
     for i in 1..=5 {
-        client.ping().await.expect(&format!("Ping {} failed", i));
+        client
+            .ping()
+            .await
+            .unwrap_or_else(|_| panic!("Ping {} failed", i));
         println!("  Ping {} succeeded", i);
     }
 

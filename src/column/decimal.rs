@@ -221,10 +221,10 @@ impl Column for ColumnDecimal {
 /// "123.45" with scale 2 -> 12345
 fn parse_decimal(s: &str, scale: usize) -> Result<i128> {
     let s = s.trim();
-    let (sign, s) = if s.starts_with('-') {
-        (-1, &s[1..])
-    } else if s.starts_with('+') {
-        (1, &s[1..])
+    let (sign, s) = if let Some(stripped) = s.strip_prefix('-') {
+        (-1, stripped)
+    } else if let Some(stripped) = s.strip_prefix('+') {
+        (1, stripped)
     } else {
         (1, s)
     };

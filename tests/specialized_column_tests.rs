@@ -15,15 +15,15 @@ use clickhouse_client::{
 fn test_uuid_parse_and_format() {
     let uuid_str = "550e8400-e29b-41d4-a716-446655440000";
     let uuid = Uuid::parse(uuid_str).unwrap();
-    assert_eq!(uuid.to_string(), uuid_str);
+    assert_eq!(uuid.as_string(), uuid_str);
 }
 
 #[test]
 fn test_uuid_parse_uppercase() {
     let uuid_str = "550E8400-E29B-41D4-A716-446655440000";
     let uuid = Uuid::parse(uuid_str).unwrap();
-    // to_string returns lowercase
-    assert_eq!(uuid.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+    // as_string returns lowercase
+    assert_eq!(uuid.as_string(), "550e8400-e29b-41d4-a716-446655440000");
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_uuid_zero() {
     let uuid = Uuid::parse("00000000-0000-0000-0000-000000000000").unwrap();
     assert_eq!(uuid.high, 0);
     assert_eq!(uuid.low, 0);
-    assert_eq!(uuid.to_string(), "00000000-0000-0000-0000-000000000000");
+    assert_eq!(uuid.as_string(), "00000000-0000-0000-0000-000000000000");
 }
 
 // ============================================================================

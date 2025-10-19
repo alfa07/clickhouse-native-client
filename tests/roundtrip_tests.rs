@@ -72,7 +72,7 @@ fn test_roundtrip_int64() {
 #[test]
 fn test_roundtrip_float32() {
     let mut col = ColumnFloat32::new(Type::float32());
-    col.append(3.14);
+    col.append(std::f32::consts::PI);
     col.append(-2.71);
     col.append(0.0);
 
@@ -80,7 +80,7 @@ fn test_roundtrip_float32() {
     let result_f32 = result.as_any().downcast_ref::<ColumnFloat32>().unwrap();
 
     assert_eq!(result_f32.len(), 3);
-    assert!((result_f32.at(0) - 3.14).abs() < 0.001);
+    assert!((result_f32.at(0) - std::f32::consts::PI).abs() < 0.001);
     assert!((result_f32.at(1) - (-2.71)).abs() < 0.001);
     assert_eq!(result_f32.at(2), 0.0);
 }
@@ -275,11 +275,11 @@ fn test_roundtrip_nullable_uint32() {
     assert_eq!(result_nullable.len(), 5);
 
     // Check null flags
-    assert_eq!(result_nullable.is_null_at(0), false);
-    assert_eq!(result_nullable.is_null_at(1), true);
-    assert_eq!(result_nullable.is_null_at(2), false);
-    assert_eq!(result_nullable.is_null_at(3), true);
-    assert_eq!(result_nullable.is_null_at(4), false);
+    assert!(!result_nullable.is_null_at(0));
+    assert!(result_nullable.is_null_at(1));
+    assert!(!result_nullable.is_null_at(2));
+    assert!(result_nullable.is_null_at(3));
+    assert!(!result_nullable.is_null_at(4));
 
     // Check values (for non-null entries)
     let nested = result_nullable.nested();

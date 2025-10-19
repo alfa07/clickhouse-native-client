@@ -69,9 +69,9 @@ fn test_block_iterator() {
     assert_eq!(block.row_count(), 5);
 
     let mut col_index = 0;
-    let mut iter = block.iter();
+    let iter = block.iter();
 
-    while let Some((name, _type, column)) = iter.next() {
+    for (name, _type, column) in iter {
         assert_eq!(name, expected_names[col_index]);
         assert_eq!(column.size(), 5);
         col_index += 1;
@@ -401,7 +401,7 @@ fn test_block_many_columns() {
         let mut col = ColumnUInt8::new(Type::uint8());
         col.append((i % 256) as u8);
 
-        block.append_column(&format!("col{}", i), Arc::new(col)).unwrap();
+        block.append_column(format!("col{}", i), Arc::new(col)).unwrap();
     }
 
     assert_eq!(block.column_count(), 100);

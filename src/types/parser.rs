@@ -23,12 +23,13 @@ enum TokenType {
     Assign,
     Name,
     Number,
+    #[allow(dead_code)]
     String,
     LPar, // Left parenthesis (
     RPar, // Right parenthesis )
     Comma,
     QuotedString, // String with quotation marks included
-    EOS,          // End of string
+    Eos,          // End of string
 }
 
 /// Token with type and value
@@ -199,7 +200,7 @@ impl<'a> TypeParser<'a> {
                     }
                 }
 
-                TokenType::EOS => {
+                TokenType::Eos => {
                     // Unbalanced braces/brackets is an error
                     if self.open_elements.len() != 1 {
                         return false;
@@ -330,7 +331,7 @@ impl<'a> TypeParser<'a> {
             }
         }
 
-        Token { token_type: TokenType::EOS, value: "" }
+        Token { token_type: TokenType::Eos, value: "" }
     }
 }
 
@@ -410,10 +411,10 @@ fn validate_ast(ast: &TypeAst) -> bool {
     true
 }
 
-/// Thread-local cache for parsed type names
-/// Each thread maintains its own cache for zero-overhead lookups.
-/// Optimized for Rust: uses thread_local instead of global mutex (unlike C++
-/// implementation).
+// Thread-local cache for parsed type names
+// Each thread maintains its own cache for zero-overhead lookups.
+// Optimized for Rust: uses thread_local instead of global mutex (unlike C++
+// implementation).
 thread_local! {
     static TYPE_CACHE: RefCell<HashMap<String, TypeAst>> =
         RefCell::new(HashMap::new());

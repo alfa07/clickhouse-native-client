@@ -256,7 +256,7 @@ async fn test_tls_handshake_failure_wrong_cert() {
     // Try to connect with TLS using invalid certificate
     let ssl_opts = SSLOptions::default()
         .skip_verification(false) // Force verification
-        .ca_cert_path("/nonexistent/ca.pem"); // Invalid path
+        .add_ca_cert("/nonexistent/ca.pem".into()); // Invalid path
 
     let conn_opts =
         ConnectionOptions::default().connect_timeout(Duration::from_secs(5));

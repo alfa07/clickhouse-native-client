@@ -412,10 +412,8 @@ fn test_nothing_clear() {
 
 #[test]
 fn test_nothing_load_from_buffer() {
-    use bytes::Bytes;
-
     let mut col = ColumnNothing::new(void_type());
-    let data = vec![0u8; 5]; // 5 bytes of nothing
+    let data = [0u8; 5]; // 5 bytes of nothing
     let mut buffer = &data[..];
 
     col.load_from_buffer(&mut buffer, 5).unwrap();

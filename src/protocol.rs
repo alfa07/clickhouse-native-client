@@ -75,17 +75,12 @@ pub enum Stage {
 }
 
 /// Methods of block compression
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CompressionMethod {
+    #[default]
     None = -1,
-    LZ4 = 1,
-    ZSTD = 2,
-}
-
-impl Default for CompressionMethod {
-    fn default() -> Self {
-        CompressionMethod::None
-    }
+    Lz4 = 1,
+    Zstd = 2,
 }
 
 #[cfg(test)]
