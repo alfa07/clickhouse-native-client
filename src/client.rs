@@ -756,6 +756,208 @@ impl Client {
         Ok(QueryResult { blocks, progress: progress_info })
     }
 
+    /// Execute a SELECT query with external tables for JOIN operations
+    ///
+    /// External tables allow passing temporary in-memory data to queries for JOINs
+    /// without creating actual tables in ClickHouse.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions, Block, ExternalTable};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut client = Client::connect(ClientOptions::default()).await?;
+    /// // Create a block with temporary data
+    /// let mut block = Block::new();
+    /// // ... populate block with data ...
+    ///
+    /// // Create external table
+    /// let ext_table = ExternalTable::new("temp_table", block);
+    ///
+    /// // Use in query with JOIN
+    /// let query = "SELECT * FROM my_table JOIN temp_table ON my_table.id = temp_table.id";
+    /// let result = client.query_with_external_data(query, &[ext_table]).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn query_with_external_data(
+        &mut self,
+        query: impl Into<Query>,
+        external_tables: &[crate::ExternalTable],
+    ) -> Result<QueryResult> {
+        self.query_with_external_data_and_id(query, "", external_tables).await
+    }
+
+    /// Execute a SELECT query with external tables and a specific query ID
+    ///
+    /// Combines external table support with query ID tracing.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions, Block, ExternalTable};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut client = Client::connect(ClientOptions::default()).await?;
+    /// # let mut block = Block::new();
+    /// let ext_table = ExternalTable::new("temp_table", block);
+    /// let result = client.query_with_external_data_and_id(
+    ///     "SELECT * FROM my_table JOIN temp_table ON my_table.id = temp_table.id",
+    ///     "query-123",
+    ///     &[ext_table]
+    /// ).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn query_with_external_data_and_id(
+        &mut self,
+        query: impl Into<Query>,
+        query_id: &str,
+        external_tables: &[crate::ExternalTable],
+    ) -> Result<QueryResult> {
+        let mut query = query.into();
+        if !query_id.is_empty() {
+            query = Query::new(query.text()).with_query_id(query_id);
+        }
+
+        // Send query
+        self.send_query(&query).await?;
+
+        // Send external tables after the query
+        self.send_external_tables(external_tables).await?;
+
+        // Receive results (same as regular query)
+        let mut blocks = Vec::new();
+        let mut progress_info = Progress::default();
+
+        loop {
+            let packet_type = self.conn.read_varint().await?;
+            eprintln!("[DEBUG] Query response packet: {}", packet_type);
+
+            match packet_type {
+                code if code == ServerCode::Data as u64 => {
+                    eprintln!("[DEBUG] Received data packet");
+                    // Skip temp table name if protocol supports it
+                    if self.server_info.revision >= 50264 {
+                        let _temp_table = self.conn.read_string().await?;
+                    }
+                    let block =
+                        self.block_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke data callback if present
+                    if let Some(callback) = query.get_on_data_cancelable() {
+                        let should_continue = callback(&block);
+                        if !should_continue {
+                            eprintln!(
+                                "[DEBUG] Query cancelled by data callback"
+                            );
+                            break;
+                        }
+                    } else if let Some(callback) = query.get_on_data() {
+                        callback(&block);
+                    }
+
+                    if !block.is_empty() {
+                        blocks.push(block);
+                    }
+                }
+                code if code == ServerCode::Progress as u64 => {
+                    eprintln!("[DEBUG] Received progress packet");
+                    progress_info = self.read_progress().await?;
+
+                    // Invoke progress callback if present
+                    if let Some(callback) = query.get_on_progress() {
+                        callback(&progress_info);
+                    }
+                }
+                code if code == ServerCode::EndOfStream as u64 => {
+                    eprintln!("[DEBUG] Received end of stream");
+                    break;
+                }
+                code if code == ServerCode::ProfileInfo as u64 => {
+                    eprintln!("[DEBUG] Received profile info packet");
+                    let rows = self.conn.read_varint().await?;
+                    let blocks = self.conn.read_varint().await?;
+                    let bytes = self.conn.read_varint().await?;
+                    let applied_limit = self.conn.read_u8().await?;
+                    let rows_before_limit = self.conn.read_varint().await?;
+                    let calculated = self.conn.read_u8().await?;
+
+                    let profile = Profile {
+                        rows,
+                        blocks,
+                        bytes,
+                        applied_limit: applied_limit != 0,
+                        rows_before_limit,
+                        calculated_rows_before_limit: calculated != 0,
+                    };
+
+                    // Invoke profile callback if present
+                    if let Some(callback) = query.get_on_profile() {
+                        callback(&profile);
+                    }
+                }
+                code if code == ServerCode::Log as u64 => {
+                    eprintln!("[DEBUG] Received log packet");
+                    let _log_tag = self.conn.read_string().await?;
+                    // Log blocks are sent uncompressed
+                    let uncompressed_reader =
+                        BlockReader::new(self.server_info.revision);
+                    let block =
+                        uncompressed_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke server log callback if present
+                    if let Some(callback) = query.get_on_server_log() {
+                        callback(&block);
+                    }
+                }
+                code if code == ServerCode::ProfileEvents as u64 => {
+                    eprintln!("[DEBUG] Received profile events packet");
+                    let _table_name = self.conn.read_string().await?;
+                    // ProfileEvents blocks are sent uncompressed
+                    let uncompressed_reader =
+                        BlockReader::new(self.server_info.revision);
+                    let block =
+                        uncompressed_reader.read_block(&mut self.conn).await?;
+
+                    // Invoke profile events callback if present
+                    if let Some(callback) = query.get_on_profile_events() {
+                        callback(&block);
+                    }
+                }
+                code if code == ServerCode::TableColumns as u64 => {
+                    eprintln!("[DEBUG] Received table columns packet (ignoring)");
+                    // Skip external table name
+                    let _table_name = self.conn.read_string().await?;
+                    // Skip columns metadata string
+                    let _columns_metadata = self.conn.read_string().await?;
+                }
+                code if code == ServerCode::Exception as u64 => {
+                    let exception = self.read_exception().await?;
+                    eprintln!(
+                        "[DEBUG] Received exception: {} - {}",
+                        exception.name, exception.display_text
+                    );
+
+                    // Invoke exception callback if present
+                    if let Some(callback) = query.get_on_exception() {
+                        callback(&exception);
+                    }
+
+                    return Err(Error::Protocol(format!(
+                        "ClickHouse exception: {} (code {}): {}",
+                        exception.name, exception.code, exception.display_text
+                    )));
+                }
+                other => {
+                    return Err(Error::Protocol(format!(
+                        "Unexpected packet type during query: {}",
+                        other
+                    )));
+                }
+            }
+        }
+
+        Ok(QueryResult { blocks, progress: progress_info })
+    }
+
     /// Send a query packet
     async fn send_query(&mut self, query: &Query) -> Result<()> {
         eprintln!("[DEBUG] Sending query: {}", query.text());
@@ -878,6 +1080,34 @@ impl Client {
 
         self.conn.flush().await?;
         eprintln!("[DEBUG] Query sent, waiting for response...");
+        Ok(())
+    }
+
+    /// Send external tables data
+    ///
+    /// External tables are sent as Data packets after the initial query packet.
+    /// Each table is sent with its name and block data.
+    /// Empty blocks are skipped to keep the connection in a consistent state.
+    async fn send_external_tables(&mut self, external_tables: &[crate::ExternalTable]) -> Result<()> {
+        for table in external_tables {
+            // Skip empty blocks to keep connection consistent
+            if table.data.row_count() == 0 {
+                continue;
+            }
+
+            eprintln!("[DEBUG] Sending external table: {}", table.name);
+
+            // Send Data packet type
+            self.conn.write_varint(ClientCode::Data as u64).await?;
+
+            // Send table name
+            self.conn.write_string(&table.name).await?;
+
+            // Send block data
+            self.block_writer.write_block(&mut self.conn, &table.data).await?;
+        }
+
+        self.conn.flush().await?;
         Ok(())
     }
 

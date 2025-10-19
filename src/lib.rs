@@ -34,6 +34,7 @@ pub use query::{
     DataCancelableCallback,
     Exception,
     ExceptionCallback,
+    ExternalTable,
     Profile,
     ProfileCallback,
     ProfileEventsCallback,
