@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       clickhouse:
-        image: clickhouse/clickhouse-server:23.8
+        image: clickhouse/clickhouse-server:25.5
         ports:
           - 9000:9000
           - 8123:8123
