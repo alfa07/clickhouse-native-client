@@ -41,6 +41,15 @@ impl ColumnArray {
         }
     }
 
+    /// Create a new array column from parts (for geo types that need custom type names)
+    pub(crate) fn from_parts(type_: Type, nested: ColumnRef) -> Self {
+        Self {
+            type_,
+            nested,
+            offsets: Vec::new(),
+        }
+    }
+
     /// Create with reserved capacity
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         let nested = match &type_ {

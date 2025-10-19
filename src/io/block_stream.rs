@@ -53,6 +53,34 @@ pub fn create_column(type_: &Type) -> Result<ColumnRef> {
                 TypeCode::IPv4 => Ok(Arc::new(ColumnIpv4::new(type_.clone()))),
                 TypeCode::IPv6 => Ok(Arc::new(ColumnIpv6::new(type_.clone()))),
                 TypeCode::Void => Ok(Arc::new(ColumnNothing::new(type_.clone()))),
+                // Geo types are compound types built from Tuple and Array
+                // They use the same column implementation but preserve the geo type name
+                TypeCode::Point => {
+                    // Point is Tuple(Float64, Float64)
+                    let columns: Vec<ColumnRef> = vec![
+                        Arc::new(ColumnFloat64::new(Type::Simple(TypeCode::Float64))) as ColumnRef,
+                        Arc::new(ColumnFloat64::new(Type::Simple(TypeCode::Float64))) as ColumnRef,
+                    ];
+                    Ok(Arc::new(crate::column::ColumnTuple::new(type_.clone(), columns)))
+                }
+                TypeCode::Ring => {
+                    // Ring is Array(Point) - manually create with Point nested type
+                    let point_type = Type::Simple(TypeCode::Point);
+                    let nested = create_column(&point_type)?;
+                    Ok(Arc::new(ColumnArray::from_parts(type_.clone(), nested)))
+                }
+                TypeCode::Polygon => {
+                    // Polygon is Array(Ring) - manually create with Ring nested type
+                    let ring_type = Type::Simple(TypeCode::Ring);
+                    let nested = create_column(&ring_type)?;
+                    Ok(Arc::new(ColumnArray::from_parts(type_.clone(), nested)))
+                }
+                TypeCode::MultiPolygon => {
+                    // MultiPolygon is Array(Polygon) - manually create with Polygon nested type
+                    let polygon_type = Type::Simple(TypeCode::Polygon);
+                    let nested = create_column(&polygon_type)?;
+                    Ok(Arc::new(ColumnArray::from_parts(type_.clone(), nested)))
+                }
                 _ => Err(Error::Protocol(format!("Unsupported type: {}", type_.name()))),
             }
         }
