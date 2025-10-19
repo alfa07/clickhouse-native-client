@@ -435,6 +435,7 @@ impl Client {
     /// - Other DDL/DML operations
     ///
     /// For SELECT queries, use `query()` instead.
+    /// For query tracing, use `execute_with_id()`.
     ///
     /// # Example
     /// ```no_run
@@ -447,7 +448,27 @@ impl Client {
     /// # }
     /// ```
     pub async fn execute(&mut self, query: impl Into<Query>) -> Result<()> {
-        let query = query.into();
+        self.execute_with_id(query, "").await
+    }
+
+    /// Execute a DDL/DML query with a specific query ID
+    ///
+    /// The query ID is useful for query tracing and debugging.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut client = Client::connect(ClientOptions::default()).await?;
+    /// client.execute_with_id("CREATE TABLE test (id UInt32) ENGINE = Memory", "create-123").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn execute_with_id(&mut self, query: impl Into<Query>, query_id: &str) -> Result<()> {
+        let mut query = query.into();
+        if !query_id.is_empty() {
+            query = Query::new(query.text()).with_query_id(query_id);
+        }
         self.send_query(&query).await?;
 
         // Read responses until EndOfStream, but don't collect blocks
@@ -520,11 +541,36 @@ impl Client {
     ///
     /// For INSERT operations, use `insert()` instead.
     /// For DDL/DML without results, use `execute()` instead.
+    /// For query tracing, use `query_with_id()`.
     pub async fn query(
         &mut self,
         query: impl Into<Query>,
     ) -> Result<QueryResult> {
-        let query = query.into();
+        self.query_with_id(query, "").await
+    }
+
+    /// Execute a query with a specific query ID and return results
+    ///
+    /// The query ID is useful for query tracing and debugging.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut client = Client::connect(ClientOptions::default()).await?;
+    /// let result = client.query_with_id("SELECT 1", "select-123").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn query_with_id(
+        &mut self,
+        query: impl Into<Query>,
+        query_id: &str,
+    ) -> Result<QueryResult> {
+        let mut query = query.into();
+        if !query_id.is_empty() {
+            query = Query::new(query.text()).with_query_id(query_id);
+        }
 
         // Send query
         self.send_query(&query).await?;
@@ -863,9 +909,37 @@ impl Client {
     /// This method constructs an INSERT query from the block's column names
     /// and sends the data. Example: `client.insert("my_database.my_table",
     /// block).await?`
+    ///
+    /// For query tracing, use `insert_with_id()` to specify a query ID.
     pub async fn insert(
         &mut self,
         table_name: &str,
+        block: Block,
+    ) -> Result<()> {
+        self.insert_with_id(table_name, "", block).await
+    }
+
+    /// Insert data into a table with a specific query ID
+    ///
+    /// The query ID is useful for:
+    /// - Query tracing and debugging
+    /// - Correlating queries with logs
+    /// - OpenTelemetry integration
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions, Block};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut client = Client::connect(ClientOptions::default()).await?;
+    /// # let block = Block::new();
+    /// client.insert_with_id("my_table", "trace-id-12345", block).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn insert_with_id(
+        &mut self,
+        table_name: &str,
+        query_id: &str,
         block: Block,
     ) -> Result<()> {
         // Build query with column names from block (matches C++
@@ -886,7 +960,7 @@ impl Client {
         );
 
         eprintln!("[DEBUG] Sending INSERT query: {}", query_text);
-        let query = Query::new(query_text);
+        let query = Query::new(query_text).with_query_id(query_id);
 
         // Send query
         self.send_query(&query).await?;
