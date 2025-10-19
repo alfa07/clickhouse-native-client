@@ -1,3 +1,4 @@
+use clickhouse_client::io::buffer_utils;
 use tokio::{
     io::{
         AsyncWriteExt,
@@ -19,36 +20,20 @@ async fn hex_dump_hello_packet() {
     // Collect all bytes we're going to send
     let mut packet_bytes = Vec::new();
 
-    // Helper to write varint
-    fn write_varint(buf: &mut Vec<u8>, mut value: u64) {
-        loop {
-            let mut byte = (value & 0x7F) as u8;
-            value >>= 7;
-            if value != 0 {
-                byte |= 0x80;
-            }
-            buf.push(byte);
-            if value == 0 {
-                break;
-            }
-        }
-    }
-
-    // Helper to write string
-    fn write_string(buf: &mut Vec<u8>, s: &str) {
-        write_varint(buf, s.len() as u64);
-        buf.extend_from_slice(s.as_bytes());
-    }
+    // Using buffer_utils from crate
 
     // Build hello packet
-    write_varint(&mut packet_bytes, 0); // ClientCode::Hello
-    write_string(&mut packet_bytes, "clickhouse-cpp"); // client name (matching C++ client)
-    write_varint(&mut packet_bytes, 2); // major (matching C++ client)
-    write_varint(&mut packet_bytes, 6); // minor (matching C++ client)
-    write_varint(&mut packet_bytes, 54459); // revision (DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS)
-    write_string(&mut packet_bytes, "default"); // database
-    write_string(&mut packet_bytes, "default"); // user
-    write_string(&mut packet_bytes, ""); // password
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, 0); // ClientCode::Hello
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, "clickhouse-cpp".len() as u64);
+    packet_bytes.extend_from_slice(b"clickhouse-cpp"); // client name
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, 2); // major
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, 6); // minor
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, 54459); // revision
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, "default".len() as u64);
+    packet_bytes.extend_from_slice(b"default"); // database
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, "default".len() as u64);
+    packet_bytes.extend_from_slice(b"default"); // user
+    buffer_utils::write_varint_to_vec(&mut packet_bytes, 0); // password (empty)
 
     println!("\n=== CLIENT HELLO PACKET ===");
     println!("Total bytes: {}", packet_bytes.len());

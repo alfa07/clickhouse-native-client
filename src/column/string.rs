@@ -31,6 +31,7 @@ use super::{
     ColumnRef,
 };
 use crate::{
+    io::buffer_utils,
     types::Type,
     Error,
     Result,
@@ -330,7 +331,7 @@ impl Column for ColumnString {
 
         for _ in 0..rows {
             // Read varint length
-            let len = read_varint(buffer)? as usize;
+            let len = buffer_utils::read_varint(buffer)? as usize;
 
             if buffer.len() < len {
                 return Err(Error::Protocol(format!(
@@ -356,7 +357,7 @@ impl Column for ColumnString {
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
         for s in &self.data {
             // Write varint length
-            write_varint(buffer, s.len() as u64);
+            buffer_utils::write_varint(buffer, s.len() as u64);
             // Write string data
             buffer.put_slice(s.as_bytes());
         }
@@ -390,52 +391,7 @@ impl Column for ColumnString {
     }
 }
 
-// Helper functions for varint encoding/decoding in sync context
-fn read_varint(buffer: &mut &[u8]) -> Result<u64> {
-    let mut result: u64 = 0;
-    let mut shift = 0;
-
-    loop {
-        if buffer.is_empty() {
-            return Err(Error::Protocol(
-                "Unexpected end of buffer reading varint".to_string(),
-            ));
-        }
-
-        let byte = buffer[0];
-        buffer.advance(1);
-
-        result |= ((byte & 0x7F) as u64) << shift;
-
-        if byte & 0x80 == 0 {
-            break;
-        }
-
-        shift += 7;
-        if shift >= 64 {
-            return Err(Error::Protocol("Varint overflow".to_string()));
-        }
-    }
-
-    Ok(result)
-}
-
-fn write_varint(buffer: &mut BytesMut, mut value: u64) {
-    loop {
-        let mut byte = (value & 0x7F) as u8;
-        value >>= 7;
-
-        if value != 0 {
-            byte |= 0x80;
-        }
-
-        buffer.put_u8(byte);
-
-        if value == 0 {
-            break;
-        }
-    }
-}
+// Helper functions removed - using buffer_utils module
 
 #[cfg(test)]
 mod tests {
@@ -555,10 +511,10 @@ mod tests {
 
         for value in test_values {
             let mut buffer = BytesMut::new();
-            write_varint(&mut buffer, value);
+            buffer_utils::write_varint(&mut buffer, value);
 
             let mut reader = &buffer[..];
-            let decoded = read_varint(&mut reader).unwrap();
+            let decoded = buffer_utils::read_varint(&mut reader).unwrap();
 
             assert_eq!(value, decoded);
         }

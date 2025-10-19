@@ -37,15 +37,12 @@ use super::{
     ColumnRef,
 };
 use crate::{
+    io::buffer_utils,
     types::Type,
     Error,
     Result,
 };
-use bytes::{
-    Buf,
-    BufMut,
-    BytesMut,
-};
+use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Column for arrays of variable length
@@ -252,7 +249,7 @@ impl Column for ColumnArray {
 
         // Read offsets (varint encoded u64)
         for _ in 0..rows {
-            let offset = read_varint(buffer)?;
+            let offset = buffer_utils::read_varint(buffer)?;
             self.offsets.push(offset);
         }
 
@@ -281,7 +278,7 @@ impl Column for ColumnArray {
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
         // Write offsets
         for &offset in &self.offsets {
-            write_varint(buffer, offset);
+            buffer_utils::write_varint(buffer, offset);
         }
 
         // Write nested column data
@@ -336,52 +333,7 @@ impl Column for ColumnArray {
     }
 }
 
-// Helper functions for varint encoding/decoding (same as in string.rs)
-fn read_varint(buffer: &mut &[u8]) -> Result<u64> {
-    let mut result: u64 = 0;
-    let mut shift = 0;
-
-    loop {
-        if buffer.is_empty() {
-            return Err(Error::Protocol(
-                "Unexpected end of buffer reading varint".to_string(),
-            ));
-        }
-
-        let byte = buffer[0];
-        buffer.advance(1);
-
-        result |= ((byte & 0x7F) as u64) << shift;
-
-        if byte & 0x80 == 0 {
-            break;
-        }
-
-        shift += 7;
-        if shift >= 64 {
-            return Err(Error::Protocol("Varint overflow".to_string()));
-        }
-    }
-
-    Ok(result)
-}
-
-fn write_varint(buffer: &mut BytesMut, mut value: u64) {
-    loop {
-        let mut byte = (value & 0x7F) as u8;
-        value >>= 7;
-
-        if value != 0 {
-            byte |= 0x80;
-        }
-
-        buffer.put_u8(byte);
-
-        if value == 0 {
-            break;
-        }
-    }
-}
+// Helper functions removed - using buffer_utils module
 
 #[cfg(test)]
 mod tests {
@@ -485,9 +437,9 @@ mod tests {
 
         // Encode offsets manually: 3, 5, 8 (total 8 nested elements)
         let mut data = BytesMut::new();
-        write_varint(&mut data, 3);
-        write_varint(&mut data, 5);
-        write_varint(&mut data, 8);
+        buffer_utils::write_varint(&mut data, 3);
+        buffer_utils::write_varint(&mut data, 5);
+        buffer_utils::write_varint(&mut data, 8);
 
         // Must also include nested data (8 UInt64 values)
         for i in 0..8u64 {
