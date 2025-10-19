@@ -169,16 +169,10 @@ fn test_roundtrip_date() {
 // Array Column Roundtrip Tests
 // ============================================================================
 //
-// NOTE: Array and Nullable column roundtrip tests are currently limited due to
-// Arc immutability. The load_from_buffer() method cannot modify nested columns
-// through Arc. In production, block_stream.rs uses a different mechanism that
-// creates new columns.
-//
-// These tests are commented out until we implement interior mutability or an
-// alternative approach for nested column deserialization.
+// These tests verify that Array columns properly serialize and deserialize nested data.
+// Fixed: load_from_buffer() now properly loads nested column data using Arc::get_mut.
 
 #[test]
-#[ignore]
 fn test_roundtrip_array_uint64() {
     let inner_type = Type::uint64();
     let col_type = Type::array(inner_type.clone());
@@ -219,7 +213,6 @@ fn test_roundtrip_array_uint64() {
 }
 
 #[test]
-#[ignore]
 fn test_roundtrip_array_string() {
     let inner_type = Type::string();
     let col_type = Type::array(inner_type.clone());
@@ -258,10 +251,10 @@ fn test_roundtrip_array_string() {
 // ============================================================================
 // Nullable Column Roundtrip Tests
 // ============================================================================
-// NOTE: Same Arc immutability limitation as Array columns
+// These tests verify that Nullable columns properly serialize and deserialize nested data.
+// Fixed: load_from_buffer() now properly loads nested column data using Arc::get_mut.
 
 #[test]
-#[ignore]
 fn test_roundtrip_nullable_uint32() {
     let inner_type = Type::uint32();
     let null_type = Type::nullable(inner_type.clone());
