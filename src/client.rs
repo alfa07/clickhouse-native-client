@@ -1399,8 +1399,65 @@ impl Client {
     }
 
     /// Get server info
+    ///
+    /// Returns information about the connected ClickHouse server including
+    /// name, version, revision, timezone, and display name.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let client = Client::connect(ClientOptions::default()).await?;
+    /// let info = client.server_info();
+    /// println!("Server: {} v{}.{}.{}",
+    ///     info.name,
+    ///     info.version_major,
+    ///     info.version_minor,
+    ///     info.version_patch
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn server_info(&self) -> &ServerInfo {
         &self.server_info
+    }
+
+    /// Get server version as a tuple (major, minor, patch)
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let client = Client::connect(ClientOptions::default()).await?;
+    /// let (major, minor, patch) = client.server_version();
+    /// println!("Server version: {}.{}.{}", major, minor, patch);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn server_version(&self) -> (u64, u64, u64) {
+        (
+            self.server_info.version_major,
+            self.server_info.version_minor,
+            self.server_info.version_patch,
+        )
+    }
+
+    /// Get server revision number
+    ///
+    /// The revision number is used for protocol feature negotiation.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let client = Client::connect(ClientOptions::default()).await?;
+    /// let revision = client.server_revision();
+    /// println!("Server revision: {}", revision);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn server_revision(&self) -> u64 {
+        self.server_info.revision
     }
 }
 
