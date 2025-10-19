@@ -41,6 +41,7 @@ pub use query::{
     Progress,
     ProgressCallback,
     Query,
+    QuerySettingsField,
     ServerLogCallback,
     TracingContext,
 };

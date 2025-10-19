@@ -14,8 +14,70 @@ use std::{
     sync::Arc,
 };
 
-/// Query settings
-pub type QuerySettings = HashMap<String, String>;
+/// Query settings field with flags
+///
+/// Settings can have flags that indicate their importance and scope:
+/// - IMPORTANT: Setting is critical for query execution
+/// - CUSTOM: User-defined setting
+/// - OBSOLETE: Deprecated setting (for backward compatibility)
+#[derive(Clone, Debug, Default)]
+pub struct QuerySettingsField {
+    /// Setting value
+    pub value: String,
+    /// Setting flags (bitwise OR of IMPORTANT, CUSTOM, OBSOLETE)
+    pub flags: u64,
+}
+
+impl QuerySettingsField {
+    /// Setting flags
+    pub const IMPORTANT: u64 = 0x01;
+    pub const CUSTOM: u64 = 0x02;
+    pub const OBSOLETE: u64 = 0x04;
+
+    /// Create a new settings field with value and no flags
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            flags: 0,
+        }
+    }
+
+    /// Create a new settings field with value and flags
+    pub fn with_flags(value: impl Into<String>, flags: u64) -> Self {
+        Self {
+            value: value.into(),
+            flags,
+        }
+    }
+
+    /// Create an important setting
+    pub fn important(value: impl Into<String>) -> Self {
+        Self::with_flags(value, Self::IMPORTANT)
+    }
+
+    /// Create a custom setting
+    pub fn custom(value: impl Into<String>) -> Self {
+        Self::with_flags(value, Self::CUSTOM)
+    }
+
+    /// Check if setting has IMPORTANT flag
+    pub fn is_important(&self) -> bool {
+        (self.flags & Self::IMPORTANT) != 0
+    }
+
+    /// Check if setting has CUSTOM flag
+    pub fn is_custom(&self) -> bool {
+        (self.flags & Self::CUSTOM) != 0
+    }
+
+    /// Check if setting has OBSOLETE flag
+    pub fn is_obsolete(&self) -> bool {
+        (self.flags & Self::OBSOLETE) != 0
+    }
+}
+
+/// Query settings map
+pub type QuerySettings = HashMap<String, QuerySettingsField>;
 
 /// OpenTelemetry tracing context (W3C Trace Context)
 /// See: <https://www.w3.org/TR/trace-context/>
@@ -140,13 +202,34 @@ impl Query {
         self
     }
 
-    /// Set a query setting
+    /// Set a query setting with value (no flags)
     pub fn with_setting(
         mut self,
         key: impl Into<String>,
         value: impl Into<String>,
     ) -> Self {
-        self.settings.insert(key.into(), value.into());
+        self.settings.insert(key.into(), QuerySettingsField::new(value));
+        self
+    }
+
+    /// Set a query setting with value and flags
+    pub fn with_setting_flags(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+        flags: u64,
+    ) -> Self {
+        self.settings.insert(key.into(), QuerySettingsField::with_flags(value, flags));
+        self
+    }
+
+    /// Set an important query setting
+    pub fn with_important_setting(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        self.settings.insert(key.into(), QuerySettingsField::important(value));
         self
     }
 
@@ -697,9 +780,29 @@ mod tests {
 
         assert_eq!(query.settings().len(), 2);
         assert_eq!(
-            query.settings().get("max_threads"),
-            Some(&"4".to_string())
+            query.settings().get("max_threads").map(|f| f.value.as_str()),
+            Some("4")
         );
+        assert_eq!(query.settings().get("max_threads").unwrap().flags, 0);
+    }
+
+    #[test]
+    fn test_query_with_important_settings() {
+        let query = Query::new("SELECT 1")
+            .with_important_setting("max_threads", "4")
+            .with_setting_flags("custom_setting", "value", QuerySettingsField::CUSTOM);
+
+        assert_eq!(query.settings().len(), 2);
+
+        let max_threads = query.settings().get("max_threads").unwrap();
+        assert_eq!(max_threads.value, "4");
+        assert!(max_threads.is_important());
+        assert!(!max_threads.is_custom());
+
+        let custom = query.settings().get("custom_setting").unwrap();
+        assert_eq!(custom.value, "value");
+        assert!(custom.is_custom());
+        assert!(!custom.is_important());
     }
 
     #[test]

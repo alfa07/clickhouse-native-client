@@ -1029,10 +1029,10 @@ impl Client {
         // Settings
         if revision >= 54429 {
             eprintln!("[DEBUG] Writing settings...");
-            for (key, value) in query.settings() {
+            for (key, field) in query.settings() {
                 self.conn.write_string(key).await?;
-                self.conn.write_varint(0).await?; // flags = 0 (no special flags)
-                self.conn.write_string(value).await?;
+                self.conn.write_varint(field.flags).await?;
+                self.conn.write_string(&field.value).await?;
             }
         }
         // Empty string to mark end of settings
