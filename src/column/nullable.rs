@@ -121,26 +121,20 @@ impl ColumnNullable {
         match value {
             None => {
                 self.append_null();
-                // Still need to add a placeholder to nested column to keep
-                // indices aligned
-                if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
-                    if let Some(col) =
-                        nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
-                    {
-                        col.append(0); // Placeholder value (ignored due to
-                                       // null flag)
-                    }
-                }
+                // Still need to add a placeholder to nested column to keep indices aligned
+                let nested_mut = Arc::get_mut(&mut self.nested)
+                    .expect("Cannot append to shared nullable column - column has multiple references");
+                let col = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
+                    .expect("Nullable nested column is not UInt32");
+                col.append(0); // Placeholder value (ignored due to null flag)
             }
             Some(val) => {
                 self.append_non_null();
-                if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
-                    if let Some(col) =
-                        nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
-                    {
-                        col.append(val);
-                    }
-                }
+                let nested_mut = Arc::get_mut(&mut self.nested)
+                    .expect("Cannot append to shared nullable column - column has multiple references");
+                let col = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
+                    .expect("Nullable nested column is not UInt32");
+                col.append(val);
             }
         }
     }
@@ -179,8 +173,9 @@ impl Column for ColumnNullable {
 
     fn clear(&mut self) {
         self.nulls.clear();
-        // Note: We can't clear nested due to Arc, but this is a known
-        // limitation
+        let nested_mut = Arc::get_mut(&mut self.nested)
+            .expect("Cannot clear shared nullable column - column has multiple references");
+        nested_mut.clear();
     }
 
     fn reserve(&mut self, new_cap: usize) {
@@ -207,6 +202,16 @@ impl Column for ColumnNullable {
         }
 
         self.nulls.extend_from_slice(&other.nulls);
+
+        // CRITICAL: Must also append the nested data!
+        let nested_mut = Arc::get_mut(&mut self.nested).ok_or_else(|| {
+            Error::Protocol(
+                "Cannot append to shared nullable column - column has multiple references"
+                    .to_string(),
+            )
+        })?;
+        nested_mut.append_column(other.nested.clone())?;
+
         Ok(())
     }
 
@@ -227,10 +232,16 @@ impl Column for ColumnNullable {
         self.nulls.extend_from_slice(&buffer[..rows]);
         buffer.advance(rows);
 
-        // Now we need to load the nested column data
-        // But we can't call load_from_buffer on nested due to Arc immutability
-        // This is a design limitation - in practice, we'd need interior
-        // mutability For now, we'll document this limitation
+        // CRITICAL: Must also load the nested column data
+        if rows > 0 {
+            let nested_mut = Arc::get_mut(&mut self.nested).ok_or_else(|| {
+                Error::Protocol(
+                    "Cannot load into shared nullable column - column has multiple references"
+                        .to_string(),
+                )
+            })?;
+            nested_mut.load_from_buffer(buffer, rows)?;
+        }
 
         Ok(())
     }
