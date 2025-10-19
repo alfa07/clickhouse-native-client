@@ -24,14 +24,23 @@ async fn hex_dump_hello_packet() {
 
     // Build hello packet
     buffer_utils::write_varint_to_vec(&mut packet_bytes, 0); // ClientCode::Hello
-    buffer_utils::write_varint_to_vec(&mut packet_bytes, "clickhouse-cpp".len() as u64);
+    buffer_utils::write_varint_to_vec(
+        &mut packet_bytes,
+        "clickhouse-cpp".len() as u64,
+    );
     packet_bytes.extend_from_slice(b"clickhouse-cpp"); // client name
     buffer_utils::write_varint_to_vec(&mut packet_bytes, 2); // major
     buffer_utils::write_varint_to_vec(&mut packet_bytes, 6); // minor
     buffer_utils::write_varint_to_vec(&mut packet_bytes, 54459); // revision
-    buffer_utils::write_varint_to_vec(&mut packet_bytes, "default".len() as u64);
+    buffer_utils::write_varint_to_vec(
+        &mut packet_bytes,
+        "default".len() as u64,
+    );
     packet_bytes.extend_from_slice(b"default"); // database
-    buffer_utils::write_varint_to_vec(&mut packet_bytes, "default".len() as u64);
+    buffer_utils::write_varint_to_vec(
+        &mut packet_bytes,
+        "default".len() as u64,
+    );
     packet_bytes.extend_from_slice(b"default"); // user
     buffer_utils::write_varint_to_vec(&mut packet_bytes, 0); // password (empty)
 
