@@ -148,6 +148,86 @@ impl WireFormat {
 
         Ok(())
     }
+
+    /// Write a quoted string for query parameters (1:1 port of C++
+    /// WriteQuotedString)
+    ///
+    /// Format: varint(length) + quoted_string
+    /// Special chars escaped: \0, \b, \t, \n, ', \
+    ///
+    /// Escaping rules:
+    /// - \0 → \x00
+    /// - \b → \x08
+    /// - \t → \\t
+    /// - \n → \\n
+    /// - '  → \x27
+    /// - \  → \\\
+    pub async fn write_quoted_string<W: AsyncWrite + Unpin>(
+        writer: &mut W,
+        value: &str,
+    ) -> Result<()> {
+        const QUOTED_CHARS: &[u8] = b"\0\x08\t\n'\\";
+
+        // Check if we need escaping (fast path)
+        let bytes = value.as_bytes();
+        let first_special =
+            bytes.iter().position(|&b| QUOTED_CHARS.contains(&b));
+
+        if first_special.is_none() {
+            // Fast path: no special characters
+            Self::write_varint64(writer, (value.len() + 2) as u64).await?;
+            writer.write_all(b"'").await?;
+            writer.write_all(bytes).await?;
+            writer.write_all(b"'").await?;
+            return Ok(());
+        }
+
+        // Count special characters for length calculation
+        let quoted_count =
+            bytes.iter().filter(|&&b| QUOTED_CHARS.contains(&b)).count();
+
+        // Write length: original + 2 quotes + 3 bytes per special char
+        let total_len = value.len() + 2 + 3 * quoted_count;
+        Self::write_varint64(writer, total_len as u64).await?;
+
+        // Write opening quote
+        writer.write_all(b"'").await?;
+
+        // Write string with escaping
+        let mut start = 0;
+        for (i, &byte) in bytes.iter().enumerate() {
+            if QUOTED_CHARS.contains(&byte) {
+                // Write chunk before special char
+                if i > start {
+                    writer.write_all(&bytes[start..i]).await?;
+                }
+
+                // Write escape sequence
+                writer.write_all(b"\\").await?;
+                match byte {
+                    b'\0' => writer.write_all(b"x00").await?,
+                    b'\x08' => writer.write_all(b"x08").await?,
+                    b'\t' => writer.write_all(b"\\t").await?,
+                    b'\n' => writer.write_all(b"\\n").await?,
+                    b'\'' => writer.write_all(b"x27").await?,
+                    b'\\' => writer.write_all(b"\\\\").await?,
+                    _ => unreachable!(),
+                }
+
+                start = i + 1;
+            }
+        }
+
+        // Write final chunk
+        if start < bytes.len() {
+            writer.write_all(&bytes[start..]).await?;
+        }
+
+        // Write closing quote
+        writer.write_all(b"'").await?;
+
+        Ok(())
+    }
 }
 
 /// Trait for types that can be read/written as fixed-size values
@@ -312,5 +392,111 @@ mod tests {
             WireFormat::read_bytes(&mut reader, data.len()).await.unwrap();
 
         assert_eq!(data, decoded);
+    }
+
+    #[tokio::test]
+    async fn test_write_quoted_string_no_escaping() {
+        let mut buf = Vec::new();
+        WireFormat::write_quoted_string(&mut buf, "hello").await.unwrap();
+
+        // Length: 7 (5 + 2 quotes)
+        // Content: 'hello'
+        let mut expected = Vec::new();
+        WireFormat::write_varint64(&mut expected, 7).await.unwrap();
+        expected.extend_from_slice(b"'hello'");
+
+        assert_eq!(buf, expected);
+    }
+
+    #[tokio::test]
+    async fn test_write_quoted_string_with_tab() {
+        let mut buf = Vec::new();
+        WireFormat::write_quoted_string(&mut buf, "a\tb").await.unwrap();
+
+        // Length: original(3) + 2(quotes) + 3(one special char) = 8
+        // Content: 'a\\tb'
+        let mut expected = Vec::new();
+        WireFormat::write_varint64(&mut expected, 8).await.unwrap();
+        expected.extend_from_slice(b"'a\\\\tb'");
+
+        assert_eq!(buf, expected);
+    }
+
+    #[tokio::test]
+    async fn test_write_quoted_string_with_null() {
+        let mut buf = Vec::new();
+        WireFormat::write_quoted_string(&mut buf, "a\0b").await.unwrap();
+
+        // Length: 3 + 2 + 3 = 8
+        // Content: 'a\x00b'
+        let mut expected = Vec::new();
+        WireFormat::write_varint64(&mut expected, 8).await.unwrap();
+        expected.extend_from_slice(b"'a\\x00b'");
+
+        assert_eq!(buf, expected);
+    }
+
+    #[tokio::test]
+    async fn test_write_quoted_string_all_special_chars() {
+        let test_str = "\0\x08\t\n'\\";
+        let mut buf = Vec::new();
+        WireFormat::write_quoted_string(&mut buf, test_str).await.unwrap();
+
+        // 6 chars, each becomes 4 bytes: 6 + 2 + 3*6 = 26
+        let mut expected = Vec::new();
+        WireFormat::write_varint64(&mut expected, 26).await.unwrap();
+        // \0 → \x00, \b → \x08, \t → \\t, \n → \\n, ' → \x27, \ → \\\
+        expected.extend_from_slice(b"'\\x00\\x08\\\\t\\\\n\\x27\\\\\\'");
+
+        assert_eq!(buf, expected);
+    }
+
+    #[tokio::test]
+    async fn test_write_quoted_string_single_quote() {
+        let mut buf = Vec::new();
+        WireFormat::write_quoted_string(&mut buf, "a'b").await.unwrap();
+
+        // Length: 3 + 2 + 3 = 8
+        // Content: 'a\x27b'
+        let mut expected = Vec::new();
+        WireFormat::write_varint64(&mut expected, 8).await.unwrap();
+        expected.extend_from_slice(b"'a\\x27b'");
+
+        assert_eq!(buf, expected);
+    }
+
+    #[tokio::test]
+    async fn test_write_quoted_string_backslash() {
+        let mut buf = Vec::new();
+        WireFormat::write_quoted_string(&mut buf, "a\\b").await.unwrap();
+
+        // Length: 3 + 2 + 3 = 8
+        // Content: 'a\\\b' (backslash becomes \\\ which is 3 backslashes)
+        let mut expected = Vec::new();
+        WireFormat::write_varint64(&mut expected, 8).await.unwrap();
+        expected.extend_from_slice(b"'a\\\\\\b'");
+
+        assert_eq!(buf, expected);
+    }
+
+    #[tokio::test]
+    async fn test_write_quoted_string_utf8() {
+        let mut buf = Vec::new();
+        WireFormat::write_quoted_string(&mut buf, "utf8Русский")
+            .await
+            .unwrap();
+
+        // UTF-8 doesn't need escaping unless it contains special chars
+        let content = "utf8Русский";
+        let expected_len = content.len() + 2;
+        let mut expected = Vec::new();
+        WireFormat::write_varint64(&mut expected, expected_len as u64)
+            .await
+            .unwrap();
+        expected.push(b'\'');
+        expected.extend_from_slice(content.as_bytes());
+        expected.push(b'\'');
+
+        assert_eq!(buf, expected);
     }
 }
