@@ -270,9 +270,9 @@ async fn test_combined_features() {
             .as_nanos()
     );
 
-    let query = Query::new("SELECT {limit:UInt64} AS max_value")
+    let query = Query::new("SELECT {my_value:UInt64} AS max_value")
         .with_query_id(&query_id)
-        .with_parameter("limit", "100")
+        .with_parameter("my_value", "100")
         .with_setting("max_block_size", "10");
 
     let result =
