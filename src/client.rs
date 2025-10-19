@@ -257,10 +257,10 @@ impl Client {
 
                     // Use server name from SSL options if provided, otherwise
                     // use host
-                    let server_name =
-                        ssl_opts.server_name.as_deref().or(
-                            if ssl_opts.use_sni { Some(host) } else { None },
-                        );
+                    let server_name = ssl_opts
+                        .server_name
+                        .as_deref()
+                        .or(if ssl_opts.use_sni { Some(host) } else { None });
 
                     Connection::connect_with_tls(
                         host,

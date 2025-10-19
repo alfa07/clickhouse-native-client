@@ -451,10 +451,7 @@ async fn test_ping_functionality() {
 
     // Ping multiple times
     for i in 1..=5 {
-        client
-            .ping()
-            .await
-            .unwrap_or_else(|_| panic!("Ping {} failed", i));
+        client.ping().await.unwrap_or_else(|_| panic!("Ping {} failed", i));
         println!("  Ping {} succeeded", i);
     }
 

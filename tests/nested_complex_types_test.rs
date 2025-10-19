@@ -114,7 +114,9 @@ async fn test_array_lowcardinality_nullable_string() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client.query("DROP TABLE IF EXISTS test_array_lc_nullable_string").await;
+    let _ = client
+        .query("DROP TABLE IF EXISTS test_array_lc_nullable_string")
+        .await;
 
     client
         .query(
@@ -178,7 +180,8 @@ async fn test_array_array_lowcardinality_uint64() {
     let mut client =
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    let _ = client.query("DROP TABLE IF EXISTS test_array_array_lc_uint64").await;
+    let _ =
+        client.query("DROP TABLE IF EXISTS test_array_array_lc_uint64").await;
 
     // ClickHouse 25.5+ prohibits LowCardinality on numeric types by default
     // due to performance impact. Enable it for this test.
@@ -252,7 +255,8 @@ async fn test_nullable_array_lowcardinality_string() {
             .await
             .expect("Failed to connect to ClickHouse");
 
-        let _ = client.query("DROP TABLE IF EXISTS test_nullable_array_lc").await;
+        let _ =
+            client.query("DROP TABLE IF EXISTS test_nullable_array_lc").await;
 
         client
             .query(
