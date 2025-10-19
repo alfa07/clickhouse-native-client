@@ -80,7 +80,11 @@
 
 mod parser;
 
-pub use parser::{parse_type_name, TypeAst, TypeMeta};
+pub use parser::{
+    parse_type_name,
+    TypeAst,
+    TypeMeta,
+};
 
 use std::sync::Arc;
 
@@ -463,20 +467,36 @@ impl Type {
             TypeMeta::Terminal => {
                 // Simple terminal types
                 match ast.code {
-                    TypeCode::Void | TypeCode::Int8 | TypeCode::Int16 | TypeCode::Int32
-                    | TypeCode::Int64 | TypeCode::Int128 | TypeCode::UInt8 | TypeCode::UInt16
-                    | TypeCode::UInt32 | TypeCode::UInt64 | TypeCode::UInt128 | TypeCode::Float32
-                    | TypeCode::Float64 | TypeCode::String | TypeCode::Date | TypeCode::Date32
-                    | TypeCode::UUID | TypeCode::IPv4 | TypeCode::IPv6 | TypeCode::Point
-                    | TypeCode::Ring | TypeCode::Polygon | TypeCode::MultiPolygon => {
-                        Ok(Type::Simple(ast.code))
-                    }
+                    TypeCode::Void
+                    | TypeCode::Int8
+                    | TypeCode::Int16
+                    | TypeCode::Int32
+                    | TypeCode::Int64
+                    | TypeCode::Int128
+                    | TypeCode::UInt8
+                    | TypeCode::UInt16
+                    | TypeCode::UInt32
+                    | TypeCode::UInt64
+                    | TypeCode::UInt128
+                    | TypeCode::Float32
+                    | TypeCode::Float64
+                    | TypeCode::String
+                    | TypeCode::Date
+                    | TypeCode::Date32
+                    | TypeCode::UUID
+                    | TypeCode::IPv4
+                    | TypeCode::IPv6
+                    | TypeCode::Point
+                    | TypeCode::Ring
+                    | TypeCode::Polygon
+                    | TypeCode::MultiPolygon => Ok(Type::Simple(ast.code)),
 
                     TypeCode::FixedString => {
                         // First element should be the size (Number)
                         if ast.elements.is_empty() {
                             return Err(crate::Error::Protocol(
-                                "FixedString requires size parameter".to_string(),
+                                "FixedString requires size parameter"
+                                    .to_string(),
                             ));
                         }
                         let size = ast.elements[0].value as usize;
@@ -488,7 +508,8 @@ impl Type {
                         if ast.elements.is_empty() {
                             Ok(Type::DateTime { timezone: None })
                         } else {
-                            let timezone = Some(ast.elements[0].value_string.clone());
+                            let timezone =
+                                Some(ast.elements[0].value_string.clone());
                             Ok(Type::DateTime { timezone })
                         }
                     }
@@ -497,7 +518,8 @@ impl Type {
                         // Precision + optional timezone
                         if ast.elements.is_empty() {
                             return Err(crate::Error::Protocol(
-                                "DateTime64 requires precision parameter".to_string(),
+                                "DateTime64 requires precision parameter"
+                                    .to_string(),
                             ));
                         }
                         let precision = ast.elements[0].value as usize;
@@ -509,14 +531,17 @@ impl Type {
                         Ok(Type::DateTime64 { precision, timezone })
                     }
 
-                    TypeCode::Decimal | TypeCode::Decimal32 | TypeCode::Decimal64
+                    TypeCode::Decimal
+                    | TypeCode::Decimal32
+                    | TypeCode::Decimal64
                     | TypeCode::Decimal128 => {
                         if ast.elements.len() >= 2 {
                             let precision = ast.elements[0].value as usize;
                             let scale = ast.elements[1].value as usize;
                             Ok(Type::Decimal { precision, scale })
                         } else if ast.elements.len() == 1 {
-                            // For Decimal32/64/128, scale may default to the last element
+                            // For Decimal32/64/128, scale may default to the
+                            // last element
                             let scale = ast.elements[0].value as usize;
                             let precision = match ast.code {
                                 TypeCode::Decimal32 => 9,
@@ -546,9 +571,7 @@ impl Type {
                     ));
                 }
                 let item_type = Type::from_ast(&ast.elements[0])?;
-                Ok(Type::Array {
-                    item_type: Box::new(item_type),
-                })
+                Ok(Type::Array { item_type: Box::new(item_type) })
             }
 
             TypeMeta::Nullable => {
@@ -558,9 +581,7 @@ impl Type {
                     ));
                 }
                 let nested_type = Type::from_ast(&ast.elements[0])?;
-                Ok(Type::Nullable {
-                    nested_type: Box::new(nested_type),
-                })
+                Ok(Type::Nullable { nested_type: Box::new(nested_type) })
             }
 
             TypeMeta::Tuple => {
@@ -572,7 +593,8 @@ impl Type {
             }
 
             TypeMeta::Enum => {
-                // Enum elements are stored as: name1, value1, name2, value2, ...
+                // Enum elements are stored as: name1, value1, name2, value2,
+                // ...
                 let mut items = Vec::new();
                 for i in (0..ast.elements.len()).step_by(2) {
                     if i + 1 >= ast.elements.len() {
@@ -600,9 +622,7 @@ impl Type {
                     ));
                 }
                 let nested_type = Type::from_ast(&ast.elements[0])?;
-                Ok(Type::LowCardinality {
-                    nested_type: Box::new(nested_type),
-                })
+                Ok(Type::LowCardinality { nested_type: Box::new(nested_type) })
             }
 
             TypeMeta::Map => {
@@ -624,14 +644,18 @@ impl Type {
                 // Last element is the actual type
                 if ast.elements.is_empty() {
                     return Err(crate::Error::Protocol(
-                        "SimpleAggregateFunction requires type parameter".to_string(),
+                        "SimpleAggregateFunction requires type parameter"
+                            .to_string(),
                     ));
                 }
                 let type_elem = ast.elements.last().unwrap();
                 Type::from_ast(type_elem)
             }
 
-            TypeMeta::Number | TypeMeta::String | TypeMeta::Assign | TypeMeta::Null => {
+            TypeMeta::Number
+            | TypeMeta::String
+            | TypeMeta::Assign
+            | TypeMeta::Null => {
                 // These are intermediate AST nodes, not actual types
                 Err(crate::Error::Protocol(format!(
                     "Cannot convert AST meta {:?} to Type",
@@ -649,7 +673,8 @@ impl Type {
         Type::from_ast(&ast)
     }
 
-    /// Parse a type from its string representation (old implementation for fallback)
+    /// Parse a type from its string representation (old implementation for
+    /// fallback)
     #[allow(dead_code)]
     fn parse_old(type_str: &str) -> crate::Result<Self> {
         let type_str = type_str.trim();
