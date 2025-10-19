@@ -2,6 +2,7 @@ use clickhouse_client::{
     column::{
         nullable::ColumnNullable,
         numeric::ColumnUInt64,
+        string::ColumnString,
     },
     types::Type,
     Block,
@@ -860,4 +861,345 @@ async fn setup_test_table(
         "[SETUP] Data inserted, setup complete for: {}.{}",
         db_name, table_name
     );
+}
+
+// ============================================================================
+// NEW API INTEGRATION TESTS
+// ============================================================================
+
+#[tokio::test]
+#[ignore]
+async fn test_execute_method() {
+    let (mut client, db_name) = create_isolated_test_client("execute_method")
+        .await
+        .expect("Failed to create isolated test client");
+
+    // Test execute() for DDL - CREATE TABLE
+    let create_table = format!(
+        "CREATE TABLE {}.execute_test (id UInt32, value String) ENGINE = Memory",
+        db_name
+    );
+    client
+        .execute(create_table.as_str())
+        .await
+        .expect("Failed to execute CREATE TABLE");
+    println!("✓ CREATE TABLE via execute() succeeded");
+
+    // Test execute() for DML - INSERT
+    let insert_sql = format!(
+        "INSERT INTO {}.execute_test VALUES (1, 'test'), (2, 'data')",
+        db_name
+    );
+    client
+        .execute(insert_sql.as_str())
+        .await
+        .expect("Failed to execute INSERT");
+    println!("✓ INSERT via execute() succeeded");
+
+    // Verify data was inserted
+    let result = client
+        .query(format!("SELECT * FROM {}.execute_test", db_name))
+        .await
+        .expect("Failed to query");
+    assert_eq!(result.total_rows(), 2);
+    println!("✓ Verified 2 rows inserted");
+
+    // Test execute() for DDL - ALTER TABLE
+    let alter_sql = format!(
+        "ALTER TABLE {}.execute_test ADD COLUMN extra UInt32 DEFAULT 0",
+        db_name
+    );
+    client
+        .execute(alter_sql.as_str())
+        .await
+        .expect("Failed to execute ALTER TABLE");
+    println!("✓ ALTER TABLE via execute() succeeded");
+
+    // Test execute() for DDL - DROP TABLE
+    let drop_sql = format!("DROP TABLE {}.execute_test", db_name);
+    client
+        .execute(drop_sql.as_str())
+        .await
+        .expect("Failed to execute DROP TABLE");
+    println!("✓ DROP TABLE via execute() succeeded");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_execute_with_id() {
+    let (mut client, db_name) = create_isolated_test_client("execute_with_id")
+        .await
+        .expect("Failed to create isolated test client");
+
+    // Test execute_with_id()
+    let create_table = format!(
+        "CREATE TABLE {}.execute_id_test (id UInt32) ENGINE = Memory",
+        db_name
+    );
+    client
+        .execute_with_id(create_table.as_str(), "create-table-123")
+        .await
+        .expect("Failed to execute with ID");
+    println!("✓ execute_with_id() succeeded with query_id: create-table-123");
+
+    // Clean up
+    client
+        .execute(format!("DROP TABLE {}.execute_id_test", db_name))
+        .await
+        .expect("Failed to drop table");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_query_id_parameters() {
+    let (mut client, db_name) = create_isolated_test_client("query_id_params")
+        .await
+        .expect("Failed to create isolated test client");
+
+    // Setup table
+    client
+        .execute(format!(
+            "CREATE TABLE {}.query_id_test (id UInt32, name String) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create table");
+
+    // Test insert_with_id()
+    let mut block = Block::new();
+
+    let mut id_col = ColumnUInt64::new(Type::uint64());
+    id_col.append(1);
+    id_col.append(2);
+    id_col.append(3);
+    block.append_column("id", Arc::new(id_col)).expect("Failed to append column");
+
+    let mut name_col = ColumnString::new(Type::string());
+    name_col.append("a".to_string());
+    name_col.append("b".to_string());
+    name_col.append("c".to_string());
+    block.append_column("name", Arc::new(name_col)).expect("Failed to append column");
+
+    client
+        .insert_with_id(&format!("{}.query_id_test", db_name), "insert-123", block)
+        .await
+        .expect("Failed to insert with ID");
+    println!("✓ insert_with_id() succeeded");
+
+    // Test query_with_id()
+    let result = client
+        .query_with_id(
+            format!("SELECT * FROM {}.query_id_test", db_name),
+            "select-123",
+        )
+        .await
+        .expect("Failed to query with ID");
+    assert_eq!(result.total_rows(), 3);
+    println!("✓ query_with_id() succeeded with 3 rows");
+
+    // Clean up
+    client
+        .execute(format!("DROP TABLE {}.query_id_test", db_name))
+        .await
+        .expect("Failed to drop table");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_external_tables() {
+    use clickhouse_client::ExternalTable;
+
+    let (mut client, db_name) = create_isolated_test_client("external_tables")
+        .await
+        .expect("Failed to create isolated test client");
+
+    // Create main table
+    client
+        .execute(format!(
+            "CREATE TABLE {}.main_table (id UInt64, value String) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create main table");
+
+    // Insert data into main table
+    client
+        .execute(format!(
+            "INSERT INTO {}.main_table VALUES (1, 'main1'), (2, 'main2'), (3, 'main3')",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert into main table");
+
+    // Create external table block with enrichment data
+    let mut ext_block = Block::new();
+
+    let mut ext_id_col = ColumnUInt64::new(Type::uint64());
+    ext_id_col.append(1);
+    ext_id_col.append(2);
+    ext_id_col.append(4);
+    ext_block.append_column("id", Arc::new(ext_id_col)).expect("Failed to append id column");
+
+    let mut extra_col = ColumnString::new(Type::string());
+    extra_col.append("extra1".to_string());
+    extra_col.append("extra2".to_string());
+    extra_col.append("extra4".to_string());
+    ext_block.append_column("extra", Arc::new(extra_col)).expect("Failed to append extra column");
+
+    let ext_table = ExternalTable::new("enrichment", ext_block);
+
+    // Query with external table JOIN
+    let query = format!(
+        "SELECT m.id, m.value, e.extra \
+         FROM {}.main_table AS m \
+         INNER JOIN enrichment AS e ON m.id = e.id \
+         ORDER BY m.id",
+        db_name
+    );
+
+    let result = client
+        .query_with_external_data(query.as_str(), &[ext_table])
+        .await
+        .expect("Failed to query with external data");
+
+    println!("✓ query_with_external_data() succeeded");
+    println!("  Result rows: {}", result.total_rows());
+
+    // Should have 2 rows (id=1 and id=2 exist in both tables)
+    assert_eq!(result.total_rows(), 2);
+    println!("✓ JOIN with external table returned correct row count");
+
+    // Clean up
+    client
+        .execute(format!("DROP TABLE {}.main_table", db_name))
+        .await
+        .expect("Failed to drop table");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_external_tables_with_id() {
+    use clickhouse_client::ExternalTable;
+
+    let (mut client, db_name) = create_isolated_test_client("external_tables_id")
+        .await
+        .expect("Failed to create isolated test client");
+
+    // Create table
+    client
+        .execute(format!(
+            "CREATE TABLE {}.test_table (id UInt64) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.test_table VALUES (1), (2), (3)",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert");
+
+    // External table
+    let mut ext_block = Block::new();
+
+    let mut ext_id_col = ColumnUInt64::new(Type::uint64());
+    ext_id_col.append(2);
+    ext_id_col.append(3);
+    ext_id_col.append(4);
+    ext_block.append_column("id", Arc::new(ext_id_col)).expect("Failed to append column");
+
+    let ext_table = ExternalTable::new("ext", ext_block);
+
+    // Query with external table and query ID
+    let result = client
+        .query_with_external_data_and_id(
+            format!(
+                "SELECT COUNT(*) FROM {}.test_table AS t INNER JOIN ext AS e ON t.id = e.id",
+                db_name
+            ),
+            "external-join-query-123",
+            &[ext_table],
+        )
+        .await
+        .expect("Failed to query");
+
+    println!("✓ query_with_external_data_and_id() succeeded");
+    assert!(result.total_rows() > 0);
+
+    // Clean up
+    client
+        .execute(format!("DROP TABLE {}.test_table", db_name))
+        .await
+        .expect("Failed to drop table");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_server_version_getters() {
+    let client = create_test_client()
+        .await
+        .expect("Failed to connect to ClickHouse");
+
+    // Test server_version()
+    let (major, minor, patch) = client.server_version();
+    println!("Server version: {}.{}.{}", major, minor, patch);
+    assert!(major > 0);
+    println!("✓ server_version() returned valid version");
+
+    // Test server_revision()
+    let revision = client.server_revision();
+    println!("Server revision: {}", revision);
+    assert!(revision > 0);
+    println!("✓ server_revision() returned valid revision");
+
+    // Test server_info()
+    let info = client.server_info();
+    println!("Server info: {}", info.name);
+    assert!(!info.name.is_empty());
+    println!("✓ server_info() returned valid info");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_query_settings_with_flags() {
+    use clickhouse_client::{Query, QuerySettingsField};
+
+    let (mut client, db_name) = create_isolated_test_client("settings_flags")
+        .await
+        .expect("Failed to create isolated test client");
+
+    // Create test table
+    client
+        .execute(format!(
+            "CREATE TABLE {}.settings_test (id UInt32) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create table");
+
+    // Test query with important settings
+    let query = Query::new(format!("SELECT * FROM {}.settings_test", db_name))
+        .with_important_setting("max_threads", "2")
+        .with_setting("max_block_size", "1000");
+
+    let result = client.query(query).await.expect("Failed to query with settings");
+    println!("✓ Query with important settings succeeded");
+    println!("  Rows: {}", result.total_rows());
+
+    // Test custom setting flags
+    let query2 = Query::new(format!("SELECT * FROM {}.settings_test", db_name))
+        .with_setting_flags("max_threads", "4", QuerySettingsField::IMPORTANT | QuerySettingsField::CUSTOM);
+
+    let result2 = client.query(query2).await.expect("Failed to query with custom flags");
+    println!("✓ Query with custom setting flags succeeded");
+    println!("  Rows: {}", result2.total_rows());
+
+    // Clean up
+    client
+        .execute(format!("DROP TABLE {}.settings_test", db_name))
+        .await
+        .expect("Failed to drop table");
 }
