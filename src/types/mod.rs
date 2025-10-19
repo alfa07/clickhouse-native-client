@@ -78,6 +78,10 @@
 //!
 //! For more details, see the [column module documentation](crate::column).
 
+mod parser;
+
+pub use parser::{parse_type_name, TypeAst, TypeMeta};
+
 use std::sync::Arc;
 
 /// Type code enumeration matching ClickHouse types
@@ -452,8 +456,202 @@ impl Type {
         Type::Simple(TypeCode::MultiPolygon)
     }
 
+    /// Convert TypeAst to Type
+    /// Mirrors C++ CreateColumnFromAst logic
+    pub fn from_ast(ast: &TypeAst) -> crate::Result<Self> {
+        match ast.meta {
+            TypeMeta::Terminal => {
+                // Simple terminal types
+                match ast.code {
+                    TypeCode::Void | TypeCode::Int8 | TypeCode::Int16 | TypeCode::Int32
+                    | TypeCode::Int64 | TypeCode::Int128 | TypeCode::UInt8 | TypeCode::UInt16
+                    | TypeCode::UInt32 | TypeCode::UInt64 | TypeCode::UInt128 | TypeCode::Float32
+                    | TypeCode::Float64 | TypeCode::String | TypeCode::Date | TypeCode::Date32
+                    | TypeCode::UUID | TypeCode::IPv4 | TypeCode::IPv6 | TypeCode::Point
+                    | TypeCode::Ring | TypeCode::Polygon | TypeCode::MultiPolygon => {
+                        Ok(Type::Simple(ast.code))
+                    }
+
+                    TypeCode::FixedString => {
+                        // First element should be the size (Number)
+                        if ast.elements.is_empty() {
+                            return Err(crate::Error::Protocol(
+                                "FixedString requires size parameter".to_string(),
+                            ));
+                        }
+                        let size = ast.elements[0].value as usize;
+                        Ok(Type::FixedString { size })
+                    }
+
+                    TypeCode::DateTime => {
+                        // Optional timezone parameter
+                        if ast.elements.is_empty() {
+                            Ok(Type::DateTime { timezone: None })
+                        } else {
+                            let timezone = Some(ast.elements[0].value_string.clone());
+                            Ok(Type::DateTime { timezone })
+                        }
+                    }
+
+                    TypeCode::DateTime64 => {
+                        // Precision + optional timezone
+                        if ast.elements.is_empty() {
+                            return Err(crate::Error::Protocol(
+                                "DateTime64 requires precision parameter".to_string(),
+                            ));
+                        }
+                        let precision = ast.elements[0].value as usize;
+                        let timezone = if ast.elements.len() > 1 {
+                            Some(ast.elements[1].value_string.clone())
+                        } else {
+                            None
+                        };
+                        Ok(Type::DateTime64 { precision, timezone })
+                    }
+
+                    TypeCode::Decimal | TypeCode::Decimal32 | TypeCode::Decimal64
+                    | TypeCode::Decimal128 => {
+                        if ast.elements.len() >= 2 {
+                            let precision = ast.elements[0].value as usize;
+                            let scale = ast.elements[1].value as usize;
+                            Ok(Type::Decimal { precision, scale })
+                        } else if ast.elements.len() == 1 {
+                            // For Decimal32/64/128, scale may default to the last element
+                            let scale = ast.elements[0].value as usize;
+                            let precision = match ast.code {
+                                TypeCode::Decimal32 => 9,
+                                TypeCode::Decimal64 => 18,
+                                TypeCode::Decimal128 => 38,
+                                _ => scale,
+                            };
+                            Ok(Type::Decimal { precision, scale })
+                        } else {
+                            Err(crate::Error::Protocol(
+                                "Decimal requires precision and scale parameters".to_string(),
+                            ))
+                        }
+                    }
+
+                    _ => Err(crate::Error::Protocol(format!(
+                        "Unsupported terminal type: {:?}",
+                        ast.code
+                    ))),
+                }
+            }
+
+            TypeMeta::Array => {
+                if ast.elements.is_empty() {
+                    return Err(crate::Error::Protocol(
+                        "Array requires element type".to_string(),
+                    ));
+                }
+                let item_type = Type::from_ast(&ast.elements[0])?;
+                Ok(Type::Array {
+                    item_type: Box::new(item_type),
+                })
+            }
+
+            TypeMeta::Nullable => {
+                if ast.elements.is_empty() {
+                    return Err(crate::Error::Protocol(
+                        "Nullable requires nested type".to_string(),
+                    ));
+                }
+                let nested_type = Type::from_ast(&ast.elements[0])?;
+                Ok(Type::Nullable {
+                    nested_type: Box::new(nested_type),
+                })
+            }
+
+            TypeMeta::Tuple => {
+                let mut item_types = Vec::new();
+                for elem in &ast.elements {
+                    item_types.push(Type::from_ast(elem)?);
+                }
+                Ok(Type::Tuple { item_types })
+            }
+
+            TypeMeta::Enum => {
+                // Enum elements are stored as: name1, value1, name2, value2, ...
+                let mut items = Vec::new();
+                for i in (0..ast.elements.len()).step_by(2) {
+                    if i + 1 >= ast.elements.len() {
+                        break;
+                    }
+                    let name = ast.elements[i].value_string.clone();
+                    let value = ast.elements[i + 1].value as i16;
+                    items.push(EnumItem { name, value });
+                }
+
+                match ast.code {
+                    TypeCode::Enum8 => Ok(Type::Enum8 { items }),
+                    TypeCode::Enum16 => Ok(Type::Enum16 { items }),
+                    _ => Err(crate::Error::Protocol(format!(
+                        "Invalid enum type code: {:?}",
+                        ast.code
+                    ))),
+                }
+            }
+
+            TypeMeta::LowCardinality => {
+                if ast.elements.is_empty() {
+                    return Err(crate::Error::Protocol(
+                        "LowCardinality requires nested type".to_string(),
+                    ));
+                }
+                let nested_type = Type::from_ast(&ast.elements[0])?;
+                Ok(Type::LowCardinality {
+                    nested_type: Box::new(nested_type),
+                })
+            }
+
+            TypeMeta::Map => {
+                if ast.elements.len() != 2 {
+                    return Err(crate::Error::Protocol(
+                        "Map requires exactly 2 type parameters".to_string(),
+                    ));
+                }
+                let key_type = Type::from_ast(&ast.elements[0])?;
+                let value_type = Type::from_ast(&ast.elements[1])?;
+                Ok(Type::Map {
+                    key_type: Box::new(key_type),
+                    value_type: Box::new(value_type),
+                })
+            }
+
+            TypeMeta::SimpleAggregateFunction => {
+                // SimpleAggregateFunction(func, Type) -> unwrap to Type
+                // Last element is the actual type
+                if ast.elements.is_empty() {
+                    return Err(crate::Error::Protocol(
+                        "SimpleAggregateFunction requires type parameter".to_string(),
+                    ));
+                }
+                let type_elem = ast.elements.last().unwrap();
+                Type::from_ast(type_elem)
+            }
+
+            TypeMeta::Number | TypeMeta::String | TypeMeta::Assign | TypeMeta::Null => {
+                // These are intermediate AST nodes, not actual types
+                Err(crate::Error::Protocol(format!(
+                    "Cannot convert AST meta {:?} to Type",
+                    ast.meta
+                )))
+            }
+        }
+    }
+
     /// Parse a type from its string representation
+    ///
+    /// Uses token-based parser with AST caching for performance
     pub fn parse(type_str: &str) -> crate::Result<Self> {
+        let ast = parse_type_name(type_str)?;
+        Type::from_ast(&ast)
+    }
+
+    /// Parse a type from its string representation (old implementation for fallback)
+    #[allow(dead_code)]
+    fn parse_old(type_str: &str) -> crate::Result<Self> {
         let type_str = type_str.trim();
 
         // Handle empty/whitespace-only strings
