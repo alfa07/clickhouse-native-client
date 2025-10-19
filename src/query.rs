@@ -432,8 +432,11 @@ impl ServerInfo {
             String::new()
         };
 
-        let version_patch =
-            if revision >= 54401 { buffer_utils::read_varint(buffer)? } else { 0 };
+        let version_patch = if revision >= 54401 {
+            buffer_utils::read_varint(buffer)?
+        } else {
+            0
+        };
 
         Ok(Self {
             name,
@@ -506,7 +509,10 @@ impl Progress {
         let total_rows = buffer_utils::read_varint(buffer)?;
 
         let (written_rows, written_bytes) = if server_revision >= 54405 {
-            (buffer_utils::read_varint(buffer)?, buffer_utils::read_varint(buffer)?)
+            (
+                buffer_utils::read_varint(buffer)?,
+                buffer_utils::read_varint(buffer)?,
+            )
         } else {
             (0, 0)
         };

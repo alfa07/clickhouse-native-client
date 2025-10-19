@@ -737,7 +737,8 @@ impl BlockWriter {
 }
 
 // Helper functions - now using centralized buffer_utils
-// (Functions removed - using buffer_utils::{read_varint, write_varint, read_string, write_string})
+// (Functions removed - using buffer_utils::{read_varint, write_varint,
+// read_string, write_string})
 
 #[cfg(test)]
 mod tests {

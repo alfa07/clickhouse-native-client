@@ -3,8 +3,15 @@
 //! These utilities work on in-memory byte slices and are used for parsing
 //! compressed block data and constructing query packets.
 
-use crate::{Error, Result};
-use bytes::{Buf, BytesMut, BufMut};
+use crate::{
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 
 /// Read a varint-encoded u64 from a byte slice
 ///
@@ -114,7 +121,8 @@ mod tests {
 
     #[test]
     fn test_varint_roundtrip() {
-        let test_cases = vec![0u64, 1, 127, 128, 255, 256, 65535, 65536, u64::MAX];
+        let test_cases =
+            vec![0u64, 1, 127, 128, 255, 256, 65535, 65536, u64::MAX];
 
         for value in test_cases {
             let mut buf = BytesMut::new();
@@ -123,14 +131,19 @@ mod tests {
             let mut slice = &buf[..];
             let decoded = read_varint(&mut slice).unwrap();
 
-            assert_eq!(value, decoded, "Varint roundtrip failed for {}", value);
+            assert_eq!(
+                value, decoded,
+                "Varint roundtrip failed for {}",
+                value
+            );
             assert!(slice.is_empty(), "Buffer should be fully consumed");
         }
     }
 
     #[test]
     fn test_string_roundtrip() {
-        let test_strings = vec!["", "hello", "мир", "🦀", "test\nwith\nnewlines"];
+        let test_strings =
+            vec!["", "hello", "мир", "🦀", "test\nwith\nnewlines"];
 
         for s in test_strings {
             let mut buf = BytesMut::new();

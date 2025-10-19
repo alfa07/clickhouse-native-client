@@ -283,9 +283,15 @@ impl Type {
             Type::Simple(code) => match code {
                 TypeCode::Int8 | TypeCode::UInt8 => Some(1),
                 TypeCode::Int16 | TypeCode::UInt16 => Some(2),
-                TypeCode::Int32 | TypeCode::UInt32 | TypeCode::Float32 => Some(4),
-                TypeCode::Int64 | TypeCode::UInt64 | TypeCode::Float64 => Some(8),
-                TypeCode::Int128 | TypeCode::UInt128 | TypeCode::UUID => Some(16),
+                TypeCode::Int32 | TypeCode::UInt32 | TypeCode::Float32 => {
+                    Some(4)
+                }
+                TypeCode::Int64 | TypeCode::UInt64 | TypeCode::Float64 => {
+                    Some(8)
+                }
+                TypeCode::Int128 | TypeCode::UInt128 | TypeCode::UUID => {
+                    Some(16)
+                }
                 TypeCode::Date => Some(2),   // UInt16
                 TypeCode::Date32 => Some(4), // Int32
                 TypeCode::IPv4 => Some(4),
@@ -295,10 +301,10 @@ impl Type {
                 _ => None,
             },
             Type::FixedString { size } => Some(*size),
-            Type::DateTime { .. } => Some(4),  // UInt32 timestamp
+            Type::DateTime { .. } => Some(4), // UInt32 timestamp
             Type::DateTime64 { .. } => Some(8), // Int64 timestamp
-            Type::Enum8 { .. } => Some(1),      // Stored as Int8
-            Type::Enum16 { .. } => Some(2),     // Stored as Int16
+            Type::Enum8 { .. } => Some(1),    // Stored as Int8
+            Type::Enum16 { .. } => Some(2),   // Stored as Int16
             Type::Decimal { precision, .. } => {
                 // Decimal storage depends on precision
                 if *precision <= 9 {
@@ -310,8 +316,11 @@ impl Type {
                 }
             }
             // Complex types don't have fixed storage size
-            Type::Array { .. } | Type::Nullable { .. } | Type::Tuple { .. } |
-            Type::LowCardinality { .. } | Type::Map { .. } => None,
+            Type::Array { .. }
+            | Type::Nullable { .. }
+            | Type::Tuple { .. }
+            | Type::LowCardinality { .. }
+            | Type::Map { .. } => None,
         }
     }
 
