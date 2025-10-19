@@ -9,6 +9,7 @@ use crate::{
         decompress,
     },
     connection::Connection,
+    io::buffer_utils,
     protocol::CompressionMethod,
     types::Type,
     Error,
@@ -477,13 +478,13 @@ impl BlockReader {
         }
 
         // Read column count and row count
-        let num_columns = read_varint(buffer)? as usize;
-        let num_rows = read_varint(buffer)? as usize;
+        let num_columns = buffer_utils::read_varint(buffer)? as usize;
+        let num_rows = buffer_utils::read_varint(buffer)? as usize;
 
         // Read each column
         for _ in 0..num_columns {
-            let name = read_string(buffer)?;
-            let type_name = read_string(buffer)?;
+            let name = buffer_utils::read_string(buffer)?;
+            let type_name = buffer_utils::read_string(buffer)?;
 
             // Check for custom serialization
             if self.server_revision
@@ -530,7 +531,7 @@ impl BlockReader {
         &self,
         buffer: &mut &[u8],
     ) -> Result<BlockInfo> {
-        let _num1 = read_varint(buffer)?;
+        let _num1 = buffer_utils::read_varint(buffer)?;
 
         if buffer.is_empty() {
             return Err(Error::Protocol(
@@ -540,7 +541,7 @@ impl BlockReader {
         let is_overflows = buffer[0];
         buffer.advance(1);
 
-        let _num2 = read_varint(buffer)?;
+        let _num2 = buffer_utils::read_varint(buffer)?;
 
         if buffer.len() < 4 {
             return Err(Error::Protocol(
@@ -551,7 +552,7 @@ impl BlockReader {
             i32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
         buffer.advance(4);
 
-        let _num3 = read_varint(buffer)?;
+        let _num3 = buffer_utils::read_varint(buffer)?;
 
         Ok(BlockInfo { is_overflows, bucket_num })
     }
@@ -767,21 +768,21 @@ impl BlockWriter {
     ) -> Result<()> {
         // Write block info if supported
         if self.server_revision >= DBMS_MIN_REVISION_WITH_BLOCK_INFO {
-            write_varint(buffer, 1);
+            buffer_utils::write_varint(buffer, 1);
             buffer.put_u8(block.info().is_overflows);
-            write_varint(buffer, 2);
+            buffer_utils::write_varint(buffer, 2);
             buffer.put_i32_le(block.info().bucket_num);
-            write_varint(buffer, 0);
+            buffer_utils::write_varint(buffer, 0);
         }
 
         // Write column count and row count
-        write_varint(buffer, block.column_count() as u64);
-        write_varint(buffer, block.row_count() as u64);
+        buffer_utils::write_varint(buffer, block.column_count() as u64);
+        buffer_utils::write_varint(buffer, block.row_count() as u64);
 
         // Write each column
         for (name, type_, column) in block.iter() {
-            write_string(buffer, name);
-            write_string(buffer, &type_.name());
+            buffer_utils::write_string(buffer, name);
+            buffer_utils::write_string(buffer, &type_.name());
 
             // Custom serialization flag
             if self.server_revision
@@ -801,77 +802,8 @@ impl BlockWriter {
     }
 }
 
-// Helper functions
-fn read_varint(buffer: &mut &[u8]) -> Result<u64> {
-    let mut result: u64 = 0;
-    let mut shift = 0;
-
-    loop {
-        if buffer.is_empty() {
-            return Err(Error::Protocol(
-                "Unexpected end of buffer reading varint".to_string(),
-            ));
-        }
-
-        let byte = buffer[0];
-        buffer.advance(1);
-
-        result |= ((byte & 0x7F) as u64) << shift;
-
-        if byte & 0x80 == 0 {
-            break;
-        }
-
-        shift += 7;
-        if shift >= 64 {
-            return Err(Error::Protocol("Varint overflow".to_string()));
-        }
-    }
-
-    Ok(result)
-}
-
-fn write_varint(buffer: &mut BytesMut, mut value: u64) {
-    loop {
-        let mut byte = (value & 0x7F) as u8;
-        value >>= 7;
-
-        if value != 0 {
-            byte |= 0x80;
-        }
-
-        buffer.put_u8(byte);
-
-        if value == 0 {
-            break;
-        }
-    }
-}
-
-fn read_string(buffer: &mut &[u8]) -> Result<String> {
-    let len = read_varint(buffer)? as usize;
-
-    if buffer.len() < len {
-        return Err(Error::Protocol(format!(
-            "Not enough data for string: need {}, have {}",
-            len,
-            buffer.len()
-        )));
-    }
-
-    let string_data = &buffer[..len];
-    let s = String::from_utf8(string_data.to_vec()).map_err(|e| {
-        Error::Protocol(format!("Invalid UTF-8 in string: {}", e))
-    })?;
-
-    buffer.advance(len);
-    Ok(s)
-}
-
-fn write_string(buffer: &mut BytesMut, s: &str) {
-    write_varint(buffer, s.len() as u64);
-    buffer.put_slice(s.as_bytes());
-}
+// Helper functions - now using centralized buffer_utils
+// (Functions removed - using buffer_utils::{read_varint, write_varint, read_string, write_string})
 
 #[cfg(test)]
 mod tests {

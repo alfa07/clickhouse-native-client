@@ -1,5 +1,6 @@
 use crate::{
     block::Block,
+    io::buffer_utils,
     Error,
     Result,
 };
@@ -330,13 +331,13 @@ impl ClientInfo {
     pub fn write_to(&self, buffer: &mut BytesMut) -> Result<()> {
         buffer.put_u8(self.interface_type);
 
-        write_string(buffer, &self.os_user);
-        write_string(buffer, &self.client_hostname);
-        write_string(buffer, &self.client_name);
+        buffer_utils::write_string(buffer, &self.os_user);
+        buffer_utils::write_string(buffer, &self.client_hostname);
+        buffer_utils::write_string(buffer, &self.client_name);
 
-        write_varint(buffer, self.client_version_major);
-        write_varint(buffer, self.client_version_minor);
-        write_varint(buffer, self.client_revision);
+        buffer_utils::write_varint(buffer, self.client_version_major);
+        buffer_utils::write_varint(buffer, self.client_version_minor);
+        buffer_utils::write_varint(buffer, self.client_revision);
 
         Ok(())
     }
@@ -352,13 +353,13 @@ impl ClientInfo {
         let interface_type = buffer[0];
         buffer.advance(1);
 
-        let os_user = read_string(buffer)?;
-        let client_hostname = read_string(buffer)?;
-        let client_name = read_string(buffer)?;
+        let os_user = buffer_utils::read_string(buffer)?;
+        let client_hostname = buffer_utils::read_string(buffer)?;
+        let client_name = buffer_utils::read_string(buffer)?;
 
-        let client_version_major = read_varint(buffer)?;
-        let client_version_minor = read_varint(buffer)?;
-        let client_revision = read_varint(buffer)?;
+        let client_version_major = buffer_utils::read_varint(buffer)?;
+        let client_version_minor = buffer_utils::read_varint(buffer)?;
+        let client_revision = buffer_utils::read_varint(buffer)?;
 
         Ok(Self {
             interface_type,
@@ -392,21 +393,21 @@ pub struct ServerInfo {
 impl ServerInfo {
     /// Serialize to buffer
     pub fn write_to(&self, buffer: &mut BytesMut) -> Result<()> {
-        write_string(buffer, &self.name);
-        write_varint(buffer, self.version_major);
-        write_varint(buffer, self.version_minor);
-        write_varint(buffer, self.revision);
+        buffer_utils::write_string(buffer, &self.name);
+        buffer_utils::write_varint(buffer, self.version_major);
+        buffer_utils::write_varint(buffer, self.version_minor);
+        buffer_utils::write_varint(buffer, self.revision);
 
         if self.revision >= 54058 {
-            write_string(buffer, &self.timezone);
+            buffer_utils::write_string(buffer, &self.timezone);
         }
 
         if self.revision >= 54372 {
-            write_string(buffer, &self.display_name);
+            buffer_utils::write_string(buffer, &self.display_name);
         }
 
         if self.revision >= 54401 {
-            write_varint(buffer, self.version_patch);
+            buffer_utils::write_varint(buffer, self.version_patch);
         }
 
         Ok(())
@@ -414,25 +415,25 @@ impl ServerInfo {
 
     /// Deserialize from buffer
     pub fn read_from(buffer: &mut &[u8]) -> Result<Self> {
-        let name = read_string(buffer)?;
-        let version_major = read_varint(buffer)?;
-        let version_minor = read_varint(buffer)?;
-        let revision = read_varint(buffer)?;
+        let name = buffer_utils::read_string(buffer)?;
+        let version_major = buffer_utils::read_varint(buffer)?;
+        let version_minor = buffer_utils::read_varint(buffer)?;
+        let revision = buffer_utils::read_varint(buffer)?;
 
         let timezone = if revision >= 54058 {
-            read_string(buffer)?
+            buffer_utils::read_string(buffer)?
         } else {
             String::new()
         };
 
         let display_name = if revision >= 54372 {
-            read_string(buffer)?
+            buffer_utils::read_string(buffer)?
         } else {
             String::new()
         };
 
         let version_patch =
-            if revision >= 54401 { read_varint(buffer)? } else { 0 };
+            if revision >= 54401 { buffer_utils::read_varint(buffer)? } else { 0 };
 
         Ok(Self {
             name,
@@ -483,13 +484,13 @@ impl Progress {
         buffer: &mut BytesMut,
         server_revision: u64,
     ) -> Result<()> {
-        write_varint(buffer, self.rows);
-        write_varint(buffer, self.bytes);
-        write_varint(buffer, self.total_rows);
+        buffer_utils::write_varint(buffer, self.rows);
+        buffer_utils::write_varint(buffer, self.bytes);
+        buffer_utils::write_varint(buffer, self.total_rows);
 
         if server_revision >= 54405 {
-            write_varint(buffer, self.written_rows);
-            write_varint(buffer, self.written_bytes);
+            buffer_utils::write_varint(buffer, self.written_rows);
+            buffer_utils::write_varint(buffer, self.written_bytes);
         }
 
         Ok(())
@@ -500,12 +501,12 @@ impl Progress {
         buffer: &mut &[u8],
         server_revision: u64,
     ) -> Result<Self> {
-        let rows = read_varint(buffer)?;
-        let bytes = read_varint(buffer)?;
-        let total_rows = read_varint(buffer)?;
+        let rows = buffer_utils::read_varint(buffer)?;
+        let bytes = buffer_utils::read_varint(buffer)?;
+        let total_rows = buffer_utils::read_varint(buffer)?;
 
         let (written_rows, written_bytes) = if server_revision >= 54405 {
-            (read_varint(buffer)?, read_varint(buffer)?)
+            (buffer_utils::read_varint(buffer)?, buffer_utils::read_varint(buffer)?)
         } else {
             (0, 0)
         };
@@ -517,9 +518,9 @@ impl Progress {
 impl Profile {
     /// Deserialize from buffer (ProfileInfo packet)
     pub fn read_from(buffer: &mut &[u8]) -> Result<Self> {
-        let rows = read_varint(buffer)?;
-        let blocks = read_varint(buffer)?;
-        let bytes = read_varint(buffer)?;
+        let rows = buffer_utils::read_varint(buffer)?;
+        let blocks = buffer_utils::read_varint(buffer)?;
+        let bytes = buffer_utils::read_varint(buffer)?;
 
         let applied_limit = if !buffer.is_empty() {
             let val = buffer[0];
@@ -529,7 +530,7 @@ impl Profile {
             false
         };
 
-        let rows_before_limit = read_varint(buffer)?;
+        let rows_before_limit = buffer_utils::read_varint(buffer)?;
 
         let calculated_rows_before_limit = if !buffer.is_empty() {
             let val = buffer[0];
@@ -564,9 +565,9 @@ impl Exception {
     /// Serialize to buffer
     pub fn write_to(&self, buffer: &mut BytesMut) -> Result<()> {
         buffer.put_i32_le(self.code);
-        write_string(buffer, &self.name);
-        write_string(buffer, &self.display_text);
-        write_string(buffer, &self.stack_trace);
+        buffer_utils::write_string(buffer, &self.name);
+        buffer_utils::write_string(buffer, &self.display_text);
+        buffer_utils::write_string(buffer, &self.stack_trace);
 
         // Write nested exception
         let has_nested = self.nested.is_some();
@@ -594,9 +595,9 @@ impl Exception {
             i32::from_le_bytes(bytes)
         };
 
-        let name = read_string(buffer)?;
-        let display_text = read_string(buffer)?;
-        let stack_trace = read_string(buffer)?;
+        let name = buffer_utils::read_string(buffer)?;
+        let display_text = buffer_utils::read_string(buffer)?;
+        let stack_trace = buffer_utils::read_string(buffer)?;
 
         if buffer.is_empty() {
             return Err(Error::Protocol(
@@ -618,76 +619,7 @@ impl Exception {
 }
 
 // Helper functions for varint and string encoding
-fn read_varint(buffer: &mut &[u8]) -> Result<u64> {
-    let mut result: u64 = 0;
-    let mut shift = 0;
-
-    loop {
-        if buffer.is_empty() {
-            return Err(Error::Protocol(
-                "Unexpected end of buffer reading varint".to_string(),
-            ));
-        }
-
-        let byte = buffer[0];
-        buffer.advance(1);
-
-        result |= ((byte & 0x7F) as u64) << shift;
-
-        if byte & 0x80 == 0 {
-            break;
-        }
-
-        shift += 7;
-        if shift >= 64 {
-            return Err(Error::Protocol("Varint overflow".to_string()));
-        }
-    }
-
-    Ok(result)
-}
-
-fn write_varint(buffer: &mut BytesMut, mut value: u64) {
-    loop {
-        let mut byte = (value & 0x7F) as u8;
-        value >>= 7;
-
-        if value != 0 {
-            byte |= 0x80;
-        }
-
-        buffer.put_u8(byte);
-
-        if value == 0 {
-            break;
-        }
-    }
-}
-
-fn read_string(buffer: &mut &[u8]) -> Result<String> {
-    let len = read_varint(buffer)? as usize;
-
-    if buffer.len() < len {
-        return Err(Error::Protocol(format!(
-            "Not enough data for string: need {}, have {}",
-            len,
-            buffer.len()
-        )));
-    }
-
-    let string_data = &buffer[..len];
-    let s = String::from_utf8(string_data.to_vec()).map_err(|e| {
-        Error::Protocol(format!("Invalid UTF-8 in string: {}", e))
-    })?;
-
-    buffer.advance(len);
-    Ok(s)
-}
-
-fn write_string(buffer: &mut BytesMut, s: &str) {
-    write_varint(buffer, s.len() as u64);
-    buffer.put_slice(s.as_bytes());
-}
+// Helper functions removed - using buffer_utils module
 
 #[cfg(test)]
 mod tests {
