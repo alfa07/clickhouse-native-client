@@ -1,9 +1,21 @@
-use crate::wire_format::WireFormat;
-use crate::{Error, Result};
+use crate::{
+    wire_format::WireFormat,
+    Error,
+    Result,
+};
 use bytes::Bytes;
 use std::time::Duration;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter};
-use tokio::net::TcpStream;
+use tokio::{
+    io::{
+        AsyncRead,
+        AsyncReadExt,
+        AsyncWrite,
+        AsyncWriteExt,
+        BufReader,
+        BufWriter,
+    },
+    net::TcpStream,
+};
 
 #[cfg(feature = "tls")]
 use rustls::ServerName;
@@ -133,7 +145,9 @@ impl Connection {
 
     /// Create a new connection from a TLS stream
     #[cfg(feature = "tls")]
-    pub fn new_tls(stream: tokio_rustls::client::TlsStream<TcpStream>) -> Self {
+    pub fn new_tls(
+        stream: tokio_rustls::client::TlsStream<TcpStream>,
+    ) -> Self {
         let (read_half, write_half) = tokio::io::split(stream);
 
         Self {
@@ -150,7 +164,8 @@ impl Connection {
 
     /// Connect to a ClickHouse server with default options
     pub async fn connect(host: &str, port: u16) -> Result<Self> {
-        Self::connect_with_options(host, port, &ConnectionOptions::default()).await
+        Self::connect_with_options(host, port, &ConnectionOptions::default())
+            .await
     }
 
     /// Connect to a ClickHouse server with custom options
@@ -163,51 +178,73 @@ impl Connection {
 
         // Apply connection timeout
         let stream = if options.connect_timeout > Duration::ZERO {
-            tokio::time::timeout(options.connect_timeout, TcpStream::connect(&addr))
-                .await
-                .map_err(|_| {
-                    Error::Connection(format!(
-                        "Connection timeout after {:?} to {}",
-                        options.connect_timeout, addr
-                    ))
-                })?
-                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+            tokio::time::timeout(
+                options.connect_timeout,
+                TcpStream::connect(&addr),
+            )
+            .await
+            .map_err(|_| {
+                Error::Connection(format!(
+                    "Connection timeout after {:?} to {}",
+                    options.connect_timeout, addr
+                ))
+            })?
+            .map_err(|e| {
+                Error::Connection(format!(
+                    "Failed to connect to {}: {}",
+                    addr, e
+                ))
+            })?
         } else {
-            TcpStream::connect(&addr)
-                .await
-                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+            TcpStream::connect(&addr).await.map_err(|e| {
+                Error::Connection(format!(
+                    "Failed to connect to {}: {}",
+                    addr, e
+                ))
+            })?
         };
 
         // Apply TCP_NODELAY
         if options.tcp_nodelay {
-            stream
-                .set_nodelay(true)
-                .map_err(|e| Error::Connection(format!("Failed to set TCP_NODELAY: {}", e)))?;
+            stream.set_nodelay(true).map_err(|e| {
+                Error::Connection(format!("Failed to set TCP_NODELAY: {}", e))
+            })?;
         }
 
         // Apply TCP keepalive
         #[cfg(unix)]
         if options.tcp_keepalive {
-            use socket2::{Socket, TcpKeepalive};
-            use std::os::unix::io::{AsRawFd, FromRawFd};
+            use socket2::{
+                Socket,
+                TcpKeepalive,
+            };
+            use std::os::unix::io::{
+                AsRawFd,
+                FromRawFd,
+            };
 
             let socket = unsafe { Socket::from_raw_fd(stream.as_raw_fd()) };
 
-            let mut keepalive = TcpKeepalive::new()
-                .with_time(options.tcp_keepalive_idle);
+            let mut keepalive =
+                TcpKeepalive::new().with_time(options.tcp_keepalive_idle);
 
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             {
-                keepalive = keepalive.with_interval(options.tcp_keepalive_interval);
+                keepalive =
+                    keepalive.with_interval(options.tcp_keepalive_interval);
             }
 
             #[cfg(target_os = "linux")]
             {
-                keepalive = keepalive.with_retries(options.tcp_keepalive_count);
+                keepalive =
+                    keepalive.with_retries(options.tcp_keepalive_count);
             }
 
             socket.set_tcp_keepalive(&keepalive).map_err(|e| {
-                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+                Error::Connection(format!(
+                    "Failed to set TCP keepalive: {}",
+                    e
+                ))
             })?;
 
             // Prevent socket from being dropped
@@ -216,17 +253,27 @@ impl Connection {
 
         #[cfg(windows)]
         if options.tcp_keepalive {
-            use socket2::{Socket, TcpKeepalive};
-            use std::os::windows::io::{AsRawSocket, FromRawSocket};
+            use socket2::{
+                Socket,
+                TcpKeepalive,
+            };
+            use std::os::windows::io::{
+                AsRawSocket,
+                FromRawSocket,
+            };
 
-            let socket = unsafe { Socket::from_raw_socket(stream.as_raw_socket()) };
+            let socket =
+                unsafe { Socket::from_raw_socket(stream.as_raw_socket()) };
 
             let keepalive = TcpKeepalive::new()
                 .with_time(options.tcp_keepalive_idle)
                 .with_interval(options.tcp_keepalive_interval);
 
             socket.set_tcp_keepalive(&keepalive).map_err(|e| {
-                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+                Error::Connection(format!(
+                    "Failed to set TCP keepalive: {}",
+                    e
+                ))
             })?;
 
             // Prevent socket from being dropped
@@ -249,50 +296,73 @@ impl Connection {
 
         // Establish TCP connection first
         let stream = if options.connect_timeout > Duration::ZERO {
-            tokio::time::timeout(options.connect_timeout, TcpStream::connect(&addr))
-                .await
-                .map_err(|_| {
-                    Error::Connection(format!(
-                        "Connection timeout after {:?} to {}",
-                        options.connect_timeout, addr
-                    ))
-                })?
-                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+            tokio::time::timeout(
+                options.connect_timeout,
+                TcpStream::connect(&addr),
+            )
+            .await
+            .map_err(|_| {
+                Error::Connection(format!(
+                    "Connection timeout after {:?} to {}",
+                    options.connect_timeout, addr
+                ))
+            })?
+            .map_err(|e| {
+                Error::Connection(format!(
+                    "Failed to connect to {}: {}",
+                    addr, e
+                ))
+            })?
         } else {
-            TcpStream::connect(&addr)
-                .await
-                .map_err(|e| Error::Connection(format!("Failed to connect to {}: {}", addr, e)))?
+            TcpStream::connect(&addr).await.map_err(|e| {
+                Error::Connection(format!(
+                    "Failed to connect to {}: {}",
+                    addr, e
+                ))
+            })?
         };
 
         // Apply TCP_NODELAY
         if options.tcp_nodelay {
-            stream
-                .set_nodelay(true)
-                .map_err(|e| Error::Connection(format!("Failed to set TCP_NODELAY: {}", e)))?;
+            stream.set_nodelay(true).map_err(|e| {
+                Error::Connection(format!("Failed to set TCP_NODELAY: {}", e))
+            })?;
         }
 
         // Apply TCP keepalive (same as non-TLS connection)
         #[cfg(unix)]
         if options.tcp_keepalive {
-            use socket2::{Socket, TcpKeepalive};
-            use std::os::unix::io::{AsRawFd, FromRawFd};
+            use socket2::{
+                Socket,
+                TcpKeepalive,
+            };
+            use std::os::unix::io::{
+                AsRawFd,
+                FromRawFd,
+            };
 
             let socket = unsafe { Socket::from_raw_fd(stream.as_raw_fd()) };
 
-            let mut keepalive = TcpKeepalive::new().with_time(options.tcp_keepalive_idle);
+            let mut keepalive =
+                TcpKeepalive::new().with_time(options.tcp_keepalive_idle);
 
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             {
-                keepalive = keepalive.with_interval(options.tcp_keepalive_interval);
+                keepalive =
+                    keepalive.with_interval(options.tcp_keepalive_interval);
             }
 
             #[cfg(target_os = "linux")]
             {
-                keepalive = keepalive.with_retries(options.tcp_keepalive_count);
+                keepalive =
+                    keepalive.with_retries(options.tcp_keepalive_count);
             }
 
             socket.set_tcp_keepalive(&keepalive).map_err(|e| {
-                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+                Error::Connection(format!(
+                    "Failed to set TCP keepalive: {}",
+                    e
+                ))
             })?;
 
             // Prevent socket from being dropped
@@ -301,17 +371,27 @@ impl Connection {
 
         #[cfg(windows)]
         if options.tcp_keepalive {
-            use socket2::{Socket, TcpKeepalive};
-            use std::os::windows::io::{AsRawSocket, FromRawSocket};
+            use socket2::{
+                Socket,
+                TcpKeepalive,
+            };
+            use std::os::windows::io::{
+                AsRawSocket,
+                FromRawSocket,
+            };
 
-            let socket = unsafe { Socket::from_raw_socket(stream.as_raw_socket()) };
+            let socket =
+                unsafe { Socket::from_raw_socket(stream.as_raw_socket()) };
 
             let keepalive = TcpKeepalive::new()
                 .with_time(options.tcp_keepalive_idle)
                 .with_interval(options.tcp_keepalive_interval);
 
             socket.set_tcp_keepalive(&keepalive).map_err(|e| {
-                Error::Connection(format!("Failed to set TCP keepalive: {}", e))
+                Error::Connection(format!(
+                    "Failed to set TCP keepalive: {}",
+                    e
+                ))
             })?;
 
             // Prevent socket from being dropped
@@ -322,13 +402,18 @@ impl Connection {
         let connector = TlsConnector::from(ssl_config);
         let server_name_to_use = server_name.unwrap_or(host);
 
-        let domain = ServerName::try_from(server_name_to_use).map_err(|e| {
-            Error::Connection(format!("Invalid server name '{}': {}", server_name_to_use, e))
-        })?;
+        let domain =
+            ServerName::try_from(server_name_to_use).map_err(|e| {
+                Error::Connection(format!(
+                    "Invalid server name '{}': {}",
+                    server_name_to_use, e
+                ))
+            })?;
 
-        let tls_stream = connector.connect(domain, stream).await.map_err(|e| {
-            Error::Connection(format!("TLS handshake failed: {}", e))
-        })?;
+        let tls_stream =
+            connector.connect(domain, stream).await.map_err(|e| {
+                Error::Connection(format!("TLS handshake failed: {}", e))
+            })?;
 
         Ok(Self::new_tls(tls_stream))
     }

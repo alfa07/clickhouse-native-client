@@ -1,7 +1,16 @@
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for Enum8 type (stored as Int8 with name-value mapping in Type)
@@ -13,10 +22,7 @@ pub struct ColumnEnum8 {
 impl ColumnEnum8 {
     pub fn new(type_: Type) -> Self {
         match &type_ {
-            Type::Enum8 { .. } => Self {
-                type_,
-                data: Vec::new(),
-            },
+            Type::Enum8 { .. } => Self { type_, data: Vec::new() },
             _ => panic!("ColumnEnum8 requires Enum8 type"),
         }
     }
@@ -33,10 +39,9 @@ impl ColumnEnum8 {
 
     /// Append enum by name (looks up value in Type)
     pub fn append_name(&mut self, name: &str) -> Result<()> {
-        let value = self
-            .type_
-            .get_enum_value(name)
-            .ok_or_else(|| Error::Protocol(format!("Unknown enum name: {}", name)))?;
+        let value = self.type_.get_enum_value(name).ok_or_else(|| {
+            Error::Protocol(format!("Unknown enum name: {}", name))
+        })?;
 
         self.data.push(value as i8);
         Ok(())
@@ -80,26 +85,32 @@ impl Column for ColumnEnum8 {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnEnum8>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let other =
+            other.as_any().downcast_ref::<ColumnEnum8>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         self.data.extend_from_slice(&other.data);
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         use bytes::Buf;
 
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.is_empty() {
-                return Err(Error::Protocol("Not enough data for Enum8".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for Enum8".to_string(),
+                ));
             }
             let value = buffer.get_i8();
             self.data.push(value);
@@ -153,10 +164,7 @@ pub struct ColumnEnum16 {
 impl ColumnEnum16 {
     pub fn new(type_: Type) -> Self {
         match &type_ {
-            Type::Enum16 { .. } => Self {
-                type_,
-                data: Vec::new(),
-            },
+            Type::Enum16 { .. } => Self { type_, data: Vec::new() },
             _ => panic!("ColumnEnum16 requires Enum16 type"),
         }
     }
@@ -173,10 +181,9 @@ impl ColumnEnum16 {
 
     /// Append enum by name (looks up value in Type)
     pub fn append_name(&mut self, name: &str) -> Result<()> {
-        let value = self
-            .type_
-            .get_enum_value(name)
-            .ok_or_else(|| Error::Protocol(format!("Unknown enum name: {}", name)))?;
+        let value = self.type_.get_enum_value(name).ok_or_else(|| {
+            Error::Protocol(format!("Unknown enum name: {}", name))
+        })?;
 
         self.data.push(value);
         Ok(())
@@ -220,26 +227,31 @@ impl Column for ColumnEnum16 {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnEnum16>()
-            .ok_or_else(|| Error::TypeMismatch {
+        let other = other.as_any().downcast_ref::<ColumnEnum16>().ok_or_else(
+            || Error::TypeMismatch {
                 expected: self.type_.name(),
                 actual: other.column_type().name(),
-            })?;
+            },
+        )?;
 
         self.data.extend_from_slice(&other.data);
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         use bytes::Buf;
 
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.len() < 2 {
-                return Err(Error::Protocol("Not enough data for Enum16".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for Enum16".to_string(),
+                ));
             }
             let value = buffer.get_i16_le();
             self.data.push(value);
@@ -292,14 +304,8 @@ mod tests {
     #[test]
     fn test_enum8_append_value() {
         let items = vec![
-            EnumItem {
-                name: "Red".to_string(),
-                value: 1,
-            },
-            EnumItem {
-                name: "Green".to_string(),
-                value: 2,
-            },
+            EnumItem { name: "Red".to_string(), value: 1 },
+            EnumItem { name: "Green".to_string(), value: 2 },
         ];
         let mut col = ColumnEnum8::new(Type::enum8(items));
 
@@ -314,14 +320,8 @@ mod tests {
     #[test]
     fn test_enum8_append_name() {
         let items = vec![
-            EnumItem {
-                name: "Red".to_string(),
-                value: 1,
-            },
-            EnumItem {
-                name: "Green".to_string(),
-                value: 2,
-            },
+            EnumItem { name: "Red".to_string(), value: 1 },
+            EnumItem { name: "Green".to_string(), value: 2 },
         ];
         let mut col = ColumnEnum8::new(Type::enum8(items));
 
@@ -338,14 +338,8 @@ mod tests {
     #[test]
     fn test_enum16() {
         let items = vec![
-            EnumItem {
-                name: "Small".to_string(),
-                value: 100,
-            },
-            EnumItem {
-                name: "Large".to_string(),
-                value: 1000,
-            },
+            EnumItem { name: "Small".to_string(), value: 100 },
+            EnumItem { name: "Large".to_string(), value: 1000 },
         ];
         let mut col = ColumnEnum16::new(Type::enum16(items));
 

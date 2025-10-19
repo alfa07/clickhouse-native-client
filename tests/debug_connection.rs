@@ -1,5 +1,7 @@
-use clickhouse_client::connection::Connection;
-use clickhouse_client::protocol::ClientCode;
+use clickhouse_client::{
+    connection::Connection,
+    protocol::ClientCode,
+};
 
 #[tokio::test]
 #[ignore]

@@ -1,8 +1,11 @@
 // Column tests ported from clickhouse-cpp ut/columns_ut.cpp
-// These tests verify column functionality: init, append, slice, and type conversions
+// These tests verify column functionality: init, append, slice, and type
+// conversions
 
-use clickhouse_client::column::*;
-use clickhouse_client::types::Type;
+use clickhouse_client::{
+    column::*,
+    types::Type,
+};
 use std::sync::Arc;
 
 // ============================================================================
@@ -50,7 +53,7 @@ fn test_numeric_init() {
     let col = ColumnUInt32::new(Type::uint32()).with_data(numbers.clone());
 
     assert_eq!(col.len(), 11);
-    assert_eq!(col.at(3), 5);   // Index 3 = value 5 (primes: 1,2,3,5,7,11,...)
+    assert_eq!(col.at(3), 5); // Index 3 = value 5 (primes: 1,2,3,5,7,11,...)
     assert_eq!(col.at(4), 7);
     assert_eq!(col.at(10), 31);
 }
@@ -79,8 +82,8 @@ fn test_numeric_slice() {
     let slice_u32 = slice.as_any().downcast_ref::<ColumnUInt32>().unwrap();
 
     assert_eq!(slice_u32.len(), 3);
-    assert_eq!(slice_u32.at(0), 5);  // Original index 3 = value 5
-    assert_eq!(slice_u32.at(1), 7);  // Original index 4 = value 7
+    assert_eq!(slice_u32.at(0), 5); // Original index 3 = value 5
+    assert_eq!(slice_u32.at(1), 7); // Original index 4 = value 7
     assert_eq!(slice_u32.at(2), 11); // Original index 5 = value 11
 }
 
@@ -162,7 +165,8 @@ fn test_string_empty() {
 #[test]
 fn test_fixed_string_init() {
     let data = make_fixed_strings(3);
-    let col = ColumnFixedString::new(Type::fixed_string(3)).with_data(data.clone());
+    let col =
+        ColumnFixedString::new(Type::fixed_string(3)).with_data(data.clone());
 
     assert_eq!(col.len(), data.len());
 
@@ -173,7 +177,8 @@ fn test_fixed_string_init() {
 
 #[test]
 fn test_fixed_string_append_small_strings() {
-    // Ensure that strings smaller than FixedString's size are padded with zeroes
+    // Ensure that strings smaller than FixedString's size are padded with
+    // zeroes
     let string_size = 7;
     let mut col = ColumnFixedString::new(Type::fixed_string(string_size));
 
@@ -218,9 +223,9 @@ fn test_date_append() {
     let mut col = ColumnDate::new(Type::date());
 
     // Add some date values (days since epoch)
-    col.append(0);      // 1970-01-01
-    col.append(19000);  // 2022-01-05 (approximately)
-    col.append(10000);  // 1997-05-19
+    col.append(0); // 1970-01-01
+    col.append(19000); // 2022-01-05 (approximately)
+    col.append(10000); // 1997-05-19
 
     assert_eq!(col.len(), 3);
     assert_eq!(col.at(0), 0);
@@ -287,17 +292,26 @@ fn test_nullable_with_nulls() {
 
     // Check values
     assert_eq!(col.is_null_at(0), false);
-    assert_eq!(col.at(0).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(0), 42);
+    assert_eq!(
+        col.at(0).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(0),
+        42
+    );
 
     assert_eq!(col.is_null_at(1), true);
 
     assert_eq!(col.is_null_at(2), false);
-    assert_eq!(col.at(2).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(2), 100);
+    assert_eq!(
+        col.at(2).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(2),
+        100
+    );
 
     assert_eq!(col.is_null_at(3), true);
 
     assert_eq!(col.is_null_at(4), false);
-    assert_eq!(col.at(4).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(4), 255);
+    assert_eq!(
+        col.at(4).as_any().downcast_ref::<ColumnUInt32>().unwrap().at(4),
+        255
+    );
 }
 
 #[test]
@@ -332,7 +346,10 @@ fn test_tuple_basic() {
     inner2.append("test".to_string());
     inner2.append("hello".to_string());
 
-    let col = ColumnTuple::new(tuple_type, vec![Arc::new(inner1) as ColumnRef, Arc::new(inner2) as ColumnRef]);
+    let col = ColumnTuple::new(
+        tuple_type,
+        vec![Arc::new(inner1) as ColumnRef, Arc::new(inner2) as ColumnRef],
+    );
 
     assert_eq!(col.len(), 2);
 

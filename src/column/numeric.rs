@@ -1,9 +1,12 @@
 //! Numeric column implementations
 //!
 //! **ClickHouse Documentation:**
-//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint) - Int8/16/32/64/128, UInt8/16/32/64/128
-//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float) - Float32, Float64
-//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal) - Fixed-point numbers
+//! - [Integer Types](https://clickhouse.com/docs/en/sql-reference/data-types/int-uint)
+//!   - Int8/16/32/64/128, UInt8/16/32/64/128
+//! - [Floating-Point Types](https://clickhouse.com/docs/en/sql-reference/data-types/float)
+//!   - Float32, Float64
+//! - [Decimal Types](https://clickhouse.com/docs/en/sql-reference/data-types/decimal)
+//!   - Fixed-point numbers
 //!
 //! ## Integer Types
 //!
@@ -32,15 +35,28 @@
 //!
 //! `Bool` is an alias for `UInt8` where 0 = false, 1 = true.
 
-use super::{Column, ColumnRef, ColumnTyped};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+    ColumnTyped,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
-/// Trait for types that can be read/written as fixed-size values (synchronous version for columns)
+/// Trait for types that can be read/written as fixed-size values (synchronous
+/// version for columns)
 ///
-/// All numeric types are stored in **little-endian** format in ClickHouse wire protocol.
+/// All numeric types are stored in **little-endian** format in ClickHouse wire
+/// protocol.
 pub trait FixedSize: Sized + Clone + Send + Sync + 'static {
     fn read_from(buffer: &mut &[u8]) -> Result<Self>;
     fn write_to(&self, buffer: &mut BytesMut);
@@ -52,7 +68,9 @@ macro_rules! impl_fixed_size {
         impl FixedSize for $type {
             fn read_from(buffer: &mut &[u8]) -> Result<Self> {
                 if buffer.len() < std::mem::size_of::<$type>() {
-                    return Err(Error::Protocol("Buffer underflow".to_string()));
+                    return Err(Error::Protocol(
+                        "Buffer underflow".to_string(),
+                    ));
                 }
                 Ok(buffer.$get())
             }
@@ -109,17 +127,11 @@ pub struct ColumnVector<T: FixedSize> {
 
 impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
-        Self {
-            type_,
-            data: Vec::with_capacity(capacity),
-        }
+        Self { type_, data: Vec::with_capacity(capacity) }
     }
 
     pub fn from_vec(type_: Type, data: Vec<T>) -> Self {
@@ -132,12 +144,14 @@ impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
         self
     }
 
-    /// Reserve capacity for additional elements (for benchmarking/optimization)
+    /// Reserve capacity for additional elements (for
+    /// benchmarking/optimization)
     pub fn reserve(&mut self, additional: usize) {
         self.data.reserve(additional);
     }
 
-    /// Clear the column while preserving capacity (for benchmarking/optimization)
+    /// Clear the column while preserving capacity (for
+    /// benchmarking/optimization)
     pub fn clear(&mut self) {
         self.data.clear();
     }
@@ -208,9 +222,14 @@ impl<T: FixedSize> Column for ColumnVector<T> {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         // Optimize: Use bulk read instead of loop for massive performance gain
-        // C++ does: WireFormat::ReadBytes(*input, data_.data(), rows * sizeof(T))
+        // C++ does: WireFormat::ReadBytes(*input, data_.data(), rows *
+        // sizeof(T))
         let bytes_needed = rows * std::mem::size_of::<T>();
 
         if buffer.len() < bytes_needed {
@@ -228,7 +247,11 @@ impl<T: FixedSize> Column for ColumnVector<T> {
         unsafe {
             // Read bytes directly into Vec's uninitialized memory
             let dest_ptr = self.data.as_mut_ptr() as *mut u8;
-            std::ptr::copy_nonoverlapping(buffer.as_ptr(), dest_ptr, bytes_needed);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
             self.data.set_len(rows);
         }
 
@@ -238,9 +261,10 @@ impl<T: FixedSize> Column for ColumnVector<T> {
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        // Optimize: Use bulk write instead of loop for massive performance gain
-        // C++ does: WireFormat::WriteBytes(*output, data_.data(), data_.size() * sizeof(T))
-        // This achieves the same with extend_from_slice on the raw bytes
+        // Optimize: Use bulk write instead of loop for massive performance
+        // gain C++ does: WireFormat::WriteBytes(*output, data_.data(),
+        // data_.size() * sizeof(T)) This achieves the same with
+        // extend_from_slice on the raw bytes
         if !self.data.is_empty() {
             let byte_slice = unsafe {
                 std::slice::from_raw_parts(
@@ -283,7 +307,9 @@ impl<T: FixedSize> Column for ColumnVector<T> {
     }
 }
 
-impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnTyped<T> for ColumnVector<T> {
+impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnTyped<T>
+    for ColumnVector<T>
+{
     fn get(&self, index: usize) -> Option<T> {
         self.data.get(index).cloned()
     }
@@ -356,7 +382,8 @@ mod tests {
         let sliced = col.slice(2, 5).unwrap();
         assert_eq!(sliced.size(), 5);
 
-        let sliced_concrete = sliced.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        let sliced_concrete =
+            sliced.as_any().downcast_ref::<ColumnUInt64>().unwrap();
         assert_eq!(sliced_concrete.get(0), Some(&2));
         assert_eq!(sliced_concrete.get(4), Some(&6));
     }

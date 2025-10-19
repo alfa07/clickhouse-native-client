@@ -1,7 +1,16 @@
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for IPv6 addresses (stored as FixedString(16) - 16 bytes)
@@ -12,10 +21,7 @@ pub struct ColumnIpv6 {
 
 impl ColumnIpv6 {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Vec::new(),
-        }
+        Self { type_, data: Vec::new() }
     }
 
     pub fn with_data(mut self, data: Vec<[u8; 16]>) -> Self {
@@ -73,26 +79,32 @@ impl Column for ColumnIpv6 {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let other = other
-            .as_any()
-            .downcast_ref::<ColumnIpv6>()
-            .ok_or_else(|| Error::TypeMismatch {
-                expected: self.type_.name(),
-                actual: other.column_type().name(),
+        let other =
+            other.as_any().downcast_ref::<ColumnIpv6>().ok_or_else(|| {
+                Error::TypeMismatch {
+                    expected: self.type_.name(),
+                    actual: other.column_type().name(),
+                }
             })?;
 
         self.data.extend_from_slice(&other.data);
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         use bytes::Buf;
 
         self.data.reserve(rows);
 
         for _ in 0..rows {
             if buffer.len() < 16 {
-                return Err(Error::Protocol("Not enough data for IPv6".to_string()));
+                return Err(Error::Protocol(
+                    "Not enough data for IPv6".to_string(),
+                ));
             }
 
             let mut bytes = [0u8; 16];
@@ -167,8 +179,9 @@ fn parse_ipv6(s: &str) -> Result<[u8; 16]> {
 
         // Parse left side
         for (i, part) in left_parts.iter().enumerate() {
-            let value = u16::from_str_radix(part, 16)
-                .map_err(|e| Error::Protocol(format!("Invalid IPv6 hex: {}", e)))?;
+            let value = u16::from_str_radix(part, 16).map_err(|e| {
+                Error::Protocol(format!("Invalid IPv6 hex: {}", e))
+            })?;
             result[i * 2] = (value >> 8) as u8;
             result[i * 2 + 1] = (value & 0xFF) as u8;
         }
@@ -176,8 +189,9 @@ fn parse_ipv6(s: &str) -> Result<[u8; 16]> {
         // Parse right side
         let right_start = 16 - right_parts.len() * 2;
         for (i, part) in right_parts.iter().enumerate() {
-            let value = u16::from_str_radix(part, 16)
-                .map_err(|e| Error::Protocol(format!("Invalid IPv6 hex: {}", e)))?;
+            let value = u16::from_str_radix(part, 16).map_err(|e| {
+                Error::Protocol(format!("Invalid IPv6 hex: {}", e))
+            })?;
             result[right_start + i * 2] = (value >> 8) as u8;
             result[right_start + i * 2 + 1] = (value & 0xFF) as u8;
         }
@@ -192,8 +206,9 @@ fn parse_ipv6(s: &str) -> Result<[u8; 16]> {
         }
 
         for (i, part) in parts.iter().enumerate() {
-            let value = u16::from_str_radix(part, 16)
-                .map_err(|e| Error::Protocol(format!("Invalid IPv6 hex: {}", e)))?;
+            let value = u16::from_str_radix(part, 16).map_err(|e| {
+                Error::Protocol(format!("Invalid IPv6 hex: {}", e))
+            })?;
             result[i * 2] = (value >> 8) as u8;
             result[i * 2 + 1] = (value & 0xFF) as u8;
         }
@@ -269,11 +284,7 @@ fn format_ipv6(bytes: &[u8; 16]) -> String {
         result
     } else {
         // No compression
-        groups
-            .iter()
-            .map(|g| format!("{:x}", g))
-            .collect::<Vec<_>>()
-            .join(":")
+        groups.iter().map(|g| format!("{:x}", g)).collect::<Vec<_>>().join(":")
     }
 }
 

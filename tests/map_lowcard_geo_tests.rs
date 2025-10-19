@@ -1,6 +1,13 @@
-use clickhouse_client::column::*;
-use clickhouse_client::column::geo::*;
-use clickhouse_client::types::{Type, TypeCode};
+use clickhouse_client::{
+    column::{
+        geo::*,
+        *,
+    },
+    types::{
+        Type,
+        TypeCode,
+    },
+};
 
 // ============================================================================
 // Map Column Tests
@@ -219,10 +226,7 @@ fn test_polygon_type_name() {
 #[test]
 fn test_multi_polygon_type_name() {
     let mp = multi_polygon_type();
-    assert_eq!(
-        mp.name(),
-        "Array(Array(Array(Tuple(Float64, Float64))))"
-    );
+    assert_eq!(mp.name(), "Array(Array(Array(Tuple(Float64, Float64))))");
 }
 
 #[test]
@@ -300,9 +304,7 @@ fn test_nested_map_in_lowcardinality() {
         value_type: Box::new(Type::Simple(TypeCode::UInt32)),
     };
 
-    let lc_map = Type::LowCardinality {
-        nested_type: Box::new(map_type),
-    };
+    let lc_map = Type::LowCardinality { nested_type: Box::new(map_type) };
 
     let col = ColumnLowCardinality::new(lc_map);
     assert!(col.is_empty());

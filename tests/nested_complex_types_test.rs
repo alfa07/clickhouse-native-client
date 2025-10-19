@@ -13,11 +13,17 @@
 //!
 //! ## Prerequisites
 //! 1. Start ClickHouse server: `just start-db`
-//! 2. Run tests: `cargo test --test nested_complex_types_test -- --ignored --nocapture`
+//! 2. Run tests: `cargo test --test nested_complex_types_test -- --ignored
+//!    --nocapture`
 
-use clickhouse_client::{Block, Client, ClientOptions, Query};
-use clickhouse_client::column::*;
-use clickhouse_client::types::Type;
+use clickhouse_client::{
+    column::*,
+    types::Type,
+    Block,
+    Client,
+    ClientOptions,
+    Query,
+};
 
 /// Helper to create a test client
 async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
@@ -36,14 +42,11 @@ async fn create_test_client() -> Result<Client, Box<dyn std::error::Error>> {
 #[tokio::test]
 #[ignore] // Requires running ClickHouse server
 async fn test_array_lowcardinality_string() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Create table
-    let _ = client
-        .query("DROP TABLE IF EXISTS test_array_lc_string")
-        .await;
+    let _ = client.query("DROP TABLE IF EXISTS test_array_lc_string").await;
 
     client
         .query(
@@ -71,7 +74,8 @@ async fn test_array_lowcardinality_string() {
     println!("✓ Data inserted");
 
     // Select data back
-    let query = Query::new("SELECT id, tags FROM test_array_lc_string ORDER BY id");
+    let query =
+        Query::new("SELECT id, tags FROM test_array_lc_string ORDER BY id");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -85,8 +89,14 @@ async fn test_array_lowcardinality_string() {
 
         if block.row_count() > 0 {
             // Verify columns exist
-            assert!(block.column_by_name("id").is_some(), "id column should exist");
-            assert!(block.column_by_name("tags").is_some(), "tags column should exist");
+            assert!(
+                block.column_by_name("id").is_some(),
+                "id column should exist"
+            );
+            assert!(
+                block.column_by_name("tags").is_some(),
+                "tags column should exist"
+            );
         }
     }
 
@@ -94,9 +104,7 @@ async fn test_array_lowcardinality_string() {
     println!("✓ Array(LowCardinality(String)) test passed");
 
     // Cleanup
-    let _ = client
-        .query("DROP TABLE test_array_lc_string")
-        .await;
+    let _ = client.query("DROP TABLE test_array_lc_string").await;
 }
 
 // ============================================================================
@@ -106,13 +114,10 @@ async fn test_array_lowcardinality_string() {
 #[tokio::test]
 #[ignore]
 async fn test_array_lowcardinality_nullable_string() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_array_lc_nullable_string")
-        .await;
+    client.query("DROP TABLE IF EXISTS test_array_lc_nullable_string").await;
 
     client
         .query(
@@ -140,7 +145,9 @@ async fn test_array_lowcardinality_nullable_string() {
     println!("✓ Data with NULLs inserted");
 
     // Select back
-    let query = Query::new("SELECT id, data FROM test_array_lc_nullable_string ORDER BY id");
+    let query = Query::new(
+        "SELECT id, data FROM test_array_lc_nullable_string ORDER BY id",
+    );
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -161,9 +168,7 @@ async fn test_array_lowcardinality_nullable_string() {
     println!("✓ Array(LowCardinality(Nullable(String))) test passed");
 
     // Cleanup
-    let _ = client
-        .query("DROP TABLE test_array_lc_nullable_string")
-        .await;
+    let _ = client.query("DROP TABLE test_array_lc_nullable_string").await;
 }
 
 // ============================================================================
@@ -173,13 +178,10 @@ async fn test_array_lowcardinality_nullable_string() {
 #[tokio::test]
 #[ignore]
 async fn test_array_array_lowcardinality_uint64() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_array_array_lc_uint64")
-        .await;
+    client.query("DROP TABLE IF EXISTS test_array_array_lc_uint64").await;
 
     client
         .query(
@@ -207,7 +209,9 @@ async fn test_array_array_lowcardinality_uint64() {
     println!("✓ Nested arrays inserted");
 
     // Select back
-    let query = Query::new("SELECT id, matrix FROM test_array_array_lc_uint64 ORDER BY id");
+    let query = Query::new(
+        "SELECT id, matrix FROM test_array_array_lc_uint64 ORDER BY id",
+    );
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -224,9 +228,7 @@ async fn test_array_array_lowcardinality_uint64() {
     println!("✓ Array(Array(LowCardinality(UInt64))) test passed");
 
     // Cleanup
-    let _ = client
-        .query("DROP TABLE test_array_array_lc_uint64")
-        .await;
+    let _ = client.query("DROP TABLE test_array_array_lc_uint64").await;
 }
 
 // ============================================================================
@@ -237,72 +239,73 @@ async fn test_array_array_lowcardinality_uint64() {
 #[ignore]
 async fn test_nullable_array_lowcardinality_string() {
     // NOTE: ClickHouse does not allow Nullable(Array(LowCardinality(...)))
-    // Error: "Nested type Array(LowCardinality(String)) cannot be inside Nullable type"
-    // This test documents the limitation - skipping
+    // Error: "Nested type Array(LowCardinality(String)) cannot be inside
+    // Nullable type" This test documents the limitation - skipping
     println!("⚠️ Test skipped: ClickHouse does not support Nullable(Array(LowCardinality(...)))");
     return;
 
     #[allow(unreachable_code)]
     {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+        let mut client = create_test_client()
+            .await
+            .expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_nullable_array_lc")
-        .await;
+        client.query("DROP TABLE IF EXISTS test_nullable_array_lc").await;
 
-    client
-        .query(
-            "CREATE TABLE test_nullable_array_lc (
+        client
+            .query(
+                "CREATE TABLE test_nullable_array_lc (
                 id UInt32,
                 data Nullable(Array(LowCardinality(String)))
             ) ENGINE = Memory",
-        )
-        .await
-        .expect("Failed to create table");
+            )
+            .await
+            .expect("Failed to create table");
 
-    println!("✓ Table created");
+        println!("✓ Table created");
 
-    // Insert with whole array being NULL
-    client
-        .query(
-            "INSERT INTO test_nullable_array_lc VALUES
+        // Insert with whole array being NULL
+        client
+            .query(
+                "INSERT INTO test_nullable_array_lc VALUES
             (1, ['tag1', 'tag2']),
             (2, NULL),
             (3, ['tag3'])",
-        )
-        .await
-        .expect("Failed to insert data");
+            )
+            .await
+            .expect("Failed to insert data");
 
-    println!("✓ Data with NULL array inserted");
+        println!("✓ Data with NULL array inserted");
 
-    // Select back
-    let query = Query::new("SELECT id, data FROM test_nullable_array_lc ORDER BY id");
-    let result = client.query(query).await.expect("Failed to select data");
-
-    let mut total_rows = 0;
-    for block in result.blocks() {
-        total_rows += block.row_count();
-        println!(
-            "Block: {} rows, {} columns",
-            block.row_count(),
-            block.column_count()
+        // Select back
+        let query = Query::new(
+            "SELECT id, data FROM test_nullable_array_lc ORDER BY id",
         );
+        let result = client.query(query).await.expect("Failed to select data");
 
-        if block.row_count() > 0 {
-            // Verify column exists
-            assert!(block.column_by_name("data").is_some(), "data column should exist");
+        let mut total_rows = 0;
+        for block in result.blocks() {
+            total_rows += block.row_count();
+            println!(
+                "Block: {} rows, {} columns",
+                block.row_count(),
+                block.column_count()
+            );
+
+            if block.row_count() > 0 {
+                // Verify column exists
+                assert!(
+                    block.column_by_name("data").is_some(),
+                    "data column should exist"
+                );
+            }
         }
-    }
 
-    assert_eq!(total_rows, 3, "Should have 3 rows");
-    println!("✓ Nullable(Array(LowCardinality(String))) test passed");
+        assert_eq!(total_rows, 3, "Should have 3 rows");
+        println!("✓ Nullable(Array(LowCardinality(String))) test passed");
 
-    // Cleanup
-    let _ = client
-        .query("DROP TABLE test_nullable_array_lc")
-        .await;
+        // Cleanup
+        let _ = client.query("DROP TABLE test_nullable_array_lc").await;
     } // Close #[allow(unreachable_code)]
 }
 
@@ -313,13 +316,10 @@ async fn test_nullable_array_lowcardinality_string() {
 #[tokio::test]
 #[ignore]
 async fn test_array_array_array_uint64() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_array3_uint64")
-        .await;
+    client.query("DROP TABLE IF EXISTS test_array3_uint64").await;
 
     client
         .query(
@@ -347,7 +347,8 @@ async fn test_array_array_array_uint64() {
     println!("✓ 3-level nested arrays inserted");
 
     // Select back
-    let query = Query::new("SELECT id, data FROM test_array3_uint64 ORDER BY id");
+    let query =
+        Query::new("SELECT id, data FROM test_array3_uint64 ORDER BY id");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -364,9 +365,7 @@ async fn test_array_array_array_uint64() {
     println!("✓ Array(Array(Array(UInt64))) test passed");
 
     // Cleanup
-    let _ = client
-        .query("DROP TABLE test_array3_uint64")
-        .await;
+    let _ = client.query("DROP TABLE test_array3_uint64").await;
 }
 
 // ============================================================================
@@ -376,13 +375,10 @@ async fn test_array_array_array_uint64() {
 #[tokio::test]
 #[ignore]
 async fn test_array_array_array_array_string() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_array4_string")
-        .await;
+    client.query("DROP TABLE IF EXISTS test_array4_string").await;
 
     client
         .query(
@@ -409,7 +405,8 @@ async fn test_array_array_array_array_string() {
     println!("✓ 4-level nested arrays inserted");
 
     // Select back
-    let query = Query::new("SELECT id, data FROM test_array4_string ORDER BY id");
+    let query =
+        Query::new("SELECT id, data FROM test_array4_string ORDER BY id");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -426,9 +423,7 @@ async fn test_array_array_array_array_string() {
     println!("✓ Array(Array(Array(Array(String)))) test passed");
 
     // Cleanup
-    let _ = client
-        .query("DROP TABLE test_array4_string")
-        .await;
+    let _ = client.query("DROP TABLE test_array4_string").await;
 }
 
 // ============================================================================
@@ -439,67 +434,67 @@ async fn test_array_array_array_array_string() {
 #[ignore]
 async fn test_nullable_array_nullable_string() {
     // NOTE: ClickHouse does not allow Nullable(Array(Nullable(...)))
-    // Error: "Nested type Array(Nullable(String)) cannot be inside Nullable type"
-    // This test documents the limitation - skipping
+    // Error: "Nested type Array(Nullable(String)) cannot be inside Nullable
+    // type" This test documents the limitation - skipping
     println!("⚠️ Test skipped: ClickHouse does not support Nullable(Array(Nullable(...)))");
     return;
 
     #[allow(unreachable_code)]
     {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+        let mut client = create_test_client()
+            .await
+            .expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_nullable_array_nullable")
-        .await;
+        client
+            .query("DROP TABLE IF EXISTS test_nullable_array_nullable")
+            .await;
 
-    client
-        .query(
-            "CREATE TABLE test_nullable_array_nullable (
+        client
+            .query(
+                "CREATE TABLE test_nullable_array_nullable (
                 id UInt32,
                 data Nullable(Array(Nullable(String)))
             ) ENGINE = Memory",
-        )
-        .await
-        .expect("Failed to create table");
+            )
+            .await
+            .expect("Failed to create table");
 
-    println!("✓ Table created with Nullable(Array(Nullable(...)))");
+        println!("✓ Table created with Nullable(Array(Nullable(...)))");
 
-    // Insert with multiple NULL levels
-    client
-        .query(
-            "INSERT INTO test_nullable_array_nullable VALUES
+        // Insert with multiple NULL levels
+        client
+            .query(
+                "INSERT INTO test_nullable_array_nullable VALUES
             (1, ['value1', NULL, 'value3']),
             (2, NULL),
             (3, [NULL, NULL])",
-        )
-        .await
-        .expect("Failed to insert data");
+            )
+            .await
+            .expect("Failed to insert data");
 
-    println!("✓ Data with multiple NULL levels inserted");
+        println!("✓ Data with multiple NULL levels inserted");
 
-    // Select back
-    let query = Query::new("SELECT id, data FROM test_nullable_array_nullable ORDER BY id");
-    let result = client.query(query).await.expect("Failed to select data");
-
-    let mut total_rows = 0;
-    for block in result.blocks() {
-        total_rows += block.row_count();
-        println!(
-            "Block: {} rows, {} columns",
-            block.row_count(),
-            block.column_count()
+        // Select back
+        let query = Query::new(
+            "SELECT id, data FROM test_nullable_array_nullable ORDER BY id",
         );
-    }
+        let result = client.query(query).await.expect("Failed to select data");
 
-    assert_eq!(total_rows, 3, "Should have 3 rows");
-    println!("✓ Nullable(Array(Nullable(String))) test passed");
+        let mut total_rows = 0;
+        for block in result.blocks() {
+            total_rows += block.row_count();
+            println!(
+                "Block: {} rows, {} columns",
+                block.row_count(),
+                block.column_count()
+            );
+        }
 
-    // Cleanup
-    let _ = client
-        .query("DROP TABLE test_nullable_array_nullable")
-        .await;
+        assert_eq!(total_rows, 3, "Should have 3 rows");
+        println!("✓ Nullable(Array(Nullable(String))) test passed");
+
+        // Cleanup
+        let _ = client.query("DROP TABLE test_nullable_array_nullable").await;
     } // Close #[allow(unreachable_code)]
 }
 
@@ -510,13 +505,10 @@ async fn test_nullable_array_nullable_string() {
 #[tokio::test]
 #[ignore]
 async fn test_array_empty_elements() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_array_empty")
-        .await;
+    client.query("DROP TABLE IF EXISTS test_array_empty").await;
 
     client
         .query(
@@ -542,7 +534,8 @@ async fn test_array_empty_elements() {
     println!("✓ Arrays with empty elements inserted");
 
     // Select back
-    let query = Query::new("SELECT id, data FROM test_array_empty ORDER BY id");
+    let query =
+        Query::new("SELECT id, data FROM test_array_empty ORDER BY id");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -554,9 +547,7 @@ async fn test_array_empty_elements() {
     println!("✓ Array with empty elements test passed");
 
     // Cleanup
-    let _ = client
-        .query("DROP TABLE test_array_empty")
-        .await;
+    let _ = client.query("DROP TABLE test_array_empty").await;
 }
 
 // ============================================================================
@@ -567,68 +558,69 @@ async fn test_array_empty_elements() {
 #[ignore]
 async fn test_lowcardinality_string_roundtrip() {
     // NOTE: LowCardinality SELECT currently has parsing issues
-    // Error: "Empty type string" when reading LowCardinality columns from server
-    // The LowCardinality load_from_buffer implementation needs completion
-    // This test documents the limitation - skipping for now
+    // Error: "Empty type string" when reading LowCardinality columns from
+    // server The LowCardinality load_from_buffer implementation needs
+    // completion This test documents the limitation - skipping for now
     println!("⚠️  Test skipped: LowCardinality SELECT parsing not fully implemented");
     return;
 
     #[allow(unreachable_code)]
     {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+        let mut client = create_test_client()
+            .await
+            .expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_lc_roundtrip")
-        .await;
+        client.query("DROP TABLE IF EXISTS test_lc_roundtrip").await;
 
-    client
-        .query(
-            "CREATE TABLE test_lc_roundtrip (
+        client
+            .query(
+                "CREATE TABLE test_lc_roundtrip (
                 id UInt32,
                 category LowCardinality(String),
                 tags Array(LowCardinality(String))
             ) ENGINE = Memory",
-        )
-        .await
-        .expect("Failed to create table");
+            )
+            .await
+            .expect("Failed to create table");
 
-    // Insert repeated values (good for LowCardinality)
-    client
-        .query(
-            "INSERT INTO test_lc_roundtrip VALUES
+        // Insert repeated values (good for LowCardinality)
+        client
+            .query(
+                "INSERT INTO test_lc_roundtrip VALUES
             (1, 'category_a', ['tag1', 'tag2']),
             (2, 'category_a', ['tag1', 'tag3']),
             (3, 'category_b', ['tag1', 'tag2']),
             (4, 'category_a', ['tag2', 'tag3'])",
-        )
-        .await
-        .expect("Failed to insert data");
+            )
+            .await
+            .expect("Failed to insert data");
 
-    println!("✓ LowCardinality data inserted");
+        println!("✓ LowCardinality data inserted");
 
-    // Select back
-    let query = Query::new("SELECT id, category, tags FROM test_lc_roundtrip ORDER BY id");
-    let result = client.query(query).await.expect("Failed to select data");
+        // Select back
+        let query = Query::new(
+            "SELECT id, category, tags FROM test_lc_roundtrip ORDER BY id",
+        );
+        let result = client.query(query).await.expect("Failed to select data");
 
-    let mut total_rows = 0;
-    for block in result.blocks() {
-        total_rows += block.row_count();
+        let mut total_rows = 0;
+        for block in result.blocks() {
+            total_rows += block.row_count();
 
-        if block.row_count() > 0 {
-            // Verify column exists
-            assert!(block.column_by_name("category").is_some(), "category column should exist");
+            if block.row_count() > 0 {
+                // Verify column exists
+                assert!(
+                    block.column_by_name("category").is_some(),
+                    "category column should exist"
+                );
+            }
         }
-    }
 
-    assert_eq!(total_rows, 4, "Should have 4 rows");
-    println!("✓ LowCardinality roundtrip test passed");
+        assert_eq!(total_rows, 4, "Should have 4 rows");
+        println!("✓ LowCardinality roundtrip test passed");
 
-    // Cleanup
-    let _ = client
-        .query("DROP TABLE test_lc_roundtrip")
-        .await;
+        // Cleanup
+        let _ = client.query("DROP TABLE test_lc_roundtrip").await;
     } // Close #[allow(unreachable_code)]
 }
 
@@ -639,13 +631,10 @@ async fn test_lowcardinality_string_roundtrip() {
 #[tokio::test]
 #[ignore]
 async fn test_tuple_with_array_lowcardinality() {
-    let mut client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
-    client
-        .query("DROP TABLE IF EXISTS test_tuple_array_lc")
-        .await;
+    client.query("DROP TABLE IF EXISTS test_tuple_array_lc").await;
 
     client
         .query(
@@ -672,7 +661,8 @@ async fn test_tuple_with_array_lowcardinality() {
     println!("✓ Tuple data inserted");
 
     // Select back
-    let query = Query::new("SELECT id, data FROM test_tuple_array_lc ORDER BY id");
+    let query =
+        Query::new("SELECT id, data FROM test_tuple_array_lc ORDER BY id");
     let result = client.query(query).await.expect("Failed to select data");
 
     let mut total_rows = 0;
@@ -684,7 +674,5 @@ async fn test_tuple_with_array_lowcardinality() {
     println!("✓ Tuple with Array(LowCardinality(...)) test passed");
 
     // Cleanup
-    let _ = client
-        .query("DROP TABLE test_tuple_array_lc")
-        .await;
+    let _ = client.query("DROP TABLE test_tuple_array_lc").await;
 }

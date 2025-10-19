@@ -1,9 +1,12 @@
 // CreateColumnByType tests - test column creation from type strings
-// These tests verify that we can create appropriate column types from type name strings
+// These tests verify that we can create appropriate column types from type
+// name strings
 
-use clickhouse_client::io::block_stream::create_column;
-use clickhouse_client::column::*;
-use clickhouse_client::types::Type;
+use clickhouse_client::{
+    column::*,
+    io::block_stream::create_column,
+    types::Type,
+};
 
 // ============================================================================
 // Simple Type Tests
@@ -212,7 +215,9 @@ fn test_create_enum8() {
 
 #[test]
 fn test_create_enum16() {
-    let type_ = Type::parse("Enum16('ONE' = 1, 'TWO' = 2, 'THREE' = 3, 'FOUR' = 4)").unwrap();
+    let type_ =
+        Type::parse("Enum16('ONE' = 1, 'TWO' = 2, 'THREE' = 3, 'FOUR' = 4)")
+            .unwrap();
     let col = create_column(&type_).unwrap();
 
     // Enum16 uses specialized ColumnEnum16
@@ -280,7 +285,8 @@ fn test_unmatched_brackets_nullable() {
 
 #[test]
 fn test_unmatched_brackets_array() {
-    let result = Type::parse("Array(LowCardinality(Nullable(FixedString(10000");
+    let result =
+        Type::parse("Array(LowCardinality(Nullable(FixedString(10000");
     assert!(result.is_err(), "Should fail on unmatched brackets");
 }
 
@@ -323,10 +329,18 @@ fn test_bool_is_uint8() {
 fn test_type_names_preserved() {
     // Test that type names are preserved through parse and create
     let type_strings = vec![
-        "Int8", "Int16", "Int32", "Int64",
-        "UInt8", "UInt16", "UInt32", "UInt64",
-        "Float32", "Float64",
-        "String", "Date",
+        "Int8",
+        "Int16",
+        "Int32",
+        "Int64",
+        "UInt8",
+        "UInt16",
+        "UInt32",
+        "UInt64",
+        "Float32",
+        "Float64",
+        "String",
+        "Date",
         "FixedString(10)",
         "Decimal(9, 3)",
     ];
@@ -337,7 +351,11 @@ fn test_type_names_preserved() {
 
         // Type name should match (with some normalization)
         let parsed_name = type_.name();
-        assert!(!parsed_name.is_empty(), "Type name should not be empty for {}", type_str);
+        assert!(
+            !parsed_name.is_empty(),
+            "Type name should not be empty for {}",
+            type_str
+        );
     }
 }
 
@@ -376,7 +394,8 @@ fn test_array_of_nullable() {
 fn test_aggregate_function_not_supported() {
     // AggregateFunction is not supported for client-side column creation
     // C++ implementation returns nullptr, we should return error
-    let result = Type::parse("AggregateFunction(argMax, Int32, DateTime64(3))");
+    let result =
+        Type::parse("AggregateFunction(argMax, Int32, DateTime64(3))");
 
     // Current implementation: check if it fails or returns unsupported type
     if let Ok(type_) = result {
@@ -392,7 +411,9 @@ fn test_aggregate_function_not_supported() {
 
 #[test]
 fn test_aggregate_function_complex_not_supported() {
-    let result = Type::parse("AggregateFunction(argMax, FixedString(10), DateTime64(3, 'UTC'))");
+    let result = Type::parse(
+        "AggregateFunction(argMax, FixedString(10), DateTime64(3, 'UTC'))",
+    );
 
     // Similar to above - should fail or handle gracefully
     if let Ok(type_) = result {
@@ -476,7 +497,9 @@ fn test_map_type() {
 #[test]
 fn test_nested_array_lowcardinality_complete() {
     // Test from C++ suite: Array(LowCardinality(Nullable(FixedString(10000))))
-    let type_ = Type::parse("Array(LowCardinality(Nullable(FixedString(10000))))").unwrap();
+    let type_ =
+        Type::parse("Array(LowCardinality(Nullable(FixedString(10000))))")
+            .unwrap();
     let col = create_column(&type_).unwrap();
 
     // Should create an Array column

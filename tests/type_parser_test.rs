@@ -1,7 +1,10 @@
 // Type parser tests ported from clickhouse-cpp ut/type_parser_ut.cpp
 // These tests verify that we can correctly parse all ClickHouse type strings
 
-use clickhouse_client::types::{Type, TypeCode};
+use clickhouse_client::types::{
+    Type,
+    TypeCode,
+};
 
 #[test]
 fn test_parse_terminals() {
@@ -21,7 +24,8 @@ fn test_parse_terminals() {
 
 #[test]
 fn test_parse_fixed_string() {
-    let t = Type::parse("FixedString(24)").expect("Failed to parse FixedString");
+    let t =
+        Type::parse("FixedString(24)").expect("Failed to parse FixedString");
     assert_eq!(t.code(), TypeCode::FixedString);
     assert_eq!(t.name(), "FixedString(24)");
 
@@ -84,7 +88,8 @@ fn test_parse_enum8_simple() {
 
 #[test]
 fn test_parse_enum8_complex() {
-    // Test from C++: Enum8('COLOR_red_10_T' = -12, 'COLOR_green_20_T'=-25, 'COLOR_blue_30_T'= 53, 'COLOR_black_30_T' = 107)
+    // Test from C++: Enum8('COLOR_red_10_T' = -12, 'COLOR_green_20_T'=-25,
+    // 'COLOR_blue_30_T'= 53, 'COLOR_black_30_T' = 107)
     let type_str = "Enum8('COLOR_red_10_T' = -12, 'COLOR_green_20_T'=-25, 'COLOR_blue_30_T'= 53, 'COLOR_black_30_T' = 107)";
     let t = Type::parse(type_str).expect("Failed to parse complex Enum8");
 
@@ -106,7 +111,8 @@ fn test_parse_enum8_complex() {
 
 #[test]
 fn test_parse_tuple() {
-    let t = Type::parse("Tuple(UInt8, String)").expect("Failed to parse Tuple");
+    let t =
+        Type::parse("Tuple(UInt8, String)").expect("Failed to parse Tuple");
     assert_eq!(t.code(), TypeCode::Tuple);
 
     match t {
@@ -201,7 +207,8 @@ fn test_parse_datetime_utc() {
 
 #[test]
 fn test_parse_datetime_europe_minsk() {
-    let t = Type::parse("DateTime('Europe/Minsk')").expect("Failed to parse DateTime");
+    let t = Type::parse("DateTime('Europe/Minsk')")
+        .expect("Failed to parse DateTime");
     assert_eq!(t.code(), TypeCode::DateTime);
 
     match t {
@@ -214,7 +221,8 @@ fn test_parse_datetime_europe_minsk() {
 
 #[test]
 fn test_parse_datetime64() {
-    let t = Type::parse("DateTime64(3, 'UTC')").expect("Failed to parse DateTime64");
+    let t = Type::parse("DateTime64(3, 'UTC')")
+        .expect("Failed to parse DateTime64");
     assert_eq!(t.code(), TypeCode::DateTime64);
 
     match t {
@@ -228,7 +236,8 @@ fn test_parse_datetime64() {
 
 #[test]
 fn test_parse_low_cardinality_string() {
-    let t = Type::parse("LowCardinality(String)").expect("Failed to parse LowCardinality");
+    let t = Type::parse("LowCardinality(String)")
+        .expect("Failed to parse LowCardinality");
     assert_eq!(t.code(), TypeCode::LowCardinality);
 
     match t {
@@ -242,7 +251,8 @@ fn test_parse_low_cardinality_string() {
 
 #[test]
 fn test_parse_low_cardinality_fixed_string() {
-    let t = Type::parse("LowCardinality(FixedString(10))").expect("Failed to parse LowCardinality");
+    let t = Type::parse("LowCardinality(FixedString(10))")
+        .expect("Failed to parse LowCardinality");
     assert_eq!(t.code(), TypeCode::LowCardinality);
 
     match t {
@@ -287,14 +297,12 @@ fn test_parse_complex_nested() {
     // Test complex nested types
     let t = Type::parse("Array(Nullable(String))").expect("Failed to parse");
     match t {
-        Type::Array { item_type } => {
-            match &*item_type {
-                Type::Nullable { nested_type } => {
-                    assert_eq!(nested_type.code(), TypeCode::String);
-                }
-                _ => panic!("Expected Nullable inner type"),
+        Type::Array { item_type } => match &*item_type {
+            Type::Nullable { nested_type } => {
+                assert_eq!(nested_type.code(), TypeCode::String);
             }
-        }
+            _ => panic!("Expected Nullable inner type"),
+        },
         _ => panic!("Expected Array type"),
     }
 }

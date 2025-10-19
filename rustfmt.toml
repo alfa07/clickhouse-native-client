@@ -1,0 +1,7 @@
+ignore = ["third-party/*"]
+imports_granularity = "Crate"
+imports_layout = "Vertical"
+max_width = 79
+merge_derives = false
+use_small_heuristics = "Max"
+wrap_comments = true

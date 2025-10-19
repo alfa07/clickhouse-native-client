@@ -1,6 +1,9 @@
-use crate::column::ColumnRef;
-use crate::types::Type;
-use crate::{Error, Result};
+use crate::{
+    column::ColumnRef,
+    types::Type,
+    Error,
+    Result,
+};
 
 /// Block metadata
 #[derive(Debug, Clone, Default)]
@@ -26,11 +29,7 @@ struct ColumnItem {
 impl Block {
     /// Create a new empty block
     pub fn new() -> Self {
-        Self {
-            columns: Vec::new(),
-            rows: 0,
-            info: BlockInfo::default(),
-        }
+        Self { columns: Vec::new(), rows: 0, info: BlockInfo::default() }
     }
 
     /// Create a block with reserved capacity
@@ -43,7 +42,11 @@ impl Block {
     }
 
     /// Append a named column to the block
-    pub fn append_column(&mut self, name: impl Into<String>, column: ColumnRef) -> Result<()> {
+    pub fn append_column(
+        &mut self,
+        name: impl Into<String>,
+        column: ColumnRef,
+    ) -> Result<()> {
         let name = name.into();
 
         if self.columns.is_empty() {
@@ -143,10 +146,7 @@ impl Block {
 
     /// Iterate over columns
     pub fn iter(&self) -> BlockIterator<'_> {
-        BlockIterator {
-            block: self,
-            index: 0,
-        }
+        BlockIterator { block: self, index: 0 }
     }
 
     /// Check if block is empty
@@ -174,11 +174,7 @@ impl<'a> Iterator for BlockIterator<'a> {
         if self.index < self.block.columns.len() {
             let item = &self.block.columns[self.index];
             self.index += 1;
-            Some((
-                &item.name,
-                item.column.column_type(),
-                item.column.clone(),
-            ))
+            Some((&item.name, item.column.column_type(), item.column.clone()))
         } else {
             None
         }
@@ -215,8 +211,10 @@ impl std::ops::Index<usize> for Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::column::numeric::ColumnUInt64;
-    use crate::types::Type;
+    use crate::{
+        column::numeric::ColumnUInt64,
+        types::Type,
+    };
     use std::sync::Arc;
 
     #[test]
@@ -345,10 +343,7 @@ mod tests {
     fn test_block_info() {
         let mut block = Block::new();
 
-        let info = BlockInfo {
-            is_overflows: 1,
-            bucket_num: 42,
-        };
+        let info = BlockInfo { is_overflows: 1, bucket_num: 42 };
 
         block.set_info(info.clone());
 

@@ -10,14 +10,25 @@
 //!
 //! **Correct usage:**
 //! - ✅ `Array(Nullable(...))` - Nullable elements inside array
-//! - ✅ `LowCardinality(Nullable(...))` - Nullable values with dictionary encoding
+//! - ✅ `LowCardinality(Nullable(...))` - Nullable values with dictionary
+//!   encoding
 //!
 //! See: <https://github.com/ClickHouse/ClickHouse/issues/1062>
 
-use super::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, BytesMut};
+use super::{
+    Column,
+    ColumnRef,
+};
+use crate::{
+    types::Type,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for nullable values
@@ -44,42 +55,32 @@ impl ColumnNullable {
         // Extract nested type and create nested column
         let nested = match &type_ {
             Type::Nullable { nested_type } => {
-                crate::io::block_stream::create_column(nested_type).expect("Failed to create nested column")
+                crate::io::block_stream::create_column(nested_type)
+                    .expect("Failed to create nested column")
             }
             _ => panic!("ColumnNullable requires Nullable type"),
         };
 
-        Self {
-            type_,
-            nested,
-            nulls: Vec::new(),
-        }
+        Self { type_, nested, nulls: Vec::new() }
     }
 
     /// Create a new nullable column wrapping an existing nested column
     pub fn with_nested(nested: ColumnRef) -> Self {
         let nested_type = nested.column_type().clone();
-        Self {
-            type_: Type::nullable(nested_type),
-            nested,
-            nulls: Vec::new(),
-        }
+        Self { type_: Type::nullable(nested_type), nested, nulls: Vec::new() }
     }
 
     /// Create with reserved capacity
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         let nested = match &type_ {
             Type::Nullable { nested_type } => {
-                crate::io::block_stream::create_column(nested_type).expect("Failed to create nested column")
+                crate::io::block_stream::create_column(nested_type)
+                    .expect("Failed to create nested column")
             }
             _ => panic!("ColumnNullable requires Nullable type"),
         };
 
-        Self {
-            type_,
-            nested,
-            nulls: Vec::with_capacity(capacity),
-        }
+        Self { type_, nested, nulls: Vec::with_capacity(capacity) }
     }
 
     /// Append a null value
@@ -87,7 +88,8 @@ impl ColumnNullable {
         self.nulls.push(1);
     }
 
-    /// Append a non-null value (the nested column should be updated separately)
+    /// Append a non-null value (the nested column should be updated
+    /// separately)
     pub fn append_non_null(&mut self) {
         self.nulls.push(0);
     }
@@ -119,17 +121,23 @@ impl ColumnNullable {
         match value {
             None => {
                 self.append_null();
-                // Still need to add a placeholder to nested column to keep indices aligned
+                // Still need to add a placeholder to nested column to keep
+                // indices aligned
                 if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
-                    if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>() {
-                        col.append(0); // Placeholder value (ignored due to null flag)
+                    if let Some(col) =
+                        nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
+                    {
+                        col.append(0); // Placeholder value (ignored due to
+                                       // null flag)
                     }
                 }
             }
             Some(val) => {
                 self.append_non_null();
                 if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
-                    if let Some(col) = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>() {
+                    if let Some(col) =
+                        nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
+                    {
                         col.append(val);
                     }
                 }
@@ -143,7 +151,8 @@ impl ColumnNullable {
     }
 
     /// Get a reference to the value at the given index
-    /// Returns the nested column for accessing the value (check is_null first!)
+    /// Returns the nested column for accessing the value (check is_null
+    /// first!)
     pub fn at(&self, _index: usize) -> ColumnRef {
         self.nested.clone()
     }
@@ -170,7 +179,8 @@ impl Column for ColumnNullable {
 
     fn clear(&mut self) {
         self.nulls.clear();
-        // Note: We can't clear nested due to Arc, but this is a known limitation
+        // Note: We can't clear nested due to Arc, but this is a known
+        // limitation
     }
 
     fn reserve(&mut self, new_cap: usize) {
@@ -187,7 +197,9 @@ impl Column for ColumnNullable {
             })?;
 
         // Check that nested types match
-        if self.nested.column_type().name() != other.nested.column_type().name() {
+        if self.nested.column_type().name()
+            != other.nested.column_type().name()
+        {
             return Err(Error::TypeMismatch {
                 expected: self.nested.column_type().name(),
                 actual: other.nested.column_type().name(),
@@ -198,7 +210,11 @@ impl Column for ColumnNullable {
         Ok(())
     }
 
-    fn load_from_buffer(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
         // Read null bitmap (one byte per row)
         if buffer.len() < rows {
             return Err(Error::Protocol(format!(
@@ -213,15 +229,16 @@ impl Column for ColumnNullable {
 
         // Now we need to load the nested column data
         // But we can't call load_from_buffer on nested due to Arc immutability
-        // This is a design limitation - in practice, we'd need interior mutability
-        // For now, we'll document this limitation
+        // This is a design limitation - in practice, we'd need interior
+        // mutability For now, we'll document this limitation
 
         Ok(())
     }
 
     fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
         // Delegate to nested column's save_prefix
-        // This is critical for nested types like LowCardinality that write version info
+        // This is critical for nested types like LowCardinality that write
+        // version info
         self.nested.save_prefix(buffer)
     }
 
@@ -270,9 +287,13 @@ impl Column for ColumnNullable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::column::numeric::ColumnUInt64;
-    use crate::column::string::ColumnString;
-    use crate::types::Type;
+    use crate::{
+        column::{
+            numeric::ColumnUInt64,
+            string::ColumnString,
+        },
+        types::Type,
+    };
 
     #[test]
     fn test_nullable_creation() {
@@ -367,7 +388,8 @@ mod tests {
         }
 
         let sliced = col.slice(2, 5).unwrap();
-        let sliced_col = sliced.as_any().downcast_ref::<ColumnNullable>().unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnNullable>().unwrap();
 
         assert_eq!(sliced_col.size(), 5);
         assert!(sliced_col.is_null(0)); // index 2 in original

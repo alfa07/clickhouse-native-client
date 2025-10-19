@@ -1,9 +1,18 @@
-use crate::protocol::CompressionMethod;
-use crate::{Error, Result};
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use crate::{
+    protocol::CompressionMethod,
+    Error,
+    Result,
+};
+use bytes::{
+    Buf,
+    BufMut,
+    Bytes,
+    BytesMut,
+};
 use cityhash_rs::cityhash_102_128;
 
-/// Compression header size (9 bytes: 1 byte method + 4 bytes compressed + 4 bytes uncompressed)
+/// Compression header size (9 bytes: 1 byte method + 4 bytes compressed + 4
+/// bytes uncompressed)
 const HEADER_SIZE: usize = 9;
 
 /// Checksum size (16 bytes for CityHash128)
@@ -40,7 +49,8 @@ pub fn decompress(data: &[u8]) -> Result<Bytes> {
         ));
     }
 
-    // Skip checksum (first 16 bytes) - we could verify it but for now we trust the TCP layer
+    // Skip checksum (first 16 bytes) - we could verify it but for now we trust
+    // the TCP layer
     let data_without_checksum = &data[CHECKSUM_SIZE..];
 
     let method = data_without_checksum[0];
@@ -100,17 +110,14 @@ fn compress_lz4(data: &[u8]) -> Result<Bytes> {
     let max_compressed_size = lz4::block::compress_bound(data.len())?;
     let mut compressed = vec![0u8; max_compressed_size];
 
-    let compressed_size = lz4::block::compress_to_buffer(
-        data,
-        None,
-        false,
-        &mut compressed,
-    )?;
+    let compressed_size =
+        lz4::block::compress_to_buffer(data, None, false, &mut compressed)?;
 
     compressed.truncate(compressed_size);
 
     // Build header + compressed data
-    let mut header_and_data = BytesMut::with_capacity(HEADER_SIZE + compressed_size);
+    let mut header_and_data =
+        BytesMut::with_capacity(HEADER_SIZE + compressed_size);
 
     // Write header
     header_and_data.put_u8(CompressionMethodByte::LZ4 as u8);
@@ -124,8 +131,10 @@ fn compress_lz4(data: &[u8]) -> Result<Bytes> {
     let checksum = cityhash_102_128(&header_and_data);
 
     // Build final output with checksum
-    // CityHash128 returns u128, write as (high64, low64) - reverse of typical order
-    let mut output = BytesMut::with_capacity(CHECKSUM_SIZE + header_and_data.len());
+    // CityHash128 returns u128, write as (high64, low64) - reverse of typical
+    // order
+    let mut output =
+        BytesMut::with_capacity(CHECKSUM_SIZE + header_and_data.len());
     output.put_u64_le((checksum >> 64) as u64); // High 64 bits first
     output.put_u64_le(checksum as u64); // Low 64 bits second
     output.put_slice(&header_and_data);
@@ -135,7 +144,8 @@ fn compress_lz4(data: &[u8]) -> Result<Bytes> {
 
 /// Decompress LZ4 data
 fn decompress_lz4(data: &[u8], uncompressed_size: usize) -> Result<Bytes> {
-    let decompressed = lz4::block::decompress(data, Some(uncompressed_size as i32))?;
+    let decompressed =
+        lz4::block::decompress(data, Some(uncompressed_size as i32))?;
 
     if decompressed.len() != uncompressed_size {
         return Err(Error::Compression(format!(
@@ -151,10 +161,13 @@ fn decompress_lz4(data: &[u8], uncompressed_size: usize) -> Result<Bytes> {
 /// Compress using ZSTD
 fn compress_zstd(data: &[u8]) -> Result<Bytes> {
     let compressed = zstd::bulk::compress(data, 3) // Compression level 3
-        .map_err(|e| Error::Compression(format!("ZSTD compression failed: {}", e)))?;
+        .map_err(|e| {
+            Error::Compression(format!("ZSTD compression failed: {}", e))
+        })?;
 
     // Build header + compressed data
-    let mut header_and_data = BytesMut::with_capacity(HEADER_SIZE + compressed.len());
+    let mut header_and_data =
+        BytesMut::with_capacity(HEADER_SIZE + compressed.len());
 
     // Write header
     header_and_data.put_u8(CompressionMethodByte::ZSTD as u8);
@@ -168,8 +181,10 @@ fn compress_zstd(data: &[u8]) -> Result<Bytes> {
     let checksum = cityhash_102_128(&header_and_data);
 
     // Build final output with checksum
-    // CityHash128 returns u128, write as (high64, low64) - reverse of typical order
-    let mut output = BytesMut::with_capacity(CHECKSUM_SIZE + header_and_data.len());
+    // CityHash128 returns u128, write as (high64, low64) - reverse of typical
+    // order
+    let mut output =
+        BytesMut::with_capacity(CHECKSUM_SIZE + header_and_data.len());
     output.put_u64_le((checksum >> 64) as u64); // High 64 bits first
     output.put_u64_le(checksum as u64); // Low 64 bits second
     output.put_slice(&header_and_data);
@@ -180,7 +195,9 @@ fn compress_zstd(data: &[u8]) -> Result<Bytes> {
 /// Decompress ZSTD data
 fn decompress_zstd(data: &[u8], uncompressed_size: usize) -> Result<Bytes> {
     let decompressed = zstd::bulk::decompress(data, uncompressed_size)
-        .map_err(|e| Error::Compression(format!("ZSTD decompression failed: {}", e)))?;
+        .map_err(|e| {
+            Error::Compression(format!("ZSTD decompression failed: {}", e))
+        })?;
 
     if decompressed.len() != uncompressed_size {
         return Err(Error::Compression(format!(
@@ -196,7 +213,8 @@ fn decompress_zstd(data: &[u8], uncompressed_size: usize) -> Result<Bytes> {
 /// No compression (just adds header)
 fn compress_none(data: &[u8]) -> Result<Bytes> {
     // Build header + data
-    let mut header_and_data = BytesMut::with_capacity(HEADER_SIZE + data.len());
+    let mut header_and_data =
+        BytesMut::with_capacity(HEADER_SIZE + data.len());
 
     // Write header
     header_and_data.put_u8(CompressionMethodByte::None as u8);
@@ -210,7 +228,8 @@ fn compress_none(data: &[u8]) -> Result<Bytes> {
     let checksum = cityhash_102_128(&header_and_data);
 
     // Build final output with checksum
-    let mut output = BytesMut::with_capacity(CHECKSUM_SIZE + header_and_data.len());
+    let mut output =
+        BytesMut::with_capacity(CHECKSUM_SIZE + header_and_data.len());
     output.put_u128_le(checksum); // CityHash128 as little-endian u128
     output.put_slice(&header_and_data);
 
@@ -246,7 +265,9 @@ mod tests {
 
     #[test]
     fn test_compress_decompress_zstd() {
-        let original = b"ClickHouse is a fast open-source column-oriented database".repeat(50);
+        let original =
+            b"ClickHouse is a fast open-source column-oriented database"
+                .repeat(50);
 
         let compressed = compress(CompressionMethod::ZSTD, &original).unwrap();
         let decompressed = decompress(&compressed).unwrap();

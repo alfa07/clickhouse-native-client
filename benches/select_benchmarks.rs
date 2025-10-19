@@ -1,18 +1,28 @@
 //! SELECT Query Benchmarks
 //!
-//! These benchmarks match the C++ benchmark suite in cpp/clickhouse-cpp/bench/bench.cpp
-//! to allow direct performance comparison between Rust and C++ implementations.
+//! These benchmarks match the C++ benchmark suite in
+//! cpp/clickhouse-cpp/bench/bench.cpp to allow direct performance comparison
+//! between Rust and C++ implementations.
 //!
 //! ## Benchmarks:
 //! - SelectNumber: SELECT 1000 rows with 3 columns from system.numbers
-//! - SelectNumberMoreColumns: SELECT 100 rows with 10 columns (type parsing stress test)
+//! - SelectNumberMoreColumns: SELECT 100 rows with 10 columns (type parsing
+//!   stress test)
 //!
 //! ## Prerequisites:
 //! 1. ClickHouse server running on localhost:9000
 //! 2. Run with: `cargo bench --bench select_benchmarks`
 
-use clickhouse_client::{Client, ClientOptions};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use clickhouse_client::{
+    Client,
+    ClientOptions,
+};
+use criterion::{
+    black_box,
+    criterion_group,
+    criterion_main,
+    Criterion,
+};
 use tokio::runtime::Runtime;
 
 /// Create a test client connected to localhost (async version)
@@ -33,8 +43,10 @@ async fn create_client() -> Client {
 /// Tests basic query throughput with moderate row count
 /// NOW WITH CONNECTION REUSE (fair comparison to C++)
 fn select_number(c: &mut Criterion) {
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::{
+        cell::RefCell,
+        rc::Rc,
+    };
 
     let rt = Runtime::new().unwrap();
     // Create client ONCE and wrap in Rc<RefCell<>> for interior mutability
@@ -64,8 +76,10 @@ fn select_number(c: &mut Criterion) {
 /// Tests type name parsing performance with many columns
 /// NOW WITH CONNECTION REUSE (fair comparison to C++)
 fn select_number_more_columns(c: &mut Criterion) {
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::{
+        cell::RefCell,
+        rc::Rc,
+    };
 
     let rt = Runtime::new().unwrap();
     // Create client ONCE and wrap in Rc<RefCell<>> for interior mutability
@@ -82,7 +96,7 @@ fn select_number_more_columns(c: &mut Criterion) {
                         "SELECT \
                         number, number, number, number, number, \
                         number, number, number, number, number \
-                        FROM system.numbers LIMIT 100"
+                        FROM system.numbers LIMIT 100",
                     )
                     .await
                     .expect("Query failed");
@@ -99,8 +113,10 @@ fn select_number_more_columns(c: &mut Criterion) {
 /// Additional benchmark: Tests performance with larger data transfer
 /// NOW WITH CONNECTION REUSE (fair comparison to C++)
 fn select_large_result(c: &mut Criterion) {
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::{
+        cell::RefCell,
+        rc::Rc,
+    };
 
     let rt = Runtime::new().unwrap();
     // Create client ONCE and wrap in Rc<RefCell<>> for interior mutability
