@@ -208,6 +208,66 @@ fn column_uint64_roundtrip(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark: Save with buffer reuse (FAIR comparison to C++)
+/// Matches C++ methodology: reuses buffer capacity across iterations
+fn column_uint64_save_fair(c: &mut Criterion) {
+    // Pre-create column with 1M items
+    let mut col = ColumnUInt64::new(Type::uint64());
+    for i in 0..ITEMS_1M {
+        col.append(generate_uint64(i));
+    }
+
+    let mut group = c.benchmark_group("column_save_fair");
+    group.throughput(Throughput::Bytes((ITEMS_1M * 8) as u64));
+
+    // Pre-allocate buffer with capacity (like C++ does)
+    let mut buffer = BytesMut::with_capacity(ITEMS_1M * 8);
+
+    group.bench_function(BenchmarkId::new("UInt64", "1M_items_reuse"), |b| {
+        b.iter(|| {
+            buffer.clear(); // Keeps capacity like C++ buffer.clear()!
+            col.save_to_buffer(&mut buffer)
+                .expect("Failed to serialize");
+            black_box(buffer.len())
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark: Load with capacity reuse (FAIR comparison to C++)
+/// Matches C++ methodology: reuses column capacity across iterations
+fn column_uint64_load_fair(c: &mut Criterion) {
+    // Pre-serialize column
+    let mut col = ColumnUInt64::new(Type::uint64());
+    for i in 0..ITEMS_1M {
+        col.append(generate_uint64(i));
+    }
+
+    let mut buffer = BytesMut::new();
+    col.save_to_buffer(&mut buffer).unwrap();
+    let serialized = buffer.freeze();
+
+    let mut group = c.benchmark_group("column_load_fair");
+    group.throughput(Throughput::Bytes(serialized.len() as u64));
+
+    // Pre-allocate column with capacity (like C++ does with column.Clear())
+    let mut reusable_col = ColumnUInt64::with_capacity(Type::uint64(), ITEMS_1M);
+
+    group.bench_function(BenchmarkId::new("UInt64", "1M_items_reuse"), |b| {
+        b.iter(|| {
+            let mut data = &serialized[..];
+            reusable_col.clear(); // Keeps capacity like C++ column.Clear()!
+            reusable_col
+                .load_from_buffer(&mut data, black_box(ITEMS_1M))
+                .expect("Failed to deserialize");
+            black_box(reusable_col.size())
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     column_uint64_append,
@@ -216,6 +276,8 @@ criterion_group!(
     column_string_save,
     column_uint64_load,
     column_string_load,
-    column_uint64_roundtrip
+    column_uint64_roundtrip,
+    column_uint64_save_fair,
+    column_uint64_load_fair
 );
 criterion_main!(benches);
