@@ -154,9 +154,10 @@ impl ColumnArray {
         let len = array_data.size() as u64;
 
         // Append the array data to nested column
-        if let Some(nested_mut) = Arc::get_mut(&mut self.nested) {
-            let _ = nested_mut.append_column(array_data);
-        }
+        let nested_mut = Arc::get_mut(&mut self.nested)
+            .expect("Cannot append to shared array column - column has multiple references");
+        nested_mut.append_column(array_data)
+            .expect("Failed to append array data to nested column");
 
         // Update offsets
         self.append_len(len);
