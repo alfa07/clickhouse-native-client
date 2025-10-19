@@ -471,6 +471,50 @@ pub struct Profile {
     pub calculated_rows_before_limit: bool,
 }
 
+/// External table for JOIN operations
+///
+/// External tables allow passing temporary in-memory data to queries for JOINs
+/// without creating actual tables in ClickHouse.
+///
+/// # Example
+/// ```no_run
+/// # use clickhouse_client::{Client, ClientOptions, Block, ExternalTable};
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let mut client = Client::connect(ClientOptions::default()).await?;
+/// // Create a block with temporary data
+/// let mut block = Block::new();
+/// // ... populate block with data ...
+///
+/// // Create external table
+/// let ext_table = ExternalTable {
+///     name: "temp_table".to_string(),
+///     data: block,
+/// };
+///
+/// // Use in query with JOIN
+/// let query = "SELECT * FROM my_table JOIN temp_table ON my_table.id = temp_table.id";
+/// // client.select_with_external_data(query, vec![ext_table]).await?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
+pub struct ExternalTable {
+    /// Name of the temporary table (used in SQL query)
+    pub name: String,
+    /// Data block containing the table data
+    pub data: Block,
+}
+
+impl ExternalTable {
+    /// Create a new external table
+    pub fn new(name: impl Into<String>, data: Block) -> Self {
+        Self {
+            name: name.into(),
+            data,
+        }
+    }
+}
+
 /// Callback types for query execution
 pub type ProgressCallback = Arc<dyn Fn(&Progress) + Send + Sync>;
 pub type ProfileCallback = Arc<dyn Fn(&Profile) + Send + Sync>;
