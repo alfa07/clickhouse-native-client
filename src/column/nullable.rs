@@ -121,10 +121,13 @@ impl ColumnNullable {
         match value {
             None => {
                 self.append_null();
-                // Still need to add a placeholder to nested column to keep indices aligned
+                // Still need to add a placeholder to nested column to keep
+                // indices aligned
                 let nested_mut = Arc::get_mut(&mut self.nested)
                     .expect("Cannot append to shared nullable column - column has multiple references");
-                let col = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
+                let col = nested_mut
+                    .as_any_mut()
+                    .downcast_mut::<ColumnUInt32>()
                     .expect("Nullable nested column is not UInt32");
                 col.append(0); // Placeholder value (ignored due to null flag)
             }
@@ -132,7 +135,9 @@ impl ColumnNullable {
                 self.append_non_null();
                 let nested_mut = Arc::get_mut(&mut self.nested)
                     .expect("Cannot append to shared nullable column - column has multiple references");
-                let col = nested_mut.as_any_mut().downcast_mut::<ColumnUInt32>()
+                let col = nested_mut
+                    .as_any_mut()
+                    .downcast_mut::<ColumnUInt32>()
                     .expect("Nullable nested column is not UInt32");
                 col.append(val);
             }
@@ -174,7 +179,8 @@ impl Column for ColumnNullable {
     fn clear(&mut self) {
         self.nulls.clear();
         // CRITICAL: Must also clear nested data to maintain consistency
-        // If we clear null bitmap but not nested data, the column is in a corrupt state
+        // If we clear null bitmap but not nested data, the column is in a
+        // corrupt state
         let nested_mut = Arc::get_mut(&mut self.nested)
             .expect("Cannot clear shared nullable column - column has multiple references");
         nested_mut.clear();
@@ -207,7 +213,8 @@ impl Column for ColumnNullable {
         self.nulls.extend_from_slice(&other.nulls);
 
         // CRITICAL: Must also append the nested data!
-        // Without this, null flags are correct but values are missing → DATA LOSS
+        // Without this, null flags are correct but values are missing → DATA
+        // LOSS
         let nested_mut = Arc::get_mut(&mut self.nested)
             .ok_or_else(|| Error::Protocol(
                 "Cannot append to shared nullable column - column has multiple references".to_string()
@@ -235,7 +242,8 @@ impl Column for ColumnNullable {
         buffer.advance(rows);
 
         // CRITICAL: Must also load the nested column data
-        // The nested column has exactly `rows` elements (including placeholders for nulls)
+        // The nested column has exactly `rows` elements (including
+        // placeholders for nulls)
         if rows > 0 {
             let nested_mut = Arc::get_mut(&mut self.nested)
                 .ok_or_else(|| Error::Protocol(
@@ -366,7 +374,10 @@ mod tests {
 
     #[test]
     fn test_nullable_load_null_bitmap() {
-        use bytes::{BufMut, BytesMut};
+        use bytes::{
+            BufMut,
+            BytesMut,
+        };
 
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
         let mut col = ColumnNullable::with_nested(nested);
@@ -462,18 +473,23 @@ mod tests {
         use crate::column::numeric::ColumnUInt32;
 
         // Create first nullable column: [Some(1), None, Some(3)]
-        let mut col1 = ColumnNullable::with_nested(Arc::new(ColumnUInt32::new(Type::uint32())));
+        let mut col1 = ColumnNullable::with_nested(Arc::new(
+            ColumnUInt32::new(Type::uint32()),
+        ));
         col1.append_nullable(Some(1));
         col1.append_nullable(None);
         col1.append_nullable(Some(3));
 
         // Create second nullable column: [None, Some(5)]
-        let mut col2 = ColumnNullable::with_nested(Arc::new(ColumnUInt32::new(Type::uint32())));
+        let mut col2 = ColumnNullable::with_nested(Arc::new(
+            ColumnUInt32::new(Type::uint32()),
+        ));
         col2.append_nullable(None);
         col2.append_nullable(Some(5));
 
         // Append col2 to col1
-        col1.append_column(Arc::new(col2)).expect("append_column should succeed");
+        col1.append_column(Arc::new(col2))
+            .expect("append_column should succeed");
 
         // Verify we have 5 elements total
         assert_eq!(col1.size(), 5, "Should have 5 elements after append");
@@ -486,21 +502,36 @@ mod tests {
         assert!(!col1.is_null(4), "Element 4 should not be null (value=5)");
 
         // CRITICAL: Verify nested data was actually appended
-        // The nested column should have 5 elements (including placeholders for nulls)
-        let nested = col1.nested.as_any().downcast_ref::<ColumnUInt32>().unwrap();
-        assert_eq!(nested.size(), 5, "Nested column should have 5 total elements");
+        // The nested column should have 5 elements (including placeholders for
+        // nulls)
+        let nested =
+            col1.nested.as_any().downcast_ref::<ColumnUInt32>().unwrap();
+        assert_eq!(
+            nested.size(),
+            5,
+            "Nested column should have 5 total elements"
+        );
 
         // Verify null bitmap is correct: [0, 1, 0, 1, 0]
-        assert_eq!(col1.nulls(), &[0, 1, 0, 1, 0], "Null bitmap should be [0, 1, 0, 1, 0]");
+        assert_eq!(
+            col1.nulls(),
+            &[0, 1, 0, 1, 0],
+            "Null bitmap should be [0, 1, 0, 1, 0]"
+        );
     }
 
     #[test]
-    #[should_panic(expected = "Cannot clear shared nullable column - column has multiple references")]
+    #[should_panic(
+        expected = "Cannot clear shared nullable column - column has multiple references"
+    )]
     fn test_nullable_clear_panics_on_shared_nested() {
         use crate::column::numeric::ColumnUInt32;
 
-        // Create a nullable column and add data BEFORE sharing the nested column
-        let mut col = ColumnNullable::with_nested(Arc::new(ColumnUInt32::new(Type::uint32())));
+        // Create a nullable column and add data BEFORE sharing the nested
+        // column
+        let mut col = ColumnNullable::with_nested(Arc::new(
+            ColumnUInt32::new(Type::uint32()),
+        ));
         col.append_nullable(Some(1));
         col.append_nullable(None);
         col.append_nullable(Some(3));
@@ -509,7 +540,8 @@ mod tests {
         let _shared_ref = col.nested.clone();
 
         // Now nested has multiple Arc references, so clear() MUST panic
-        // to prevent data corruption (clearing null bitmap but not nested data)
+        // to prevent data corruption (clearing null bitmap but not nested
+        // data)
         col.clear();
     }
 
@@ -519,7 +551,9 @@ mod tests {
         use bytes::BytesMut;
 
         // Create nullable column with data: [Some(1), None, Some(3)]
-        let mut col = ColumnNullable::with_nested(Arc::new(ColumnUInt32::new(Type::uint32())));
+        let mut col = ColumnNullable::with_nested(Arc::new(
+            ColumnUInt32::new(Type::uint32()),
+        ));
         col.append_nullable(Some(1));
         col.append_nullable(None);
         col.append_nullable(Some(3));
@@ -535,7 +569,9 @@ mod tests {
         let mut col_loaded = ColumnNullable::with_nested(nested_empty);
 
         let mut buf_slice = &buffer[..];
-        col_loaded.load_from_buffer(&mut buf_slice, 3).expect("load should succeed");
+        col_loaded
+            .load_from_buffer(&mut buf_slice, 3)
+            .expect("load should succeed");
 
         // Verify structure
         assert_eq!(col_loaded.size(), 3, "Loaded should have 3 elements");
@@ -546,10 +582,15 @@ mod tests {
         assert!(!col_loaded.is_null(2), "Element 2 should not be null");
 
         // CRITICAL: Verify nested data was actually loaded
-        let nested_loaded = col_loaded.nested.as_any().downcast_ref::<ColumnUInt32>().unwrap();
-        assert_eq!(nested_loaded.size(), 3, "Nested should have 3 elements after load");
+        let nested_loaded =
+            col_loaded.nested.as_any().downcast_ref::<ColumnUInt32>().unwrap();
+        assert_eq!(
+            nested_loaded.size(),
+            3,
+            "Nested should have 3 elements after load"
+        );
 
-        // Note: We can't easily verify the actual values without a getter method,
-        // but the size check proves the data was loaded
+        // Note: We can't easily verify the actual values without a getter
+        // method, but the size check proves the data was loaded
     }
 }
