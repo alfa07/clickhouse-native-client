@@ -1,6 +1,12 @@
-use crate::column::{Column, ColumnRef};
-use crate::types::Type;
-use crate::{Error, Result};
+use crate::{
+    column::{
+        Column,
+        ColumnRef,
+    },
+    types::Type,
+    Error,
+    Result,
+};
 use std::sync::Arc;
 
 /// Block metadata
@@ -80,7 +86,10 @@ impl Block {
     /// Get mutable access to column by index
     /// Returns None if index is out of bounds
     /// Panics if the column has multiple references
-    pub fn column_mut(&mut self, index: usize) -> Option<&mut (dyn Column + '_)> {
+    pub fn column_mut(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut (dyn Column + '_)> {
         let item = self.columns.get_mut(index)?;
         Some(Arc::get_mut(&mut item.column)
             .expect("Cannot get mutable access to shared column - column has multiple references"))
@@ -102,10 +111,11 @@ impl Block {
     /// Get mutable access to column by name
     /// Returns None if column with given name is not found
     /// Panics if the column has multiple references
-    pub fn column_by_name_mut(&mut self, name: &str) -> Option<&mut (dyn Column + '_)> {
-        let item = self.columns
-            .iter_mut()
-            .find(|item| item.name == name)?;
+    pub fn column_by_name_mut(
+        &mut self,
+        name: &str,
+    ) -> Option<&mut (dyn Column + '_)> {
+        let item = self.columns.iter_mut().find(|item| item.name == name)?;
         Some(Arc::get_mut(&mut item.column)
             .expect("Cannot get mutable access to shared column - column has multiple references"))
     }
@@ -380,7 +390,8 @@ mod tests {
         let col_mut = block.column_mut(0).expect("Should get mutable access");
 
         // Can use it to append data
-        let col_u64 = col_mut.as_any_mut().downcast_mut::<ColumnUInt64>().unwrap();
+        let col_u64 =
+            col_mut.as_any_mut().downcast_mut::<ColumnUInt64>().unwrap();
         col_u64.append(100);
 
         // Verify data was appended
@@ -427,10 +438,13 @@ mod tests {
         block.append_column("my_column", Arc::new(col1)).unwrap();
 
         // Should get mutable access since block has exclusive ownership
-        let col_mut = block.column_by_name_mut("my_column").expect("Should get mutable access");
+        let col_mut = block
+            .column_by_name_mut("my_column")
+            .expect("Should get mutable access");
 
         // Can use it to append data
-        let col_u64 = col_mut.as_any_mut().downcast_mut::<ColumnUInt64>().unwrap();
+        let col_u64 =
+            col_mut.as_any_mut().downcast_mut::<ColumnUInt64>().unwrap();
         col_u64.append(100);
 
         // Verify data was appended

@@ -169,8 +169,9 @@ fn test_roundtrip_date() {
 // Array Column Roundtrip Tests
 // ============================================================================
 //
-// These tests verify that Array columns properly serialize and deserialize nested data.
-// Fixed: load_from_buffer() now properly loads nested column data using Arc::get_mut.
+// These tests verify that Array columns properly serialize and deserialize
+// nested data. Fixed: load_from_buffer() now properly loads nested column data
+// using Arc::get_mut.
 
 #[test]
 fn test_roundtrip_array_uint64() {
@@ -251,8 +252,9 @@ fn test_roundtrip_array_string() {
 // ============================================================================
 // Nullable Column Roundtrip Tests
 // ============================================================================
-// These tests verify that Nullable columns properly serialize and deserialize nested data.
-// Fixed: load_from_buffer() now properly loads nested column data using Arc::get_mut.
+// These tests verify that Nullable columns properly serialize and deserialize
+// nested data. Fixed: load_from_buffer() now properly loads nested column data
+// using Arc::get_mut.
 
 #[test]
 fn test_roundtrip_nullable_uint32() {
