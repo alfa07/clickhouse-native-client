@@ -1,0 +1,184 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Check Formatting
+        run: cargo +nightly fmt --check
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Unit Tests
+        run: cargo test --lib
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:23.8
+        ports:
+          - 9000:9000
+          - 8123:8123
+        env:
+          CLICKHOUSE_DB: default
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "clickhouse-client --query 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-integration-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Wait for ClickHouse
+        run: |
+          echo "Waiting for ClickHouse to be ready..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8123 > /dev/null; then
+              echo "ClickHouse is ready!"
+              exit 0
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          echo "ClickHouse failed to start"
+          exit 1
+
+      - name: Run Integration Tests
+        run: cargo test --test integration_test -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Advanced Types Tests
+        run: cargo test --test advanced_types_test -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Client Advanced Tests
+        run: cargo test --test client_advanced_test -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Other Integration Tests
+        run: |
+          cargo test --test block_tests -- --ignored --nocapture
+          cargo test --test client_callbacks_test -- --ignored --nocapture
+          cargo test --test client_feature_tests -- --ignored --nocapture
+          cargo test --test column_name_edge_cases_test -- --ignored --nocapture
+          cargo test --test column_tests -- --ignored --nocapture
+          cargo test --test create_column_tests -- --ignored --nocapture
+          cargo test --test date_nothing_column_tests -- --ignored --nocapture
+          cargo test --test edge_cases_test -- --ignored --nocapture
+          cargo test --test error_handling_test -- --ignored --nocapture
+          cargo test --test map_lowcard_geo_tests -- --ignored --nocapture
+          cargo test --test nested_complex_types_test -- --ignored --nocapture
+          cargo test --test query_features_test -- --ignored --nocapture
+          cargo test --test readonly_client_test -- --ignored --nocapture
+          cargo test --test roundtrip_tests -- --ignored --nocapture
+          cargo test --test specialized_column_tests -- --ignored --nocapture
+          cargo test --test type_methods_tests -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+  build:
+    name: Build (Release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build Release
+        run: cargo build --release
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Clippy
+        run: cargo clippy -- -D warnings
