@@ -291,15 +291,15 @@ async fn test_type_mismatch_exception() {
         .expect("Failed to connect to ClickHouse");
 
     // Create table
-    client.query("DROP TABLE IF EXISTS test_type_mismatch").await.ok();
+    client.query("DROP TABLE IF EXISTS test_type_mismatch_edge").await.ok();
     client.query(r#"
-        CREATE TABLE IF NOT EXISTS test_type_mismatch (
+        CREATE TABLE IF NOT EXISTS test_type_mismatch_edge (
             num UInt64
         ) ENGINE = Memory
     "#).await.expect("Failed to create table");
 
     // Try to insert invalid type via SQL
-    let result = client.query("INSERT INTO test_type_mismatch VALUES ('not_a_number')").await;
+    let result = client.query("INSERT INTO test_type_mismatch_edge VALUES ('not_a_number')").await;
 
     // This should either fail or be caught by ClickHouse type conversion
     // The exact error depends on ClickHouse version, so we just check it doesn't panic
@@ -309,7 +309,7 @@ async fn test_type_mismatch_exception() {
     }
 
     // Cleanup
-    client.query("DROP TABLE IF EXISTS test_type_mismatch").await.ok();
+    client.query("DROP TABLE IF EXISTS test_type_mismatch_edge").await.ok();
 }
 
 // ============================================================================
