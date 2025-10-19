@@ -18,13 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust Nightly
-        uses: dtolnay/rust-toolchain@nightly
+      - name: Install Rust Nightly (2025-10-18)
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2025-10-18
           components: rustfmt
 
       - name: Check Formatting
-        run: cargo +nightly fmt --check
+        run: cargo +nightly-2025-10-18 fmt --check
 
   unit-tests:
     name: Unit Tests
