@@ -188,7 +188,18 @@ impl Column for ColumnLowCardinality {
     }
 
     fn reserve(&mut self, new_cap: usize) {
-        self.indices.reserve(new_cap);
+        // Match C++ Reserve implementation with sqrt heuristic
+        // Assumption: dictionary size is typically much smaller than row count
+        // Use sqrt(new_cap) as a reasonable estimate for dictionary size
+        let estimated_dict_size = (new_cap as f64).sqrt().ceil() as usize;
+
+        // Reserve dictionary capacity
+        if let Some(dict_mut) = Arc::get_mut(&mut self.dictionary) {
+            dict_mut.reserve(estimated_dict_size);
+        }
+
+        // Reserve indices capacity (+2 for potential null/default items)
+        self.indices.reserve(new_cap + 2);
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
@@ -650,6 +661,60 @@ mod tests {
         col.clear();
         assert_eq!(col.len(), 0);
         assert!(col.is_empty());
+    }
+
+    #[test]
+    fn test_lowcardinality_reserve() {
+        let lc_type = Type::LowCardinality {
+            nested_type: Box::new(Type::Simple(TypeCode::String)),
+        };
+
+        let mut col = ColumnLowCardinality::new(lc_type);
+
+        // Reserve for 10,000 rows
+        // Expected dictionary size ≈ sqrt(10000) = 100
+        col.reserve(10_000);
+
+        // Verify indices capacity increased
+        assert!(col.indices.capacity() >= 10_000);
+
+        // Add some data to verify reserve didn't break anything
+        use crate::column::column_value::ColumnValue;
+        col.append_unsafe(&ColumnValue::from_string("test")).unwrap();
+        assert_eq!(col.len(), 1);
+        assert_eq!(col.dictionary_size(), 1);
+    }
+
+    #[test]
+    fn test_lowcardinality_reserve_performance() {
+        use crate::column::column_value::ColumnValue;
+
+        let lc_type = Type::LowCardinality {
+            nested_type: Box::new(Type::Simple(TypeCode::String)),
+        };
+
+        // Test that pre-reserving improves performance
+        // (fewer reallocations during insertion)
+
+        let mut col_with_reserve = ColumnLowCardinality::new(lc_type.clone());
+        col_with_reserve.reserve(1000);
+
+        let mut col_without_reserve = ColumnLowCardinality::new(lc_type);
+
+        // Both should work correctly with or without reserve
+        for i in 0..100 {
+            let value = format!("value_{}", i % 10); // 10 unique values, repeated
+            col_with_reserve.append_unsafe(&ColumnValue::from_string(&value)).unwrap();
+            col_without_reserve.append_unsafe(&ColumnValue::from_string(&value)).unwrap();
+        }
+
+        assert_eq!(col_with_reserve.len(), 100);
+        assert_eq!(col_without_reserve.len(), 100);
+        assert_eq!(col_with_reserve.dictionary_size(), 10);
+        assert_eq!(col_without_reserve.dictionary_size(), 10);
+
+        // col_with_reserve should have pre-allocated capacity
+        assert!(col_with_reserve.indices.capacity() >= 1000);
     }
 
     #[test]
