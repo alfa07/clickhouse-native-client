@@ -37,7 +37,6 @@ use super::{
     ColumnRef,
 };
 use crate::{
-    io::buffer_utils,
     types::Type,
     Error,
     Result,
@@ -294,9 +293,12 @@ impl Column for ColumnArray {
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        // Write offsets
+        // Write offsets as fixed UInt64 (not varints!)
+        // Wire format: UInt64 values stored as 8-byte little-endian
+        // This matches load_from_buffer which reads fixed UInt64
+        use bytes::BufMut;
         for &offset in &self.offsets {
-            buffer_utils::write_varint(buffer, offset);
+            buffer.put_u64_le(offset);
         }
 
         // Write nested column data
@@ -453,11 +455,11 @@ mod tests {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
         let mut col = ColumnArray::with_nested(nested);
 
-        // Encode offsets manually: 3, 5, 8 (total 8 nested elements)
+        // Encode offsets manually as fixed UInt64: 3, 5, 8 (total 8 nested elements)
         let mut data = BytesMut::new();
-        buffer_utils::write_varint(&mut data, 3);
-        buffer_utils::write_varint(&mut data, 5);
-        buffer_utils::write_varint(&mut data, 8);
+        data.put_u64_le(3);
+        data.put_u64_le(5);
+        data.put_u64_le(8);
 
         // Must also include nested data (8 UInt64 values)
         for i in 0..8u64 {
