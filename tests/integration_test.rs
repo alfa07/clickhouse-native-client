@@ -1260,7 +1260,9 @@ async fn test_complex_types_array_tuple_map() {
     println!("Test 1: Array columns");
 
     // Drop table if exists to ensure clean state
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array_test", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.array_test", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1286,7 +1288,8 @@ async fn test_complex_types_array_tuple_map() {
         .await
         .expect("Failed to insert array data");
 
-    // Query data (no send_logs_level to avoid custom serialization with complex types)
+    // Query data (no send_logs_level to avoid custom serialization with
+    // complex types)
     let result = client
         .query(format!("SELECT * FROM {}.array_test ORDER BY id", db_name))
         .await
@@ -1298,7 +1301,9 @@ async fn test_complex_types_array_tuple_map() {
     // Test 2: Tuple types
     println!("\nTest 2: Tuple columns");
 
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.tuple_test", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.tuple_test", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1333,7 +1338,9 @@ async fn test_complex_types_array_tuple_map() {
     // Test 3: Map types
     println!("\nTest 3: Map columns");
 
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.map_test", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.map_test", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1369,7 +1376,9 @@ async fn test_complex_types_array_tuple_map() {
     // Test 4: Nested complex types (Array of Tuples)
     println!("\nTest 4: Nested complex types");
 
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.nested_test", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.nested_test", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1393,20 +1402,22 @@ async fn test_complex_types_array_tuple_map() {
         .expect("Failed to insert nested data");
 
     let result = client
-        .query(format!(
-            "SELECT * FROM {}.nested_test ORDER BY id",
-            db_name
-        ))
+        .query(format!("SELECT * FROM {}.nested_test ORDER BY id", db_name))
         .await
         .expect("Failed to query nested data");
 
-    println!("  ✓ Nested Array(Tuple) query succeeded, rows: {}", result.total_rows());
+    println!(
+        "  ✓ Nested Array(Tuple) query succeeded, rows: {}",
+        result.total_rows()
+    );
     assert_eq!(result.total_rows(), 2);
 
     // Test 5: FixedString type
     println!("\nTest 5: FixedString columns");
 
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.fixedstring_test", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.fixedstring_test", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1469,7 +1480,9 @@ async fn test_nested_arrays_arbitrary_depth() {
 
     // Test 1: Array(Array(Int32)) - 2 levels
     println!("Test 1: Array(Array(Int32))");
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array2d", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.array2d", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1498,12 +1511,17 @@ async fn test_nested_arrays_arbitrary_depth() {
         .await
         .expect("Failed to query 2D array data");
 
-    println!("  ✓ Array(Array(Int32)) query succeeded, rows: {}", result.total_rows());
+    println!(
+        "  ✓ Array(Array(Int32)) query succeeded, rows: {}",
+        result.total_rows()
+    );
     assert_eq!(result.total_rows(), 3);
 
     // Test 2: Array(Array(Array(Int32))) - 3 levels
     println!("\nTest 2: Array(Array(Array(Int32)))");
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array3d", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.array3d", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1531,12 +1549,17 @@ async fn test_nested_arrays_arbitrary_depth() {
         .await
         .expect("Failed to query 3D array data");
 
-    println!("  ✓ Array(Array(Array(Int32))) query succeeded, rows: {}", result.total_rows());
+    println!(
+        "  ✓ Array(Array(Array(Int32))) query succeeded, rows: {}",
+        result.total_rows()
+    );
     assert_eq!(result.total_rows(), 2);
 
     // Test 3: Array(Array(String)) - strings in 2D
     println!("\nTest 3: Array(Array(String))");
-    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array2d_str", db_name)).await;
+    let _ = client
+        .execute(format!("DROP TABLE IF EXISTS {}.array2d_str", db_name))
+        .await;
 
     client
         .execute(format!(
@@ -1564,7 +1587,10 @@ async fn test_nested_arrays_arbitrary_depth() {
         .await
         .expect("Failed to query 2D string array data");
 
-    println!("  ✓ Array(Array(String)) query succeeded, rows: {}", result.total_rows());
+    println!(
+        "  ✓ Array(Array(String)) query succeeded, rows: {}",
+        result.total_rows()
+    );
     assert_eq!(result.total_rows(), 2);
 
     // Clean up

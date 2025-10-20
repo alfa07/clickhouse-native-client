@@ -378,7 +378,8 @@ impl BlockReader {
 
                 // Parse the last offset to get total item count
                 // Offsets are cumulative, so last offset = total items
-                let last_offset_bytes = &offsets_data[offsets_data.len() - 8..];
+                let last_offset_bytes =
+                    &offsets_data[offsets_data.len() - 8..];
                 let total_items = u64::from_le_bytes([
                     last_offset_bytes[0],
                     last_offset_bytes[1],
@@ -392,14 +393,16 @@ impl BlockReader {
 
                 // Recursively read nested column data
                 if total_items > 0 {
-                    self.load_column_data_async(conn, item_type, total_items).await?;
+                    self.load_column_data_async(conn, item_type, total_items)
+                        .await?;
                 }
             }
             Type::Tuple { item_types } => {
                 // Tuple wire format: each element serialized sequentially
                 // Read each tuple element's column data
                 for item_type in item_types {
-                    self.load_column_data_async(conn, item_type, num_rows).await?;
+                    self.load_column_data_async(conn, item_type, num_rows)
+                        .await?;
                 }
             }
             Type::Map { key_type, value_type } => {
@@ -414,7 +417,8 @@ impl BlockReader {
                 let offsets_data = conn.read_bytes(num_rows * 8).await?;
 
                 // Parse the last offset to get total number of map entries
-                let last_offset_bytes = &offsets_data[offsets_data.len() - 8..];
+                let last_offset_bytes =
+                    &offsets_data[offsets_data.len() - 8..];
                 let total_entries = u64::from_le_bytes([
                     last_offset_bytes[0],
                     last_offset_bytes[1],
@@ -429,9 +433,15 @@ impl BlockReader {
                 // Read tuple data: key column + value column
                 if total_entries > 0 {
                     // Read key column
-                    self.load_column_data_async(conn, key_type, total_entries).await?;
+                    self.load_column_data_async(conn, key_type, total_entries)
+                        .await?;
                     // Read value column
-                    self.load_column_data_async(conn, value_type, total_entries).await?;
+                    self.load_column_data_async(
+                        conn,
+                        value_type,
+                        total_entries,
+                    )
+                    .await?;
                 }
             }
             Type::FixedString { size } => {
