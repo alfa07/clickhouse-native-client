@@ -113,6 +113,18 @@ pub trait Column: Send + Sync {
     /// Append another column's data to this column
     fn append_column(&mut self, other: ColumnRef) -> Result<()>;
 
+    /// Load column prefix from byte buffer (for types that need prefix data)
+    /// Default implementation is a no-op. Override for types like
+    /// LowCardinality. This matches C++ clickhouse-cpp's LoadPrefix pattern.
+    fn load_prefix(
+        &mut self,
+        _buffer: &mut &[u8],
+        _rows: usize,
+    ) -> Result<()> {
+        // Default: no prefix data to read
+        Ok(())
+    }
+
     /// Load column data from byte buffer
     fn load_from_buffer(
         &mut self,

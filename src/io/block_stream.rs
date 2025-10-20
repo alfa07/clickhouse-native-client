@@ -518,12 +518,16 @@ impl BlockReader {
             let mut column = self.create_column_by_type(&column_type)?;
 
             if num_rows > 0 {
-                // Load column data from buffer
-                Arc::get_mut(&mut column)
-                    .ok_or_else(|| {
+                let column_mut =
+                    Arc::get_mut(&mut column).ok_or_else(|| {
                         Error::Protocol("Column not mutable".to_string())
-                    })?
-                    .load_from_buffer(buffer, num_rows)?;
+                    })?;
+
+                // Load prefix data first (for LowCardinality, etc.)
+                column_mut.load_prefix(buffer, num_rows)?;
+
+                // Load column body data
+                column_mut.load_from_buffer(buffer, num_rows)?;
             }
 
             block.append_column(name, column)?;

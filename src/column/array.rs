@@ -285,6 +285,18 @@ impl Column for ColumnArray {
         Ok(())
     }
 
+    fn load_prefix(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+        // Delegate to nested column's load_prefix
+        // Critical for Array(LowCardinality(X)) to read LowCardinality
+        // key_version before offsets
+        let nested_mut = Arc::get_mut(&mut self.nested).ok_or_else(|| {
+            Error::Protocol(
+                "Cannot load prefix for shared array column".to_string(),
+            )
+        })?;
+        nested_mut.load_prefix(buffer, rows)
+    }
+
     fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
         // Delegate to nested column's save_prefix
         // Critical for Array(LowCardinality(X)) to write LowCardinality
