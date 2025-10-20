@@ -38,6 +38,7 @@
 //!   - LowCardinality cannot be inside Nullable
 
 pub mod array;
+pub mod column_value;
 pub mod date;
 pub mod decimal;
 pub mod enum_column;
