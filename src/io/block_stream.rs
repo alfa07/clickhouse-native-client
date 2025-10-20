@@ -659,14 +659,27 @@ impl BlockWriter {
         conn: &mut Connection,
         block: &Block,
     ) -> Result<()> {
+        self.write_block_with_temp_table(conn, block, true).await
+    }
+
+    /// Write a block to the connection (with optional temp table name)
+    ///
+    /// If `write_temp_table_name` is true, writes an empty temp table name before the block.
+    /// For external tables, set to false since the table name was already written.
+    pub async fn write_block_with_temp_table(
+        &self,
+        conn: &mut Connection,
+        block: &Block,
+        write_temp_table_name: bool,
+    ) -> Result<()> {
         eprintln!(
             "[DEBUG] Writing block: {} columns, {} rows",
             block.column_count(),
             block.row_count()
         );
 
-        // Skip temporary table name if protocol supports it
-        if self.server_revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
+        // Optionally write temporary table name if protocol supports it
+        if write_temp_table_name && self.server_revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
             eprintln!("[DEBUG] Writing empty temp table name");
             conn.write_string("").await?;
         }

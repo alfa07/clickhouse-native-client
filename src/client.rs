@@ -817,11 +817,14 @@ impl Client {
             query = Query::new(query.text()).with_query_id(query_id);
         }
 
-        // Send query
-        self.send_query(&query).await?;
+        // Send query WITHOUT finalization (we'll finalize after external tables)
+        self.send_query_internal(&query, false).await?;
 
-        // Send external tables after the query
+        // Send external tables data (before finalization)
         self.send_external_tables(external_tables).await?;
+
+        // Now finalize the query with empty block
+        self.finalize_query().await?;
 
         // Receive results (same as regular query)
         let mut blocks = Vec::new();
@@ -958,8 +961,13 @@ impl Client {
         Ok(QueryResult { blocks, progress: progress_info })
     }
 
-    /// Send a query packet
+    /// Send a query packet (always finalized)
     async fn send_query(&mut self, query: &Query) -> Result<()> {
+        self.send_query_internal(query, true).await
+    }
+
+    /// Send a query packet (internal with finalization control)
+    async fn send_query_internal(&mut self, query: &Query, finalize: bool) -> Result<()> {
         eprintln!("[DEBUG] Sending query: {}", query.text());
         // Write query code
         self.conn.write_varint(ClientCode::Query as u64).await?;
@@ -1064,6 +1072,20 @@ impl Client {
             self.conn.write_string("").await?;
         }
 
+        // Conditionally finalize based on parameter
+        if finalize {
+            self.finalize_query().await?;
+        }
+
+        Ok(())
+    }
+
+    /// Finalize query by sending empty block marker
+    ///
+    /// Must be called after send_query_internal() to complete the query protocol.
+    /// For most queries, use send_query() which handles this automatically.
+    /// Only split for special cases like external tables.
+    async fn finalize_query(&mut self) -> Result<()> {
         // Send empty block to finalize query (as per C++ client)
         // This block must respect the compression setting we told the server
         eprintln!("[DEBUG] Sending empty block to finalize...");
@@ -1079,7 +1101,7 @@ impl Client {
         writer.write_block(&mut self.conn, &empty_block).await?;
 
         self.conn.flush().await?;
-        eprintln!("[DEBUG] Query sent, waiting for response...");
+        eprintln!("[DEBUG] Query finalized");
         Ok(())
     }
 
@@ -1100,11 +1122,11 @@ impl Client {
             // Send Data packet type
             self.conn.write_varint(ClientCode::Data as u64).await?;
 
-            // Send table name
+            // Send table name (this serves as the temp table name for this Data packet)
             self.conn.write_string(&table.name).await?;
 
-            // Send block data
-            self.block_writer.write_block(&mut self.conn, &table.data).await?;
+            // Send block data WITHOUT temp table name prefix (we already wrote it above)
+            self.block_writer.write_block_with_temp_table(&mut self.conn, &table.data, false).await?;
         }
 
         self.conn.flush().await?;
