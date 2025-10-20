@@ -19,3 +19,7 @@ certs/client/*.pem
 *.swp
 *.swo
 *~
+
+# Feature runner temporary directories
+PR-*
+worktrees/
