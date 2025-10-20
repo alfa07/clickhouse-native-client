@@ -42,7 +42,10 @@ use crate::{
     Error,
     Result,
 };
-use bytes::BytesMut;
+use bytes::{
+    Buf,
+    BytesMut,
+};
 use std::sync::Arc;
 
 /// Column for arrays of variable length
@@ -247,10 +250,25 @@ impl Column for ColumnArray {
     ) -> Result<()> {
         self.offsets.reserve(rows);
 
-        // Read offsets (varint encoded u64)
+        // Read offsets (fixed UInt64, not varint!)
+        // Wire format: UInt64 values stored as 8-byte little-endian
+        let bytes_needed = rows * 8;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow reading array offsets: need {} bytes, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
+        }
+
         for _ in 0..rows {
-            let offset = buffer_utils::read_varint(buffer)?;
+            let offset_bytes = [
+                buffer[0], buffer[1], buffer[2], buffer[3],
+                buffer[4], buffer[5], buffer[6], buffer[7],
+            ];
+            let offset = u64::from_le_bytes(offset_bytes);
             self.offsets.push(offset);
+            buffer.advance(8);
         }
 
         // CRITICAL: Must also load the nested column data

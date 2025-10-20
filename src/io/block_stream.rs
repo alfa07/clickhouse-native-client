@@ -364,17 +364,79 @@ impl BlockReader {
                 self.load_column_data_async(conn, nested_type, num_rows)
                     .await?;
             }
-            Type::Array { item_type: _ } => {
-                // Read offsets array (one UInt64 per row)
-                let _ = conn.read_bytes(num_rows * 8).await?;
-                // Read total count of items from last offset
-                // For simplicity, just try to read the nested column
-                // This is approximate - we'd need to parse offsets properly
-                // For now, return an error since arrays in uncompressed blocks
-                // are complex
-                return Err(Error::Protocol(
-                    "Uncompressed reading not fully implemented for Array types".to_string(),
-                ));
+            Type::Array { item_type } => {
+                // Array wire format:
+                // 1. Offsets array (UInt64 per row, cumulative counts)
+                // 2. Nested data (item_type × total_items)
+
+                if num_rows == 0 {
+                    return Ok(());
+                }
+
+                // Read offsets array (UInt64 per row)
+                let offsets_data = conn.read_bytes(num_rows * 8).await?;
+
+                // Parse the last offset to get total item count
+                // Offsets are cumulative, so last offset = total items
+                let last_offset_bytes = &offsets_data[offsets_data.len() - 8..];
+                let total_items = u64::from_le_bytes([
+                    last_offset_bytes[0],
+                    last_offset_bytes[1],
+                    last_offset_bytes[2],
+                    last_offset_bytes[3],
+                    last_offset_bytes[4],
+                    last_offset_bytes[5],
+                    last_offset_bytes[6],
+                    last_offset_bytes[7],
+                ]) as usize;
+
+                // Recursively read nested column data
+                if total_items > 0 {
+                    self.load_column_data_async(conn, item_type, total_items).await?;
+                }
+            }
+            Type::Tuple { item_types } => {
+                // Tuple wire format: each element serialized sequentially
+                // Read each tuple element's column data
+                for item_type in item_types {
+                    self.load_column_data_async(conn, item_type, num_rows).await?;
+                }
+            }
+            Type::Map { key_type, value_type } => {
+                // Map wire format is Array(Tuple(K, V))
+                // We read it as: offsets array + tuple data
+
+                if num_rows == 0 {
+                    return Ok(());
+                }
+
+                // Read offsets array (UInt64 per row)
+                let offsets_data = conn.read_bytes(num_rows * 8).await?;
+
+                // Parse the last offset to get total number of map entries
+                let last_offset_bytes = &offsets_data[offsets_data.len() - 8..];
+                let total_entries = u64::from_le_bytes([
+                    last_offset_bytes[0],
+                    last_offset_bytes[1],
+                    last_offset_bytes[2],
+                    last_offset_bytes[3],
+                    last_offset_bytes[4],
+                    last_offset_bytes[5],
+                    last_offset_bytes[6],
+                    last_offset_bytes[7],
+                ]) as usize;
+
+                // Read tuple data: key column + value column
+                if total_entries > 0 {
+                    // Read key column
+                    self.load_column_data_async(conn, key_type, total_entries).await?;
+                    // Read value column
+                    self.load_column_data_async(conn, value_type, total_entries).await?;
+                }
+            }
+            Type::FixedString { size } => {
+                // FixedString - fixed size per row
+                let _ = conn.read_bytes(num_rows * size).await?;
             }
             _ => {
                 return Err(Error::Protocol(format!(
