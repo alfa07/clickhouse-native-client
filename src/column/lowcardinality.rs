@@ -140,7 +140,7 @@ impl Column for ColumnLowCardinality {
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
-        let _other = other
+        let other = other
             .as_any()
             .downcast_ref::<ColumnLowCardinality>()
             .ok_or_else(|| Error::TypeMismatch {
@@ -148,12 +148,40 @@ impl Column for ColumnLowCardinality {
                 actual: other.column_type().name(),
             })?;
 
-        // Full implementation would merge dictionaries and remap indices
-        // For now, return an error as this is complex
-        Err(Error::Protocol(
-            "append_column not fully implemented for LowCardinality"
-                .to_string(),
-        ))
+        // Check dictionary types match
+        if self.dictionary.column_type().name() != other.dictionary.column_type().name() {
+            return Err(Error::TypeMismatch {
+                expected: self.dictionary.column_type().name(),
+                actual: other.dictionary.column_type().name(),
+            });
+        }
+
+        // Dictionary merging strategy:
+        // For simplicity, we append the other dictionary to ours and remap indices
+        // A more sophisticated implementation would deduplicate dictionary entries
+
+        let current_dict_size = self.dictionary.size() as u64;
+
+        // Append other's dictionary to ours
+        let dict_mut = Arc::get_mut(&mut self.dictionary)
+            .ok_or_else(|| Error::Protocol(
+                "Cannot append to shared dictionary - column has multiple references".to_string()
+            ))?;
+        dict_mut.append_column(other.dictionary.clone())?;
+
+        // Append other's indices with offset applied
+        for &index in &other.indices {
+            self.indices.push(index + current_dict_size);
+        }
+
+        // Note: We don't update unique_map here as it's not fully implemented
+        // A complete implementation would:
+        // 1. Check for duplicate values in the dictionaries
+        // 2. Only add unique values
+        // 3. Remap indices to point to deduplicated dictionary
+        // 4. Update unique_map with new entries
+
+        Ok(())
     }
 
     fn load_from_buffer(

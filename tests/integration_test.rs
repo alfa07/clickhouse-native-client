@@ -1450,3 +1450,129 @@ async fn test_complex_types_array_tuple_map() {
 
     println!("\n✅ All complex type tests passed!\n");
 }
+
+#[tokio::test]
+#[ignore]
+async fn test_nested_arrays_arbitrary_depth() {
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
+
+    let db_name = "test_nested_arrays";
+
+    // Create database
+    client
+        .execute(format!("CREATE DATABASE IF NOT EXISTS {}", db_name))
+        .await
+        .expect("Failed to create database");
+
+    println!("\n=== Testing Nested Arrays (Arbitrary Depth) ===\n");
+
+    // Test 1: Array(Array(Int32)) - 2 levels
+    println!("Test 1: Array(Array(Int32))");
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array2d", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.array2d (
+                id UInt64,
+                matrix Array(Array(Int32))
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create 2D array table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.array2d VALUES
+                (1, [[1, 2], [3, 4]]),
+                (2, [[5]]),
+                (3, [[]])",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert 2D array data");
+
+    let result = client
+        .query(format!("SELECT * FROM {}.array2d ORDER BY id", db_name))
+        .await
+        .expect("Failed to query 2D array data");
+
+    println!("  ✓ Array(Array(Int32)) query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 3);
+
+    // Test 2: Array(Array(Array(Int32))) - 3 levels
+    println!("\nTest 2: Array(Array(Array(Int32)))");
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array3d", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.array3d (
+                id UInt64,
+                cube Array(Array(Array(Int32)))
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create 3D array table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.array3d VALUES
+                (1, [[[1, 2], [3]], [[4, 5, 6]]]),
+                (2, [[[7]]])",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert 3D array data");
+
+    let result = client
+        .query(format!("SELECT * FROM {}.array3d ORDER BY id", db_name))
+        .await
+        .expect("Failed to query 3D array data");
+
+    println!("  ✓ Array(Array(Array(Int32))) query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 2);
+
+    // Test 3: Array(Array(String)) - strings in 2D
+    println!("\nTest 3: Array(Array(String))");
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array2d_str", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.array2d_str (
+                id UInt64,
+                data Array(Array(String))
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create 2D string array table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.array2d_str VALUES
+                (1, [['a', 'b'], ['c']]),
+                (2, [['hello', 'world']])",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert 2D string array data");
+
+    let result = client
+        .query(format!("SELECT * FROM {}.array2d_str ORDER BY id", db_name))
+        .await
+        .expect("Failed to query 2D string array data");
+
+    println!("  ✓ Array(Array(String)) query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 2);
+
+    // Clean up
+    println!("\nCleaning up...");
+    client
+        .execute(format!("DROP DATABASE {}", db_name))
+        .await
+        .expect("Failed to drop database");
+
+    println!("\n✅ All nested array tests passed!\n");
+}
