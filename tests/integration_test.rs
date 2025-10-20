@@ -1239,3 +1239,214 @@ async fn test_query_settings_with_flags() {
         .await
         .expect("Failed to drop table");
 }
+
+#[tokio::test]
+#[ignore]
+async fn test_complex_types_array_tuple_map() {
+    let mut client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
+
+    let db_name = "test_complex_types";
+
+    // Create database
+    client
+        .execute(format!("CREATE DATABASE IF NOT EXISTS {}", db_name))
+        .await
+        .expect("Failed to create database");
+
+    println!("\n=== Testing Complex Types (Array, Tuple, Map) ===\n");
+
+    // Test 1: Array types
+    println!("Test 1: Array columns");
+
+    // Drop table if exists to ensure clean state
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.array_test", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.array_test (
+                id UInt64,
+                tags Array(String),
+                numbers Array(Int32)
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create array table");
+
+    // Insert data with arrays
+    client
+        .execute(format!(
+            "INSERT INTO {}.array_test VALUES
+                (1, ['tag1', 'tag2', 'tag3'], [10, 20, 30]),
+                (2, ['tag4'], [40]),
+                (3, [], [])",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert array data");
+
+    // Query data (no send_logs_level to avoid custom serialization with complex types)
+    let result = client
+        .query(format!("SELECT * FROM {}.array_test ORDER BY id", db_name))
+        .await
+        .expect("Failed to query array data");
+
+    println!("  ✓ Array query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 3);
+
+    // Test 2: Tuple types
+    println!("\nTest 2: Tuple columns");
+
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.tuple_test", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.tuple_test (
+                id UInt64,
+                point Tuple(Float64, Float64),
+                info Tuple(String, UInt32)
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create tuple table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.tuple_test VALUES
+                (1, (1.5, 2.5), ('test', 100)),
+                (2, (3.5, 4.5), ('data', 200))",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert tuple data");
+
+    let result = client
+        .query(format!("SELECT * FROM {}.tuple_test ORDER BY id", db_name))
+        .await
+        .expect("Failed to query tuple data");
+
+    println!("  ✓ Tuple query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 2);
+
+    // Test 3: Map types
+    println!("\nTest 3: Map columns");
+
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.map_test", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.map_test (
+                id UInt64,
+                metadata Map(String, String),
+                counters Map(String, UInt64)
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create map table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.map_test VALUES
+                (1, {{'key1':'value1', 'key2':'value2'}}, {{'count1':10, 'count2':20}}),
+                (2, {{'key3':'value3'}}, {{'count3':30}}),
+                (3, {{}}, {{}})",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert map data");
+
+    let result = client
+        .query(format!("SELECT * FROM {}.map_test ORDER BY id", db_name))
+        .await
+        .expect("Failed to query map data");
+
+    println!("  ✓ Map query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 3);
+
+    // Test 4: Nested complex types (Array of Tuples)
+    println!("\nTest 4: Nested complex types");
+
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.nested_test", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.nested_test (
+                id UInt64,
+                points Array(Tuple(Float64, Float64))
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create nested table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.nested_test VALUES
+                (1, [(1.0, 2.0), (3.0, 4.0)]),
+                (2, [(5.0, 6.0)])",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert nested data");
+
+    let result = client
+        .query(format!(
+            "SELECT * FROM {}.nested_test ORDER BY id",
+            db_name
+        ))
+        .await
+        .expect("Failed to query nested data");
+
+    println!("  ✓ Nested Array(Tuple) query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 2);
+
+    // Test 5: FixedString type
+    println!("\nTest 5: FixedString columns");
+
+    let _ = client.execute(format!("DROP TABLE IF EXISTS {}.fixedstring_test", db_name)).await;
+
+    client
+        .execute(format!(
+            "CREATE TABLE {}.fixedstring_test (
+                id UInt64,
+                code FixedString(4),
+                hash FixedString(16)
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create fixedstring table");
+
+    client
+        .execute(format!(
+            "INSERT INTO {}.fixedstring_test VALUES
+                (1, 'ABCD', unhex('0123456789ABCDEF0123456789ABCDEF')),
+                (2, 'EFGH', unhex('FEDCBA9876543210FEDCBA9876543210'))",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert fixedstring data");
+
+    let result = client
+        .query(format!(
+            "SELECT * FROM {}.fixedstring_test ORDER BY id",
+            db_name
+        ))
+        .await
+        .expect("Failed to query fixedstring data");
+
+    println!("  ✓ FixedString query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 2);
+
+    // Clean up
+    println!("\nCleaning up...");
+    client
+        .execute(format!("DROP DATABASE {}", db_name))
+        .await
+        .expect("Failed to drop database");
+
+    println!("\n✅ All complex type tests passed!\n");
+}
