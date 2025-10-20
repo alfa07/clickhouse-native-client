@@ -455,7 +455,8 @@ mod tests {
         let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
         let mut col = ColumnArray::with_nested(nested);
 
-        // Encode offsets manually as fixed UInt64: 3, 5, 8 (total 8 nested elements)
+        // Encode offsets manually as fixed UInt64: 3, 5, 8 (total 8 nested
+        // elements)
         let mut data = BytesMut::new();
         data.put_u64_le(3);
         data.put_u64_le(5);
