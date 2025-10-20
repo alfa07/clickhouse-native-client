@@ -74,9 +74,10 @@ use super::column_value::{
 /// `clickhouse-cpp/clickhouse/columns/lowcardinality.cpp`
 pub struct ColumnLowCardinality {
     type_: Type,
-    dictionary: ColumnRef,         // Stores unique values
-    indices: Vec<u64>,             // Indices into dictionary
-    unique_map: HashMap<(u64, u64), u64>, // Hash pair -> dictionary index for fast lookup
+    dictionary: ColumnRef, // Stores unique values
+    indices: Vec<u64>,     // Indices into dictionary
+    unique_map: HashMap<(u64, u64), u64>, /* Hash pair -> dictionary index
+                                           * for fast lookup */
 }
 
 impl ColumnLowCardinality {
@@ -132,7 +133,8 @@ impl ColumnLowCardinality {
         let current_dict_size = self.dictionary.size() as u64;
 
         // Check if value already exists in dictionary
-        let index = if let Some(&existing_idx) = self.unique_map.get(&hash_key) {
+        let index = if let Some(&existing_idx) = self.unique_map.get(&hash_key)
+        {
             // Value exists - reuse existing dictionary index
             existing_idx
         } else {
@@ -212,7 +214,9 @@ impl Column for ColumnLowCardinality {
             })?;
 
         // Check dictionary types match
-        if self.dictionary.column_type().name() != other.dictionary.column_type().name() {
+        if self.dictionary.column_type().name()
+            != other.dictionary.column_type().name()
+        {
             return Err(Error::TypeMismatch {
                 expected: self.dictionary.column_type().name(),
                 actual: other.dictionary.column_type().name(),
@@ -252,9 +256,11 @@ impl Column for ColumnLowCardinality {
     ) -> Result<()> {
         // LowCardinality wire format (following C++ clickhouse-cpp):
         // LoadPrefix (called separately via block reader):
-        //   1. key_version (UInt64) - should be 1 (SharedDictionariesWithAdditionalKeys)
+        //   1. key_version (UInt64) - should be 1
+        //      (SharedDictionariesWithAdditionalKeys)
         // LoadBody (this method):
-        //   2. index_serialization_type (UInt64) - contains flags and index type
+        //   2. index_serialization_type (UInt64) - contains flags and index
+        //      type
         //   3. number_of_keys (UInt64) - dictionary size
         //   4. Dictionary column data (nested type)
         //   5. number_of_rows (UInt64) - should match rows parameter
@@ -280,7 +286,8 @@ impl Column for ColumnLowCardinality {
         // Read index_serialization_type
         if buffer.len() < 8 {
             return Err(Error::Protocol(
-                "Not enough data for LowCardinality index serialization type".to_string(),
+                "Not enough data for LowCardinality index serialization type"
+                    .to_string(),
             ));
         }
 
@@ -312,9 +319,10 @@ impl Column for ColumnLowCardinality {
         let number_of_keys = buffer.get_u64_le() as usize;
 
         // Load dictionary values
-        // IMPORTANT: For Nullable dictionaries, we only load the NESTED column data
-        // The null bitmap is NOT part of the dictionary serialization
-        // (matching C++ implementation in lowcardinality.cpp::Load)
+        // IMPORTANT: For Nullable dictionaries, we only load the NESTED column
+        // data The null bitmap is NOT part of the dictionary
+        // serialization (matching C++ implementation in
+        // lowcardinality.cpp::Load)
         if number_of_keys > 0 {
             let dict_mut = Arc::get_mut(&mut self.dictionary).ok_or_else(|| {
                 Error::Protocol(
@@ -325,7 +333,9 @@ impl Column for ColumnLowCardinality {
 
             // Check if dictionary is Nullable - if so, load only nested data
             use super::nullable::ColumnNullable;
-            if let Some(nullable_col) = dict_mut.as_any_mut().downcast_mut::<ColumnNullable>() {
+            if let Some(nullable_col) =
+                dict_mut.as_any_mut().downcast_mut::<ColumnNullable>()
+            {
                 let nested_mut = Arc::get_mut(nullable_col.nested_mut()).ok_or_else(|| {
                     Error::Protocol(
                         "Cannot load into shared nested column - column has multiple references"
@@ -371,7 +381,8 @@ impl Column for ColumnLowCardinality {
                 for _ in 0..rows {
                     if buffer.is_empty() {
                         return Err(Error::Protocol(
-                            "Not enough data for LowCardinality index".to_string(),
+                            "Not enough data for LowCardinality index"
+                                .to_string(),
                         ));
                     }
                     let index = buffer.get_u8() as u64;
@@ -383,7 +394,8 @@ impl Column for ColumnLowCardinality {
                 for _ in 0..rows {
                     if buffer.len() < 2 {
                         return Err(Error::Protocol(
-                            "Not enough data for LowCardinality index".to_string(),
+                            "Not enough data for LowCardinality index"
+                                .to_string(),
                         ));
                     }
                     let index = buffer.get_u16_le() as u64;
@@ -395,7 +407,8 @@ impl Column for ColumnLowCardinality {
                 for _ in 0..rows {
                     if buffer.len() < 4 {
                         return Err(Error::Protocol(
-                            "Not enough data for LowCardinality index".to_string(),
+                            "Not enough data for LowCardinality index"
+                                .to_string(),
                         ));
                     }
                     let index = buffer.get_u32_le() as u64;
@@ -407,7 +420,8 @@ impl Column for ColumnLowCardinality {
                 for _ in 0..rows {
                     if buffer.len() < 8 {
                         return Err(Error::Protocol(
-                            "Not enough data for LowCardinality index".to_string(),
+                            "Not enough data for LowCardinality index"
+                                .to_string(),
                         ));
                     }
                     let index = buffer.get_u64_le();
@@ -453,21 +467,26 @@ impl Column for ColumnLowCardinality {
         const HAS_ADDITIONAL_KEYS_BIT: u64 = 1 << 9;
 
         // For now, we always use UInt64 indices (index_type = 3)
-        // TODO: Use dynamic index type (UInt8/16/32/64) based on dictionary size
+        // TODO: Use dynamic index type (UInt8/16/32/64) based on dictionary
+        // size
         const INDEX_TYPE_UINT64: u64 = 3;
 
         // 1. Write index_serialization_type
-        let index_serialization_type = INDEX_TYPE_UINT64 | HAS_ADDITIONAL_KEYS_BIT;
+        let index_serialization_type =
+            INDEX_TYPE_UINT64 | HAS_ADDITIONAL_KEYS_BIT;
         buffer.put_u64_le(index_serialization_type);
 
         // 2. Write number_of_keys (dictionary size)
         buffer.put_u64_le(self.dictionary.size() as u64);
 
         // 3. Write dictionary data
-        // IMPORTANT: For Nullable dictionaries, only write the NESTED column data
-        // (matching C++ implementation in lowcardinality.cpp::SaveBody)
+        // IMPORTANT: For Nullable dictionaries, only write the NESTED column
+        // data (matching C++ implementation in
+        // lowcardinality.cpp::SaveBody)
         use super::nullable::ColumnNullable;
-        if let Some(nullable_col) = self.dictionary.as_any().downcast_ref::<ColumnNullable>() {
+        if let Some(nullable_col) =
+            self.dictionary.as_any().downcast_ref::<ColumnNullable>()
+        {
             // For Nullable, save only the nested column (no null bitmap)
             nullable_col.nested().save_to_buffer(buffer)?;
         } else {
@@ -505,7 +524,8 @@ impl Column for ColumnLowCardinality {
         let mut sliced = ColumnLowCardinality::new(self.type_.clone());
 
         // For each value in the slice, get from original dictionary and append
-        // This automatically rebuilds the dictionary with only referenced items
+        // This automatically rebuilds the dictionary with only referenced
+        // items
         for i in begin..begin + len {
             let dict_index = self.indices[i] as usize;
             let value = get_column_item(self.dictionary.as_ref(), dict_index)?;
@@ -574,15 +594,28 @@ mod tests {
 
         // Slice [1:3] = ["b", "c"] - only uses 2 unique values
         let sliced = col.slice(1, 2).unwrap();
-        let sliced_col = sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
 
         assert_eq!(sliced_col.len(), 2);
         // CRITICAL: Dictionary should be compacted to only 2 items (not 3!)
-        assert_eq!(sliced_col.dictionary_size(), 2, "Dictionary should be compacted");
+        assert_eq!(
+            sliced_col.dictionary_size(),
+            2,
+            "Dictionary should be compacted"
+        );
 
         // Values should still match
-        let val0 = get_column_item(sliced_col.dictionary.as_ref(), sliced_col.index_at(0) as usize).unwrap();
-        let val1 = get_column_item(sliced_col.dictionary.as_ref(), sliced_col.index_at(1) as usize).unwrap();
+        let val0 = get_column_item(
+            sliced_col.dictionary.as_ref(),
+            sliced_col.index_at(0) as usize,
+        )
+        .unwrap();
+        let val1 = get_column_item(
+            sliced_col.dictionary.as_ref(),
+            sliced_col.index_at(1) as usize,
+        )
+        .unwrap();
         assert_eq!(val0.as_string().unwrap(), "b");
         assert_eq!(val1.as_string().unwrap(), "c");
     }
@@ -599,14 +632,19 @@ mod tests {
 
         // Add 1000 unique values
         for i in 0..1000 {
-            col.append_unsafe(&ColumnValue::from_string(&format!("value_{}", i))).unwrap();
+            col.append_unsafe(&ColumnValue::from_string(&format!(
+                "value_{}",
+                i
+            )))
+            .unwrap();
         }
 
         assert_eq!(col.dictionary_size(), 1000);
 
         // Slice only the first 10 items
         let sliced = col.slice(0, 10).unwrap();
-        let sliced_col = sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
 
         assert_eq!(sliced_col.len(), 10);
         // Dictionary should be compacted to only 10 items (not 1000!)
@@ -639,14 +677,23 @@ mod tests {
 
         // Slice [3:3] = ["x", "x", "z"] - only uses 2 unique values
         let sliced = col.slice(3, 3).unwrap();
-        let sliced_col = sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
+        let sliced_col =
+            sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
 
         assert_eq!(sliced_col.len(), 3);
-        assert_eq!(sliced_col.dictionary_size(), 2, "Only 'x' and 'z' should be in dictionary");
+        assert_eq!(
+            sliced_col.dictionary_size(),
+            2,
+            "Only 'x' and 'z' should be in dictionary"
+        );
 
         // Verify deduplication in sliced column
         // Both "x" values should point to same dictionary entry
-        assert_eq!(sliced_col.index_at(0), sliced_col.index_at(1), "Duplicate 'x' should use same index");
+        assert_eq!(
+            sliced_col.index_at(0),
+            sliced_col.index_at(1),
+            "Duplicate 'x' should use same index"
+        );
     }
 
     #[test]
@@ -704,8 +751,12 @@ mod tests {
         // Both should work correctly with or without reserve
         for i in 0..100 {
             let value = format!("value_{}", i % 10); // 10 unique values, repeated
-            col_with_reserve.append_unsafe(&ColumnValue::from_string(&value)).unwrap();
-            col_without_reserve.append_unsafe(&ColumnValue::from_string(&value)).unwrap();
+            col_with_reserve
+                .append_unsafe(&ColumnValue::from_string(&value))
+                .unwrap();
+            col_without_reserve
+                .append_unsafe(&ColumnValue::from_string(&value))
+                .unwrap();
         }
 
         assert_eq!(col_with_reserve.len(), 100);
@@ -762,7 +813,10 @@ mod tests {
 
         // 3. number_of_keys
         let number_of_keys = read_buf.get_u64_le();
-        assert_eq!(number_of_keys, 3, "dictionary should have 3 unique values");
+        assert_eq!(
+            number_of_keys, 3,
+            "dictionary should have 3 unique values"
+        );
 
         // Load into new column
         let mut loaded_col = ColumnLowCardinality::new(lc_type);

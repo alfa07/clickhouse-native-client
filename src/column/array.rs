@@ -263,8 +263,8 @@ impl Column for ColumnArray {
 
         for _ in 0..rows {
             let offset_bytes = [
-                buffer[0], buffer[1], buffer[2], buffer[3],
-                buffer[4], buffer[5], buffer[6], buffer[7],
+                buffer[0], buffer[1], buffer[2], buffer[3], buffer[4],
+                buffer[5], buffer[6], buffer[7],
             ];
             let offset = u64::from_le_bytes(offset_bytes);
             self.offsets.push(offset);

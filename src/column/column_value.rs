@@ -8,12 +8,14 @@ use crate::{
     Error,
     Result,
 };
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{
-    Hash,
-    Hasher,
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{
+        Hash,
+        Hasher,
+    },
+    sync::Arc,
 };
-use std::sync::Arc;
 
 /// A value from a column, stored as bytes with type information
 /// Similar to C++ ItemView but owned
@@ -26,10 +28,7 @@ pub struct ColumnValue {
 impl ColumnValue {
     /// Create from primitive types
     pub fn from_u8(value: u8) -> Self {
-        Self {
-            type_code: TypeCode::UInt8,
-            data: value.to_le_bytes().to_vec(),
-        }
+        Self { type_code: TypeCode::UInt8, data: value.to_le_bytes().to_vec() }
     }
 
     pub fn from_u16(value: u16) -> Self {
@@ -54,31 +53,19 @@ impl ColumnValue {
     }
 
     pub fn from_i8(value: i8) -> Self {
-        Self {
-            type_code: TypeCode::Int8,
-            data: value.to_le_bytes().to_vec(),
-        }
+        Self { type_code: TypeCode::Int8, data: value.to_le_bytes().to_vec() }
     }
 
     pub fn from_i16(value: i16) -> Self {
-        Self {
-            type_code: TypeCode::Int16,
-            data: value.to_le_bytes().to_vec(),
-        }
+        Self { type_code: TypeCode::Int16, data: value.to_le_bytes().to_vec() }
     }
 
     pub fn from_i32(value: i32) -> Self {
-        Self {
-            type_code: TypeCode::Int32,
-            data: value.to_le_bytes().to_vec(),
-        }
+        Self { type_code: TypeCode::Int32, data: value.to_le_bytes().to_vec() }
     }
 
     pub fn from_i64(value: i64) -> Self {
-        Self {
-            type_code: TypeCode::Int64,
-            data: value.to_le_bytes().to_vec(),
-        }
+        Self { type_code: TypeCode::Int64, data: value.to_le_bytes().to_vec() }
     }
 
     pub fn from_f32(value: f32) -> Self {
@@ -96,17 +83,11 @@ impl ColumnValue {
     }
 
     pub fn from_string(value: &str) -> Self {
-        Self {
-            type_code: TypeCode::String,
-            data: value.as_bytes().to_vec(),
-        }
+        Self { type_code: TypeCode::String, data: value.as_bytes().to_vec() }
     }
 
     pub fn void() -> Self {
-        Self {
-            type_code: TypeCode::Void,
-            data: Vec::new(),
-        }
+        Self { type_code: TypeCode::Void, data: Vec::new() }
     }
 
     /// Get as string (for String type)
@@ -172,7 +153,10 @@ use super::{
 
 /// Get item from a column by index
 /// Returns ColumnValue representation
-pub fn get_column_item(column: &dyn Column, index: usize) -> Result<ColumnValue> {
+pub fn get_column_item(
+    column: &dyn Column,
+    index: usize,
+) -> Result<ColumnValue> {
     use crate::types::Type;
 
     if index >= column.size() {
@@ -184,100 +168,144 @@ pub fn get_column_item(column: &dyn Column, index: usize) -> Result<ColumnValue>
     }
 
     match column.column_type() {
-        Type::Simple(type_code) => {
-            match type_code {
-                TypeCode::UInt8 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnUInt8>() {
-                        Ok(ColumnValue::from_u8(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast UInt8 column".to_string()))
-                    }
+        Type::Simple(type_code) => match type_code {
+            TypeCode::UInt8 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnUInt8>()
+                {
+                    Ok(ColumnValue::from_u8(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast UInt8 column".to_string(),
+                    ))
                 }
-                TypeCode::UInt16 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnUInt16>() {
-                        Ok(ColumnValue::from_u16(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast UInt16 column".to_string()))
-                    }
-                }
-                TypeCode::UInt32 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnUInt32>() {
-                        Ok(ColumnValue::from_u32(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast UInt32 column".to_string()))
-                    }
-                }
-                TypeCode::UInt64 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnUInt64>() {
-                        Ok(ColumnValue::from_u64(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast UInt64 column".to_string()))
-                    }
-                }
-                TypeCode::Int8 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnInt8>() {
-                        Ok(ColumnValue::from_i8(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast Int8 column".to_string()))
-                    }
-                }
-                TypeCode::Int16 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnInt16>() {
-                        Ok(ColumnValue::from_i16(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast Int16 column".to_string()))
-                    }
-                }
-                TypeCode::Int32 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnInt32>() {
-                        Ok(ColumnValue::from_i32(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast Int32 column".to_string()))
-                    }
-                }
-                TypeCode::Int64 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnInt64>() {
-                        Ok(ColumnValue::from_i64(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast Int64 column".to_string()))
-                    }
-                }
-                TypeCode::Float32 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnFloat32>() {
-                        Ok(ColumnValue::from_f32(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast Float32 column".to_string()))
-                    }
-                }
-                TypeCode::Float64 => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnFloat64>() {
-                        Ok(ColumnValue::from_f64(col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast Float64 column".to_string()))
-                    }
-                }
-                TypeCode::String => {
-                    if let Some(col) = column.as_any().downcast_ref::<ColumnString>() {
-                        Ok(ColumnValue::from_string(&col.at(index)))
-                    } else {
-                        Err(Error::Protocol("Failed to downcast String column".to_string()))
-                    }
-                }
-                _ => Err(Error::Protocol(format!(
-                    "get_column_item not implemented for type {:?}",
-                    type_code
-                ))),
             }
-        }
+            TypeCode::UInt16 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnUInt16>()
+                {
+                    Ok(ColumnValue::from_u16(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast UInt16 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::UInt32 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnUInt32>()
+                {
+                    Ok(ColumnValue::from_u32(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast UInt32 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::UInt64 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnUInt64>()
+                {
+                    Ok(ColumnValue::from_u64(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast UInt64 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::Int8 => {
+                if let Some(col) = column.as_any().downcast_ref::<ColumnInt8>()
+                {
+                    Ok(ColumnValue::from_i8(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast Int8 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::Int16 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnInt16>()
+                {
+                    Ok(ColumnValue::from_i16(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast Int16 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::Int32 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnInt32>()
+                {
+                    Ok(ColumnValue::from_i32(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast Int32 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::Int64 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnInt64>()
+                {
+                    Ok(ColumnValue::from_i64(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast Int64 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::Float32 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnFloat32>()
+                {
+                    Ok(ColumnValue::from_f32(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast Float32 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::Float64 => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnFloat64>()
+                {
+                    Ok(ColumnValue::from_f64(col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast Float64 column".to_string(),
+                    ))
+                }
+            }
+            TypeCode::String => {
+                if let Some(col) =
+                    column.as_any().downcast_ref::<ColumnString>()
+                {
+                    Ok(ColumnValue::from_string(&col.at(index)))
+                } else {
+                    Err(Error::Protocol(
+                        "Failed to downcast String column".to_string(),
+                    ))
+                }
+            }
+            _ => Err(Error::Protocol(format!(
+                "get_column_item not implemented for type {:?}",
+                type_code
+            ))),
+        },
         Type::Nullable { nested_type: _ } => {
-            if let Some(col) = column.as_any().downcast_ref::<ColumnNullable>() {
+            if let Some(col) = column.as_any().downcast_ref::<ColumnNullable>()
+            {
                 if col.is_null(index) {
                     Ok(ColumnValue::void())
                 } else {
                     get_column_item(col.nested().as_ref(), index)
                 }
             } else {
-                Err(Error::Protocol("Failed to downcast Nullable column".to_string()))
+                Err(Error::Protocol(
+                    "Failed to downcast Nullable column".to_string(),
+                ))
             }
         }
         _ => Err(Error::Protocol(format!(
@@ -288,7 +316,10 @@ pub fn get_column_item(column: &dyn Column, index: usize) -> Result<ColumnValue>
 }
 
 /// Append item to a column
-pub fn append_column_item(column: &mut dyn Column, value: &ColumnValue) -> Result<()> {
+pub fn append_column_item(
+    column: &mut dyn Column,
+    value: &ColumnValue,
+) -> Result<()> {
     use crate::types::Type;
 
     match column.column_type() {
@@ -302,33 +333,57 @@ pub fn append_column_item(column: &mut dyn Column, value: &ColumnValue) -> Resul
 
             match type_code {
                 TypeCode::String => {
-                    if let Some(col) = column.as_any_mut().downcast_mut::<ColumnString>() {
+                    if let Some(col) =
+                        column.as_any_mut().downcast_mut::<ColumnString>()
+                    {
                         col.append(value.as_string()?);
                         Ok(())
                     } else {
-                        Err(Error::Protocol("Failed to downcast String column".to_string()))
+                        Err(Error::Protocol(
+                            "Failed to downcast String column".to_string(),
+                        ))
                     }
                 }
                 TypeCode::UInt8 => {
-                    if let Some(col) = column.as_any_mut().downcast_mut::<ColumnUInt8>() {
-                        let val = u8::from_le_bytes(value.data.as_slice().try_into().map_err(|_| {
-                            Error::Protocol("Invalid UInt8 data".to_string())
-                        })?);
+                    if let Some(col) =
+                        column.as_any_mut().downcast_mut::<ColumnUInt8>()
+                    {
+                        let val = u8::from_le_bytes(
+                            value.data.as_slice().try_into().map_err(
+                                |_| {
+                                    Error::Protocol(
+                                        "Invalid UInt8 data".to_string(),
+                                    )
+                                },
+                            )?,
+                        );
                         col.append(val);
                         Ok(())
                     } else {
-                        Err(Error::Protocol("Failed to downcast UInt8 column".to_string()))
+                        Err(Error::Protocol(
+                            "Failed to downcast UInt8 column".to_string(),
+                        ))
                     }
                 }
                 TypeCode::UInt64 => {
-                    if let Some(col) = column.as_any_mut().downcast_mut::<ColumnUInt64>() {
-                        let val = u64::from_le_bytes(value.data.as_slice().try_into().map_err(|_| {
-                            Error::Protocol("Invalid UInt64 data".to_string())
-                        })?);
+                    if let Some(col) =
+                        column.as_any_mut().downcast_mut::<ColumnUInt64>()
+                    {
+                        let val = u64::from_le_bytes(
+                            value.data.as_slice().try_into().map_err(
+                                |_| {
+                                    Error::Protocol(
+                                        "Invalid UInt64 data".to_string(),
+                                    )
+                                },
+                            )?,
+                        );
                         col.append(val);
                         Ok(())
                     } else {
-                        Err(Error::Protocol("Failed to downcast UInt64 column".to_string()))
+                        Err(Error::Protocol(
+                            "Failed to downcast UInt64 column".to_string(),
+                        ))
                     }
                 }
                 // Add more types as needed
@@ -339,7 +394,9 @@ pub fn append_column_item(column: &mut dyn Column, value: &ColumnValue) -> Resul
             }
         }
         Type::Nullable { .. } => {
-            if let Some(col) = column.as_any_mut().downcast_mut::<ColumnNullable>() {
+            if let Some(col) =
+                column.as_any_mut().downcast_mut::<ColumnNullable>()
+            {
                 if value.type_code == TypeCode::Void {
                     col.append_null();
                     Ok(())
@@ -357,7 +414,9 @@ pub fn append_column_item(column: &mut dyn Column, value: &ColumnValue) -> Resul
                     Ok(())
                 }
             } else {
-                Err(Error::Protocol("Failed to downcast Nullable column".to_string()))
+                Err(Error::Protocol(
+                    "Failed to downcast Nullable column".to_string(),
+                ))
             }
         }
         _ => Err(Error::Protocol(format!(
