@@ -249,6 +249,28 @@ impl Column for ColumnLowCardinality {
         Ok(())
     }
 
+    fn load_prefix(&mut self, buffer: &mut &[u8], _rows: usize) -> Result<()> {
+        // Read key_version (should be 1)
+        // Matches C++ LoadPrefix
+        if buffer.len() < 8 {
+            return Err(Error::Protocol(
+                "Not enough data for LowCardinality key version".to_string(),
+            ));
+        }
+
+        let key_version = buffer.get_u64_le();
+        const SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS: u64 = 1;
+
+        if key_version != SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS {
+            return Err(Error::Protocol(format!(
+                "Invalid LowCardinality key version: expected {}, got {}",
+                SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS, key_version
+            )));
+        }
+
+        Ok(())
+    }
+
     fn load_from_buffer(
         &mut self,
         buffer: &mut &[u8],
@@ -265,23 +287,6 @@ impl Column for ColumnLowCardinality {
         //   4. Dictionary column data (nested type)
         //   5. number_of_rows (UInt64) - should match rows parameter
         //   6. Index column data (UInt8/16/32/64 depending on index type)
-
-        if buffer.len() < 8 {
-            return Err(Error::Protocol(
-                "Not enough data for LowCardinality key version".to_string(),
-            ));
-        }
-
-        // Read key_version (should be 1)
-        let key_version = buffer.get_u64_le();
-        const SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS: u64 = 1;
-
-        if key_version != SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS {
-            return Err(Error::Protocol(format!(
-                "Invalid LowCardinality key version: expected {}, got {}",
-                SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS, key_version
-            )));
-        }
 
         // Read index_serialization_type
         if buffer.len() < 8 {
@@ -821,6 +826,7 @@ mod tests {
         // Load into new column
         let mut loaded_col = ColumnLowCardinality::new(lc_type);
         let mut load_buf = &buffer[..];
+        loaded_col.load_prefix(&mut load_buf, 5).unwrap();
         loaded_col.load_from_buffer(&mut load_buf, 5).unwrap();
 
         // Verify loaded data
