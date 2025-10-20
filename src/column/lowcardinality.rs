@@ -77,7 +77,7 @@ pub struct ColumnLowCardinality {
     dictionary: ColumnRef, // Stores unique values
     indices: Vec<u64>,     // Indices into dictionary
     unique_map: HashMap<(u64, u64), u64>, /* Hash pair -> dictionary index
-                                           * for fast lookup */
+                            * for fast lookup */
 }
 
 impl ColumnLowCardinality {
