@@ -972,16 +972,24 @@ async fn test_query_id_parameters() {
     id_col.append(1);
     id_col.append(2);
     id_col.append(3);
-    block.append_column("id", Arc::new(id_col)).expect("Failed to append column");
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append column");
 
     let mut name_col = ColumnString::new(Type::string());
     name_col.append("a".to_string());
     name_col.append("b".to_string());
     name_col.append("c".to_string());
-    block.append_column("name", Arc::new(name_col)).expect("Failed to append column");
+    block
+        .append_column("name", Arc::new(name_col))
+        .expect("Failed to append column");
 
     client
-        .insert_with_id(&format!("{}.query_id_test", db_name), "insert-123", block)
+        .insert_with_id(
+            &format!("{}.query_id_test", db_name),
+            "insert-123",
+            block,
+        )
         .await
         .expect("Failed to insert with ID");
     println!("✓ insert_with_id() succeeded");
@@ -1038,13 +1046,17 @@ async fn test_external_tables() {
     ext_id_col.append(1);
     ext_id_col.append(2);
     ext_id_col.append(4);
-    ext_block.append_column("id", Arc::new(ext_id_col)).expect("Failed to append id column");
+    ext_block
+        .append_column("id", Arc::new(ext_id_col))
+        .expect("Failed to append id column");
 
     let mut extra_col = ColumnString::new(Type::string());
     extra_col.append("extra1".to_string());
     extra_col.append("extra2".to_string());
     extra_col.append("extra4".to_string());
-    ext_block.append_column("extra", Arc::new(extra_col)).expect("Failed to append extra column");
+    ext_block
+        .append_column("extra", Arc::new(extra_col))
+        .expect("Failed to append extra column");
 
     let ext_table = ExternalTable::new("enrichment", ext_block);
 
@@ -1081,9 +1093,10 @@ async fn test_external_tables() {
 async fn test_external_tables_with_id() {
     use clickhouse_client::ExternalTable;
 
-    let (mut client, db_name) = create_isolated_test_client("external_tables_id")
-        .await
-        .expect("Failed to create isolated test client");
+    let (mut client, db_name) =
+        create_isolated_test_client("external_tables_id")
+            .await
+            .expect("Failed to create isolated test client");
 
     // Create table
     client
@@ -1109,7 +1122,9 @@ async fn test_external_tables_with_id() {
     ext_id_col.append(2);
     ext_id_col.append(3);
     ext_id_col.append(4);
-    ext_block.append_column("id", Arc::new(ext_id_col)).expect("Failed to append column");
+    ext_block
+        .append_column("id", Arc::new(ext_id_col))
+        .expect("Failed to append column");
 
     let ext_table = ExternalTable::new("ext", ext_block);
 
@@ -1139,9 +1154,8 @@ async fn test_external_tables_with_id() {
 #[tokio::test]
 #[ignore]
 async fn test_server_version_getters() {
-    let client = create_test_client()
-        .await
-        .expect("Failed to connect to ClickHouse");
+    let client =
+        create_test_client().await.expect("Failed to connect to ClickHouse");
 
     // Test server_version()
     let (major, minor, patch) = client.server_version();
@@ -1165,7 +1179,10 @@ async fn test_server_version_getters() {
 #[tokio::test]
 #[ignore]
 async fn test_query_settings_with_flags() {
-    use clickhouse_client::{Query, QuerySettingsField};
+    use clickhouse_client::{
+        Query,
+        QuerySettingsField,
+    };
 
     let (mut client, db_name) = create_isolated_test_client("settings_flags")
         .await
@@ -1185,23 +1202,34 @@ async fn test_query_settings_with_flags() {
         .with_important_setting("max_threads", "2")
         .with_setting("max_block_size", "1000");
 
-    let result = client.query(query).await.expect("Failed to query with settings");
+    let result =
+        client.query(query).await.expect("Failed to query with settings");
     println!("✓ Query with important settings succeeded");
     println!("  Rows: {}", result.total_rows());
 
     // Test setting with explicit flags (IMPORTANT only for standard settings)
-    let query2 = Query::new(format!("SELECT * FROM {}.settings_test", db_name))
-        .with_setting_flags("max_threads", "4", QuerySettingsField::IMPORTANT);
+    let query2 =
+        Query::new(format!("SELECT * FROM {}.settings_test", db_name))
+            .with_setting_flags(
+                "max_threads",
+                "4",
+                QuerySettingsField::IMPORTANT,
+            );
 
-    let result2 = client.query(query2).await.expect("Failed to query with explicit flags");
+    let result2 = client
+        .query(query2)
+        .await
+        .expect("Failed to query with explicit flags");
     println!("✓ Query with explicit IMPORTANT flag succeeded");
     println!("  Rows: {}", result2.total_rows());
 
     // Test setting with no flags (standard behavior)
-    let query3 = Query::new(format!("SELECT * FROM {}.settings_test", db_name))
-        .with_setting("max_block_size", "500");
+    let query3 =
+        Query::new(format!("SELECT * FROM {}.settings_test", db_name))
+            .with_setting("max_block_size", "500");
 
-    let result3 = client.query(query3).await.expect("Failed to query with no flags");
+    let result3 =
+        client.query(query3).await.expect("Failed to query with no flags");
     println!("✓ Query with standard setting (no flags) succeeded");
     println!("  Rows: {}", result3.total_rows());
 

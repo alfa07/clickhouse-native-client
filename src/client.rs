@@ -465,7 +465,11 @@ impl Client {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn execute_with_id(&mut self, query: impl Into<Query>, query_id: &str) -> Result<()> {
+    pub async fn execute_with_id(
+        &mut self,
+        query: impl Into<Query>,
+        query_id: &str,
+    ) -> Result<()> {
         let mut query = query.into();
         if !query_id.is_empty() {
             query = Query::new(query.text()).with_query_id(query_id);
@@ -478,11 +482,13 @@ impl Client {
 
             match packet_type {
                 code if code == ServerCode::Data as u64 => {
-                    // Skip data blocks (shouldn't happen for DDL, but handle gracefully)
+                    // Skip data blocks (shouldn't happen for DDL, but handle
+                    // gracefully)
                     if self.server_info.revision >= 50264 {
                         let _temp_table = self.conn.read_string().await?;
                     }
-                    let _block = self.block_reader.read_block(&mut self.conn).await?;
+                    let _block =
+                        self.block_reader.read_block(&mut self.conn).await?;
                 }
                 code if code == ServerCode::Progress as u64 => {
                     let progress = self.read_progress().await?;
@@ -758,8 +764,8 @@ impl Client {
 
     /// Execute a SELECT query with external tables for JOIN operations
     ///
-    /// External tables allow passing temporary in-memory data to queries for JOINs
-    /// without creating actual tables in ClickHouse.
+    /// External tables allow passing temporary in-memory data to queries for
+    /// JOINs without creating actual tables in ClickHouse.
     ///
     /// # Example
     /// ```no_run
@@ -817,7 +823,8 @@ impl Client {
             query = Query::new(query.text()).with_query_id(query_id);
         }
 
-        // Send query WITHOUT finalization (we'll finalize after external tables)
+        // Send query WITHOUT finalization (we'll finalize after external
+        // tables)
         self.send_query_internal(&query, false).await?;
 
         // Send external tables data (before finalization)
@@ -926,7 +933,9 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    eprintln!("[DEBUG] Received table columns packet (ignoring)");
+                    eprintln!(
+                        "[DEBUG] Received table columns packet (ignoring)"
+                    );
                     // Skip external table name
                     let _table_name = self.conn.read_string().await?;
                     // Skip columns metadata string
@@ -967,7 +976,11 @@ impl Client {
     }
 
     /// Send a query packet (internal with finalization control)
-    async fn send_query_internal(&mut self, query: &Query, finalize: bool) -> Result<()> {
+    async fn send_query_internal(
+        &mut self,
+        query: &Query,
+        finalize: bool,
+    ) -> Result<()> {
         eprintln!("[DEBUG] Sending query: {}", query.text());
         // Write query code
         self.conn.write_varint(ClientCode::Query as u64).await?;
@@ -1082,9 +1095,9 @@ impl Client {
 
     /// Finalize query by sending empty block marker
     ///
-    /// Must be called after send_query_internal() to complete the query protocol.
-    /// For most queries, use send_query() which handles this automatically.
-    /// Only split for special cases like external tables.
+    /// Must be called after send_query_internal() to complete the query
+    /// protocol. For most queries, use send_query() which handles this
+    /// automatically. Only split for special cases like external tables.
     async fn finalize_query(&mut self) -> Result<()> {
         // Send empty block to finalize query (as per C++ client)
         // This block must respect the compression setting we told the server
@@ -1107,10 +1120,13 @@ impl Client {
 
     /// Send external tables data
     ///
-    /// External tables are sent as Data packets after the initial query packet.
-    /// Each table is sent with its name and block data.
+    /// External tables are sent as Data packets after the initial query
+    /// packet. Each table is sent with its name and block data.
     /// Empty blocks are skipped to keep the connection in a consistent state.
-    async fn send_external_tables(&mut self, external_tables: &[crate::ExternalTable]) -> Result<()> {
+    async fn send_external_tables(
+        &mut self,
+        external_tables: &[crate::ExternalTable],
+    ) -> Result<()> {
         for table in external_tables {
             // Skip empty blocks to keep connection consistent
             if table.data.row_count() == 0 {
@@ -1122,11 +1138,19 @@ impl Client {
             // Send Data packet type
             self.conn.write_varint(ClientCode::Data as u64).await?;
 
-            // Send table name (this serves as the temp table name for this Data packet)
+            // Send table name (this serves as the temp table name for this
+            // Data packet)
             self.conn.write_string(&table.name).await?;
 
-            // Send block data WITHOUT temp table name prefix (we already wrote it above)
-            self.block_writer.write_block_with_temp_table(&mut self.conn, &table.data, false).await?;
+            // Send block data WITHOUT temp table name prefix (we already wrote
+            // it above)
+            self.block_writer
+                .write_block_with_temp_table(
+                    &mut self.conn,
+                    &table.data,
+                    false,
+                )
+                .await?;
         }
 
         self.conn.flush().await?;
