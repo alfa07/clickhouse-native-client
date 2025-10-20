@@ -489,10 +489,17 @@ impl Column for ColumnLowCardinality {
             )));
         }
 
+        // Create compact slice with only referenced dictionary entries
+        // (matching C++ implementation which rebuilds dictionary)
         let mut sliced = ColumnLowCardinality::new(self.type_.clone());
-        sliced.dictionary = self.dictionary.clone();
-        sliced.indices = self.indices[begin..begin + len].to_vec();
-        sliced.unique_map = self.unique_map.clone();
+
+        // For each value in the slice, get from original dictionary and append
+        // This automatically rebuilds the dictionary with only referenced items
+        for i in begin..begin + len {
+            let dict_index = self.indices[i] as usize;
+            let value = get_column_item(self.dictionary.as_ref(), dict_index)?;
+            sliced.append_unsafe(&value)?;
+        }
 
         Ok(Arc::new(sliced))
     }
@@ -536,22 +543,99 @@ mod tests {
 
     #[test]
     fn test_lowcardinality_slice() {
+        use crate::column::column_value::ColumnValue;
+
         let lc_type = Type::LowCardinality {
             nested_type: Box::new(Type::Simple(TypeCode::String)),
         };
 
         let mut col = ColumnLowCardinality::new(lc_type);
-        // Manually add some indices for testing
-        col.indices = vec![0, 1, 2, 1, 0];
 
-        let sliced = col.slice(1, 3).unwrap();
-        let sliced_col =
-            sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
+        // Add data: ["a", "b", "c", "b", "a"] (3 unique values)
+        col.append_unsafe(&ColumnValue::from_string("a")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("b")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("c")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("b")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("a")).unwrap();
+
+        assert_eq!(col.len(), 5);
+        assert_eq!(col.dictionary_size(), 3); // "a", "b", "c"
+
+        // Slice [1:3] = ["b", "c"] - only uses 2 unique values
+        let sliced = col.slice(1, 2).unwrap();
+        let sliced_col = sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
+
+        assert_eq!(sliced_col.len(), 2);
+        // CRITICAL: Dictionary should be compacted to only 2 items (not 3!)
+        assert_eq!(sliced_col.dictionary_size(), 2, "Dictionary should be compacted");
+
+        // Values should still match
+        let val0 = get_column_item(sliced_col.dictionary.as_ref(), sliced_col.index_at(0) as usize).unwrap();
+        let val1 = get_column_item(sliced_col.dictionary.as_ref(), sliced_col.index_at(1) as usize).unwrap();
+        assert_eq!(val0.as_string().unwrap(), "b");
+        assert_eq!(val1.as_string().unwrap(), "c");
+    }
+
+    #[test]
+    fn test_lowcardinality_slice_memory_efficiency() {
+        use crate::column::column_value::ColumnValue;
+
+        let lc_type = Type::LowCardinality {
+            nested_type: Box::new(Type::Simple(TypeCode::String)),
+        };
+
+        let mut col = ColumnLowCardinality::new(lc_type);
+
+        // Add 1000 unique values
+        for i in 0..1000 {
+            col.append_unsafe(&ColumnValue::from_string(&format!("value_{}", i))).unwrap();
+        }
+
+        assert_eq!(col.dictionary_size(), 1000);
+
+        // Slice only the first 10 items
+        let sliced = col.slice(0, 10).unwrap();
+        let sliced_col = sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
+
+        assert_eq!(sliced_col.len(), 10);
+        // Dictionary should be compacted to only 10 items (not 1000!)
+        assert_eq!(
+            sliced_col.dictionary_size(),
+            10,
+            "Dictionary should be compacted to only referenced items"
+        );
+    }
+
+    #[test]
+    fn test_lowcardinality_slice_with_duplicates() {
+        use crate::column::column_value::ColumnValue;
+
+        let lc_type = Type::LowCardinality {
+            nested_type: Box::new(Type::Simple(TypeCode::String)),
+        };
+
+        let mut col = ColumnLowCardinality::new(lc_type);
+
+        // Add pattern: ["x", "y", "z", "x", "x", "z"]
+        col.append_unsafe(&ColumnValue::from_string("x")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("y")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("z")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("x")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("x")).unwrap();
+        col.append_unsafe(&ColumnValue::from_string("z")).unwrap();
+
+        assert_eq!(col.dictionary_size(), 3); // "x", "y", "z"
+
+        // Slice [3:3] = ["x", "x", "z"] - only uses 2 unique values
+        let sliced = col.slice(3, 3).unwrap();
+        let sliced_col = sliced.as_any().downcast_ref::<ColumnLowCardinality>().unwrap();
 
         assert_eq!(sliced_col.len(), 3);
-        assert_eq!(sliced_col.index_at(0), 1);
-        assert_eq!(sliced_col.index_at(1), 2);
-        assert_eq!(sliced_col.index_at(2), 1);
+        assert_eq!(sliced_col.dictionary_size(), 2, "Only 'x' and 'z' should be in dictionary");
+
+        // Verify deduplication in sliced column
+        // Both "x" values should point to same dictionary entry
+        assert_eq!(sliced_col.index_at(0), sliced_col.index_at(1), "Duplicate 'x' should use same index");
     }
 
     #[test]
