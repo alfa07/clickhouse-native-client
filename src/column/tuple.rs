@@ -105,6 +105,19 @@ impl Column for ColumnTuple {
         Ok(())
     }
 
+    fn load_prefix(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+        // Call load_prefix on all tuple element columns
+        for col in &mut self.columns {
+            let col_mut = Arc::get_mut(col).ok_or_else(|| {
+                Error::Protocol(
+                    "Cannot load prefix for shared tuple column".to_string(),
+                )
+            })?;
+            col_mut.load_prefix(buffer, rows)?;
+        }
+        Ok(())
+    }
+
     fn load_from_buffer(
         &mut self,
         buffer: &mut &[u8],
