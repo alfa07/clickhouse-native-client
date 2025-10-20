@@ -36,18 +36,12 @@ impl QuerySettingsField {
 
     /// Create a new settings field with value and no flags
     pub fn new(value: impl Into<String>) -> Self {
-        Self {
-            value: value.into(),
-            flags: 0,
-        }
+        Self { value: value.into(), flags: 0 }
     }
 
     /// Create a new settings field with value and flags
     pub fn with_flags(value: impl Into<String>, flags: u64) -> Self {
-        Self {
-            value: value.into(),
-            flags,
-        }
+        Self { value: value.into(), flags }
     }
 
     /// Create an important setting
@@ -219,7 +213,8 @@ impl Query {
         value: impl Into<String>,
         flags: u64,
     ) -> Self {
-        self.settings.insert(key.into(), QuerySettingsField::with_flags(value, flags));
+        self.settings
+            .insert(key.into(), QuerySettingsField::with_flags(value, flags));
         self
     }
 
@@ -591,10 +586,7 @@ pub struct ExternalTable {
 impl ExternalTable {
     /// Create a new external table
     pub fn new(name: impl Into<String>, data: Block) -> Self {
-        Self {
-            name: name.into(),
-            data,
-        }
+        Self { name: name.into(), data }
     }
 }
 
@@ -790,7 +782,11 @@ mod tests {
     fn test_query_with_important_settings() {
         let query = Query::new("SELECT 1")
             .with_important_setting("max_threads", "4")
-            .with_setting_flags("custom_setting", "value", QuerySettingsField::CUSTOM);
+            .with_setting_flags(
+                "custom_setting",
+                "value",
+                QuerySettingsField::CUSTOM,
+            );
 
         assert_eq!(query.settings().len(), 2);
 
