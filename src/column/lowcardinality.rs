@@ -58,6 +58,13 @@ use std::{
     sync::Arc,
 };
 
+use super::column_value::{
+    append_column_item,
+    compute_hash_key,
+    get_column_item,
+    ColumnValue,
+};
+
 /// Column for LowCardinality type (dictionary encoding)
 ///
 /// Stores unique values in a dictionary and uses indices to reference them,
@@ -69,7 +76,7 @@ pub struct ColumnLowCardinality {
     type_: Type,
     dictionary: ColumnRef,         // Stores unique values
     indices: Vec<u64>,             // Indices into dictionary
-    unique_map: HashMap<u64, u64>, // Hash -> dictionary index for fast lookup
+    unique_map: HashMap<(u64, u64), u64>, // Hash pair -> dictionary index for fast lookup
 }
 
 impl ColumnLowCardinality {
@@ -117,6 +124,51 @@ impl ColumnLowCardinality {
     pub fn is_empty(&self) -> bool {
         self.indices.is_empty()
     }
+
+    /// Append a value with hash-based deduplication (like C++ AppendUnsafe)
+    /// This is the core method for adding values to LowCardinality columns
+    pub fn append_unsafe(&mut self, value: &ColumnValue) -> Result<()> {
+        let hash_key = compute_hash_key(value);
+        let current_dict_size = self.dictionary.size() as u64;
+
+        // Check if value already exists in dictionary
+        let index = if let Some(&existing_idx) = self.unique_map.get(&hash_key) {
+            // Value exists - reuse existing dictionary index
+            existing_idx
+        } else {
+            // New value - add to dictionary
+            let dict_mut = Arc::get_mut(&mut self.dictionary).ok_or_else(|| {
+                Error::Protocol(
+                    "Cannot append to shared dictionary - column has multiple references"
+                        .to_string(),
+                )
+            })?;
+
+            // Append to dictionary
+            append_column_item(dict_mut, value)?;
+
+            // Record in unique_map
+            self.unique_map.insert(hash_key, current_dict_size);
+
+            current_dict_size
+        };
+
+        // Append index
+        self.indices.push(index);
+
+        Ok(())
+    }
+
+    /// Bulk append values from an iterator with deduplication
+    pub fn append_values<I>(&mut self, values: I) -> Result<()>
+    where
+        I: IntoIterator<Item = ColumnValue>,
+    {
+        for value in values {
+            self.append_unsafe(&value)?;
+        }
+        Ok(())
+    }
 }
 
 impl Column for ColumnLowCardinality {
@@ -156,30 +208,28 @@ impl Column for ColumnLowCardinality {
             });
         }
 
-        // Dictionary merging strategy:
-        // For simplicity, we append the other dictionary to ours and remap indices
-        // A more sophisticated implementation would deduplicate dictionary entries
+        // Hash-based dictionary merging with deduplication
+        // This matches the C++ clickhouse-cpp implementation
+        //
+        // For each value in other:
+        // 1. Extract ColumnValue from other's dictionary using other's index
+        // 2. Use append_unsafe which:
+        //    - Computes hash
+        //    - Checks unique_map for existing entry
+        //    - If exists: reuses existing dictionary index
+        //    - If new: adds to dictionary and updates unique_map
+        // 3. Appends the (possibly deduplicated) index
 
-        let current_dict_size = self.dictionary.size() as u64;
+        for &other_index in &other.indices {
+            // Get the value from other's dictionary
+            let value = get_column_item(
+                other.dictionary.as_ref(),
+                other_index as usize,
+            )?;
 
-        // Append other's dictionary to ours
-        let dict_mut = Arc::get_mut(&mut self.dictionary)
-            .ok_or_else(|| Error::Protocol(
-                "Cannot append to shared dictionary - column has multiple references".to_string()
-            ))?;
-        dict_mut.append_column(other.dictionary.clone())?;
-
-        // Append other's indices with offset applied
-        for &index in &other.indices {
-            self.indices.push(index + current_dict_size);
+            // Add with deduplication
+            self.append_unsafe(&value)?;
         }
-
-        // Note: We don't update unique_map here as it's not fully implemented
-        // A complete implementation would:
-        // 1. Check for duplicate values in the dictionaries
-        // 2. Only add unique values
-        // 3. Remap indices to point to deduplicated dictionary
-        // 4. Update unique_map with new entries
 
         Ok(())
     }
@@ -189,53 +239,184 @@ impl Column for ColumnLowCardinality {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        // LowCardinality has a complex serialization format:
-        // 1. Read serialization version
-        // 2. Read dictionary size
-        // 3. Read dictionary values
-        // 4. Read index type and values
+        // LowCardinality wire format (following C++ clickhouse-cpp):
+        // LoadPrefix (called separately via block reader):
+        //   1. key_version (UInt64) - should be 1 (SharedDictionariesWithAdditionalKeys)
+        // LoadBody (this method):
+        //   2. index_serialization_type (UInt64) - contains flags and index type
+        //   3. number_of_keys (UInt64) - dictionary size
+        //   4. Dictionary column data (nested type)
+        //   5. number_of_rows (UInt64) - should match rows parameter
+        //   6. Index column data (UInt8/16/32/64 depending on index type)
 
         if buffer.len() < 8 {
             return Err(Error::Protocol(
-                "Not enough data for LowCardinality header".to_string(),
+                "Not enough data for LowCardinality key version".to_string(),
             ));
         }
 
-        // Read version (UInt64)
-        let _version = buffer.get_u64_le();
+        // Read key_version (should be 1)
+        let key_version = buffer.get_u64_le();
+        const SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS: u64 = 1;
 
-        // For now, we'll implement a simplified version
-        // A full implementation would need to handle:
-        // - Different index sizes (UInt8, UInt16, UInt32, UInt64)
-        // - Shared dictionaries
-        // - Nullable handling
+        if key_version != SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS {
+            return Err(Error::Protocol(format!(
+                "Invalid LowCardinality key version: expected {}, got {}",
+                SHARED_DICTIONARIES_WITH_ADDITIONAL_KEYS, key_version
+            )));
+        }
 
-        // Read number of unique values
+        // Read index_serialization_type
+        if buffer.len() < 8 {
+            return Err(Error::Protocol(
+                "Not enough data for LowCardinality index serialization type".to_string(),
+            ));
+        }
+
+        let index_serialization_type = buffer.get_u64_le();
+
+        const INDEX_TYPE_MASK: u64 = 0xFF;
+        const NEED_GLOBAL_DICTIONARY_BIT: u64 = 1 << 8;
+        const HAS_ADDITIONAL_KEYS_BIT: u64 = 1 << 9;
+
+        let index_type = index_serialization_type & INDEX_TYPE_MASK;
+
+        // Check flags
+        if (index_serialization_type & NEED_GLOBAL_DICTIONARY_BIT) != 0 {
+            return Err(Error::Protocol(
+                "Global dictionary is not supported".to_string(),
+            ));
+        }
+
+        if (index_serialization_type & HAS_ADDITIONAL_KEYS_BIT) == 0 {
+            // Don't fail - try to continue reading
+        }
+
+        // Read number of dictionary keys
         if buffer.len() < 8 {
             return Err(Error::Protocol(
                 "Not enough data for dictionary size".to_string(),
             ));
         }
-        let dict_size = buffer.get_u64_le() as usize;
+        let number_of_keys = buffer.get_u64_le() as usize;
 
         // Load dictionary values
-        // This is simplified - real implementation needs to handle the nested
-        // type properly
-        for _ in 0..dict_size {
-            // Skip dictionary loading for now
-            // Would need: self.dictionary.load_from_buffer(buffer, 1)?;
+        // IMPORTANT: For Nullable dictionaries, we only load the NESTED column data
+        // The null bitmap is NOT part of the dictionary serialization
+        // (matching C++ implementation in lowcardinality.cpp::Load)
+        if number_of_keys > 0 {
+            let dict_mut = Arc::get_mut(&mut self.dictionary).ok_or_else(|| {
+                Error::Protocol(
+                    "Cannot load into shared dictionary - column has multiple references"
+                        .to_string(),
+                )
+            })?;
+
+            // Check if dictionary is Nullable - if so, load only nested data
+            use super::nullable::ColumnNullable;
+            if let Some(nullable_col) = dict_mut.as_any_mut().downcast_mut::<ColumnNullable>() {
+                let nested_mut = Arc::get_mut(nullable_col.nested_mut()).ok_or_else(|| {
+                    Error::Protocol(
+                        "Cannot load into shared nested column - column has multiple references"
+                            .to_string(),
+                    )
+                })?;
+                nested_mut.load_from_buffer(buffer, number_of_keys)?;
+
+                // After loading, mark all entries as non-null for now
+                // (The C++ code reconstructs the null bitmap after loading)
+                for _ in 0..number_of_keys {
+                    nullable_col.append_non_null();
+                }
+            } else {
+                // Non-nullable dictionary - load normally
+                dict_mut.load_from_buffer(buffer, number_of_keys)?;
+            }
         }
 
-        // Read indices
-        self.indices.reserve(rows);
-        for _ in 0..rows {
-            if buffer.len() < 8 {
-                return Err(Error::Protocol(
-                    "Not enough data for LowCardinality index".to_string(),
-                ));
+        // Read number of rows (should match the rows parameter)
+        // Note: In some cases this field may be omitted/truncated
+        let _number_of_rows = if buffer.len() >= 8 {
+            let val = buffer.get_u64_le() as usize;
+
+            if val != rows {
+                return Err(Error::Protocol(format!(
+                    "LowCardinality row count mismatch: expected {}, got {}",
+                    rows, val
+                )));
             }
-            let index = buffer.get_u64_le();
-            self.indices.push(index);
+            val
+        } else {
+            // If not enough bytes, assume number_of_rows equals rows parameter
+            // This may happen in certain protocol versions or formats
+            rows
+        };
+
+        // Read indices based on index type
+        self.indices.reserve(rows);
+        match index_type {
+            0 => {
+                // UInt8 indices
+                for _ in 0..rows {
+                    if buffer.is_empty() {
+                        return Err(Error::Protocol(
+                            "Not enough data for LowCardinality index".to_string(),
+                        ));
+                    }
+                    let index = buffer.get_u8() as u64;
+                    self.indices.push(index);
+                }
+            }
+            1 => {
+                // UInt16 indices
+                for _ in 0..rows {
+                    if buffer.len() < 2 {
+                        return Err(Error::Protocol(
+                            "Not enough data for LowCardinality index".to_string(),
+                        ));
+                    }
+                    let index = buffer.get_u16_le() as u64;
+                    self.indices.push(index);
+                }
+            }
+            2 => {
+                // UInt32 indices
+                for _ in 0..rows {
+                    if buffer.len() < 4 {
+                        return Err(Error::Protocol(
+                            "Not enough data for LowCardinality index".to_string(),
+                        ));
+                    }
+                    let index = buffer.get_u32_le() as u64;
+                    self.indices.push(index);
+                }
+            }
+            3 => {
+                // UInt64 indices
+                for _ in 0..rows {
+                    if buffer.len() < 8 {
+                        return Err(Error::Protocol(
+                            "Not enough data for LowCardinality index".to_string(),
+                        ));
+                    }
+                    let index = buffer.get_u64_le();
+                    self.indices.push(index);
+                }
+            }
+            _ => {
+                return Err(Error::Protocol(format!(
+                    "Unknown LowCardinality index type: {}",
+                    index_type
+                )));
+            }
+        }
+
+        // Rebuild unique_map from dictionary
+        self.unique_map.clear();
+        for i in 0..self.dictionary.size() {
+            let value = get_column_item(self.dictionary.as_ref(), i)?;
+            let hash_key = compute_hash_key(&value);
+            self.unique_map.insert(hash_key, i as u64);
         }
 
         Ok(())

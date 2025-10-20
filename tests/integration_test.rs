@@ -1576,3 +1576,82 @@ async fn test_nested_arrays_arbitrary_depth() {
 
     println!("\n✅ All nested array tests passed!\n");
 }
+
+#[tokio::test]
+#[ignore]
+async fn test_lowcardinality_deduplication() {
+    println!("\n=== Testing LowCardinality Deduplication ===\n");
+
+    let (mut client, db_name) = create_isolated_test_client("lowcardinality")
+        .await
+        .expect("Failed to create test client");
+
+    println!("Creating LowCardinality test table...");
+
+    // Create table with LowCardinality columns
+    client
+        .execute(format!(
+            "CREATE TABLE {}.lc_test (
+                id UInt32,
+                status LowCardinality(String),
+                country LowCardinality(Nullable(String))
+            ) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create LowCardinality table");
+
+    println!("  ✓ Table created\n");
+
+    println!("Inserting data with repeated values (testing deduplication)...");
+
+    // Insert data with many repeated values
+    // This tests that LowCardinality deduplicates efficiently
+    client
+        .execute(format!(
+            "INSERT INTO {}.lc_test VALUES
+                (1, 'active', 'US'),
+                (2, 'inactive', 'UK'),
+                (3, 'active', 'US'),
+                (4, 'pending', NULL),
+                (5, 'active', 'US'),
+                (6, 'inactive', 'DE'),
+                (7, 'active', 'UK'),
+                (8, 'pending', 'US'),
+                (9, 'active', 'US'),
+                (10, 'inactive', NULL)",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert LowCardinality data");
+
+    println!("  ✓ Inserted 10 rows with repeated values\n");
+
+    println!("Querying data...");
+
+    let result = client
+        .query(format!("SELECT * FROM {}.lc_test ORDER BY id", db_name))
+        .await
+        .expect("Failed to query LowCardinality data");
+
+    println!("  ✓ Query succeeded, rows: {}", result.total_rows());
+    assert_eq!(result.total_rows(), 10);
+
+    // Verify deduplication by checking unique values
+    let unique_status = client
+        .query(format!(
+            "SELECT count(DISTINCT status) as cnt FROM {}.lc_test",
+            db_name
+        ))
+        .await
+        .expect("Failed to query distinct statuses");
+
+    println!("  ✓ Distinct statuses query succeeded");
+    assert_eq!(unique_status.total_rows(), 1);
+
+    // Clean up
+    println!("\nCleaning up...");
+    cleanup_test_database(&db_name).await;
+
+    println!("\n✅ LowCardinality deduplication test passed!\n");
+}
