@@ -1189,13 +1189,21 @@ async fn test_query_settings_with_flags() {
     println!("✓ Query with important settings succeeded");
     println!("  Rows: {}", result.total_rows());
 
-    // Test custom setting flags
+    // Test setting with explicit flags (IMPORTANT only for standard settings)
     let query2 = Query::new(format!("SELECT * FROM {}.settings_test", db_name))
-        .with_setting_flags("max_threads", "4", QuerySettingsField::IMPORTANT | QuerySettingsField::CUSTOM);
+        .with_setting_flags("max_threads", "4", QuerySettingsField::IMPORTANT);
 
-    let result2 = client.query(query2).await.expect("Failed to query with custom flags");
-    println!("✓ Query with custom setting flags succeeded");
+    let result2 = client.query(query2).await.expect("Failed to query with explicit flags");
+    println!("✓ Query with explicit IMPORTANT flag succeeded");
     println!("  Rows: {}", result2.total_rows());
+
+    // Test setting with no flags (standard behavior)
+    let query3 = Query::new(format!("SELECT * FROM {}.settings_test", db_name))
+        .with_setting("max_block_size", "500");
+
+    let result3 = client.query(query3).await.expect("Failed to query with no flags");
+    println!("✓ Query with standard setting (no flags) succeeded");
+    println!("  Rows: {}", result3.total_rows());
 
     // Clean up
     client
