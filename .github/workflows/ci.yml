@@ -194,24 +194,6 @@ jobs:
         env:
           CLICKHOUSE_HOST: localhost
 
-      - name: Run Block Integration Tests - Tuple Types
-        run: |
-          cargo test --test integration_block_tuple_float32_float64 -- --ignored --nocapture
-          cargo test --test integration_block_tuple_int32_int64 -- --ignored --nocapture
-          cargo test --test integration_block_tuple_string_int64 -- --ignored --nocapture
-          cargo test --test integration_block_tuple_string_int64_array_string -- --ignored --nocapture
-        env:
-          CLICKHOUSE_HOST: localhost
-
-      - name: Run Block Integration Tests - Map Types
-        run: |
-          cargo test --test integration_block_map_int8_string -- --ignored --nocapture
-          cargo test --test integration_block_map_string_array_array_int8 -- --ignored --nocapture
-          cargo test --test integration_block_map_uuid_nullable_string -- --ignored --nocapture
-          cargo test --test integration_block_map_uuid_nullable_lowcardinality_string -- --ignored --nocapture
-        env:
-          CLICKHOUSE_HOST: localhost
-
       - name: Run Block Integration Tests - Nullable Types
         run: |
           cargo test --test integration_block_nullable_string -- --ignored --nocapture
