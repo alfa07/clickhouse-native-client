@@ -134,19 +134,20 @@ async fn test_map_uuid_nullable_string() {
 }
 
 // ============================================================================
-// Map(UUID, Nullable(LowCardinality(String)))
+// Map(UUID, LowCardinality(String))
+// Note: LowCardinality cannot be inside Nullable
 // ============================================================================
 
 #[tokio::test]
 #[ignore]
-async fn test_map_uuid_nullable_lowcardinality_string() {
+async fn test_map_uuid_lowcardinality_string() {
     let (mut client, db_name) = create_isolated_test_client("map_uuid_lc")
         .await
         .expect("Failed to create test client");
 
     client
         .query(format!(
-            "CREATE TABLE {}.test_table (data Map(UUID, Nullable(LowCardinality(String)))) ENGINE = Memory",
+            "CREATE TABLE {}.test_table (data Map(UUID, LowCardinality(String))) ENGINE = Memory",
             db_name
         ))
         .await
@@ -157,7 +158,7 @@ async fn test_map_uuid_nullable_lowcardinality_string() {
             "INSERT INTO {}.test_table VALUES
             ({{'550e8400-e29b-41d4-a716-446655440000': 'tag1', '6ba7b810-9dad-11d1-80b4-00c04fd430c8': 'tag2'}}),
             ({{}}),
-            ({{'00000000-0000-0000-0000-000000000000': NULL}})",
+            ({{'00000000-0000-0000-0000-000000000000': ''}})",
             db_name
         ))
         .await
