@@ -126,6 +126,7 @@ impl Column for ColumnIpv4 {
         }
 
         // Use bulk copy for performance
+        self.data.reserve(rows);
         let current_len = self.data.len();
         unsafe {
             // Set length first to claim ownership of the memory

@@ -261,6 +261,7 @@ impl Column for ColumnArray {
         }
 
         // Use bulk copy for performance
+        self.offsets.reserve(rows);
         let current_len = self.offsets.len();
         unsafe {
             // Set length first to claim ownership of the memory
