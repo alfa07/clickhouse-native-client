@@ -9,9 +9,9 @@
 /// - Null-only columns (via Nullable(Nothing))
 /// - Certain internal operations
 ///
-/// Therefore, we don't test Nothing columns like other types (no table creation,
-/// no block insertion). The Column interface is tested via unit tests in
-/// src/column/nothing.rs instead.
+/// Therefore, we don't test Nothing columns like other types (no table
+/// creation, no block insertion). The Column interface is tested via unit
+/// tests in src/column/nothing.rs instead.
 mod common;
 
 use clickhouse_client::{
@@ -49,8 +49,7 @@ async fn test_nothing_column_interface() {
 
     // Test append_column
     let col2 = Arc::new(ColumnNothing::new(nothing_type()).with_size(2));
-    col.append_column(col2)
-        .expect("Failed to append column");
+    col.append_column(col2).expect("Failed to append column");
     assert_eq!(col.len(), 5);
 
     // Test slice
@@ -76,8 +75,7 @@ fn test_nothing_load_from_buffer() {
 
     // Nothing columns consume 1 byte per row in the wire format
     let mut buffer: &[u8] = &[0, 0, 0, 0, 0]; // 5 bytes for 5 rows
-    col.load_from_buffer(&mut buffer, 5)
-        .expect("Failed to load from buffer");
+    col.load_from_buffer(&mut buffer, 5).expect("Failed to load from buffer");
 
     assert_eq!(col.len(), 5);
     assert!(buffer.is_empty()); // All bytes should be consumed
