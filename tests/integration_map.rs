@@ -134,10 +134,46 @@ async fn test_map_uuid_nullable_string() {
 }
 
 // ============================================================================
-// NOTE: Map(UUID, LowCardinality(String)) is currently not supported
-// Due to protocol variant issues when LowCardinality is nested inside Map.
-// LowCardinality(String) works fine as a top-level column type.
-// Maps work fine with other value types (String, Int, Nullable(String), etc.)
+// Map(UUID, LowCardinality(String))
+// ============================================================================
+
+#[tokio::test]
+#[ignore]
+async fn test_map_uuid_lowcardinality_string() {
+    let (mut client, db_name) =
+        create_isolated_test_client("map_uuid_lc_string")
+            .await
+            .expect("Failed to create test client");
+
+    client
+        .query(format!(
+            "CREATE TABLE {}.test_table (data Map(UUID, LowCardinality(String))) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create table");
+
+    client
+        .query(format!(
+            "INSERT INTO {}.test_table VALUES
+            ({{'550e8400-e29b-41d4-a716-446655440000': 'test', '6ba7b810-9dad-11d1-80b4-00c04fd430c8': 'value'}}),
+            ({{}}),
+            ({{'ffffffff-ffff-ffff-ffff-ffffffffffff': 'max', '00000000-0000-0000-0000-000000000000': 'min'}})",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert");
+
+    let result = client
+        .query(format!("SELECT data FROM {}.test_table", db_name))
+        .await
+        .expect("Failed to select");
+
+    assert_eq!(result.total_rows(), 3);
+
+    cleanup_test_database(&db_name).await;
+}
+
 // ============================================================================
 // Map with empty maps
 // ============================================================================

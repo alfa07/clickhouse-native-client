@@ -105,6 +105,18 @@ impl Column for ColumnMap {
         ))
     }
 
+    fn load_prefix(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+        // Delegate to underlying array's load_prefix
+        // CRITICAL: This ensures nested LowCardinality columns in Map values
+        // have their key_version read before load_from_buffer is called
+        let data_mut = Arc::get_mut(&mut self.data).ok_or_else(|| {
+            Error::Protocol(
+                "Cannot load prefix for shared map column".to_string(),
+            )
+        })?;
+        data_mut.load_prefix(buffer, rows)
+    }
+
     fn load_from_buffer(
         &mut self,
         buffer: &mut &[u8],
@@ -127,6 +139,13 @@ impl Column for ColumnMap {
         Err(Error::Protocol(
             "Failed to load Map column from buffer".to_string(),
         ))
+    }
+
+    fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
+        // Delegate to underlying array's save_prefix
+        // CRITICAL: This ensures nested LowCardinality columns in Map values
+        // have their key_version written before save_to_buffer is called
+        self.data.save_prefix(buffer)
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
