@@ -361,24 +361,17 @@ impl Column for ColumnLowCardinality {
         }
 
         // Read number of rows (should match the rows parameter)
-        // Note: In some cases this field may be omitted/truncated or may be 0
+        // Note: In some cases this field may be omitted/truncated
         let _number_of_rows = if buffer.len() >= 8 {
             let val = buffer.get_u64_le() as usize;
 
-            // If val is 0 or doesn't match rows, use rows parameter
-            // This happens when LowCardinality is inside Map or other compound
-            // types
-            if val != 0 && val != rows {
+            if val != rows {
                 return Err(Error::Protocol(format!(
                     "LowCardinality row count mismatch: expected {}, got {}",
                     rows, val
                 )));
             }
-            if val == 0 {
-                rows
-            } else {
-                val
-            }
+            val
         } else {
             // If not enough bytes, assume number_of_rows equals rows parameter
             // This may happen in certain protocol versions or formats
