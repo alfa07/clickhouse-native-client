@@ -52,9 +52,9 @@ async fn test_int128_block_insert_basic() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 3);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+    let col_ref = blocks[0].column(0).expect("Column not found");
+    let result_col = col_ref
         .as_any()
         .downcast_ref::<ColumnInt128>()
         .expect("Invalid column type");
@@ -68,7 +68,7 @@ async fn test_int128_block_insert_basic() {
         .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     for (idx, exp) in expected.iter().enumerate() {
-        assert_eq!(result_col.at(idx), *expected);
+        assert_eq!(result_col.at(idx), *exp);
     }
 
     cleanup_test_database(&db_name).await;
@@ -127,9 +127,9 @@ async fn test_int128_block_insert_boundary() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), test_cases.len());
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+    let col_ref = blocks[0].column(0).expect("Column not found");
+    let result_col = col_ref
         .as_any()
         .downcast_ref::<ColumnInt128>()
         .expect("Invalid column type");
@@ -194,9 +194,9 @@ proptest! {
                 .expect("Failed to select");
 
             assert_eq!(result.total_rows(), values.len());
-            let result_col = result.blocks()[0]
-                .column(0)
-                .expect("Column not found")
+            let blocks = result.blocks();
+            let col_ref = blocks[0].column(0).expect("Column not found");
+            let result_col = col_ref
                 .as_any()
                 .downcast_ref::<ColumnInt128>()
                 .expect("Invalid column type");
