@@ -37,10 +37,7 @@ use crate::{
     Error,
     Result,
 };
-use bytes::{
-    Buf,
-    BytesMut,
-};
+use bytes::BytesMut;
 use std::sync::Arc;
 
 const SECONDS_PER_DAY: i64 = 86400;
