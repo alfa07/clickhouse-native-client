@@ -146,9 +146,8 @@ async fn test_tuple_string_int64_array_string_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let mut col1 = ColumnString::new(Type::string());
     let mut col2 = ColumnInt64::new(Type::int64());
     let mut nested = ColumnString::new(Type::string());

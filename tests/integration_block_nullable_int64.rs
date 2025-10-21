@@ -125,9 +125,8 @@ async fn test_nullable_int64_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let nullable_type = Type::nullable(Type::int64());
     let mut nullable_col = ColumnNullable::new(nullable_type);
 

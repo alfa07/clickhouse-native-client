@@ -125,9 +125,8 @@ async fn test_tuple_float32_float64_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let mut col1 = ColumnFloat32::new(Type::float32());
     let mut col2 = ColumnFloat64::new(Type::float64());
 

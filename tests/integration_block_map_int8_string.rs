@@ -159,9 +159,8 @@ async fn test_map_int8_string_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
 
     let map_type = Type::Map {
         key_type: Box::new(Type::int8()),

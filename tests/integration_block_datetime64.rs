@@ -94,9 +94,8 @@ async fn test_datetime64_block_insert_boundary() {
     ];
 
     let mut block = Block::new();
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let mut val_col = ColumnDateTime64::new(Type::datetime64(3, None));
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {

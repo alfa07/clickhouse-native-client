@@ -113,11 +113,9 @@ async fn test_array_datetime64_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
-    let mut nested =
-        ColumnDateTime64::new(Type::datetime64(precision, None));
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
+    let mut nested = ColumnDateTime64::new(Type::datetime64(precision, None));
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);

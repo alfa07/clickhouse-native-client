@@ -104,9 +104,8 @@ async fn test_array_float32_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let mut nested = ColumnFloat32::new(Type::float32());
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
