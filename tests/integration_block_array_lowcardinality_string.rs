@@ -5,8 +5,8 @@ mod common;
 use clickhouse_client::{
     column::{
         array::ColumnArray,
+        column_value::ColumnValue,
         lowcardinality::ColumnLowCardinality,
-        string::ColumnString,
     },
     types::Type,
     Block,
@@ -37,15 +37,20 @@ async fn test_array_lowcardinality_string_block_insert_basic() {
     let mut block = Block::new();
 
     // Create nested LowCardinality(String) column
-    let inner = Arc::new(ColumnString::new(Type::string()));
-    let mut nested = ColumnLowCardinality::with_inner(
-        Type::low_cardinality(Type::string()),
-        inner,
-    );
-    nested.append_string("tag1".to_string());
-    nested.append_string("tag2".to_string());
-    nested.append_string("tag1".to_string()); // Repeated tag
-    nested.append_string("tag3".to_string());
+    let mut nested =
+        ColumnLowCardinality::new(Type::low_cardinality(Type::string()));
+    nested
+        .append_unsafe(&ColumnValue::from_string("tag1"))
+        .expect("Failed to append");
+    nested
+        .append_unsafe(&ColumnValue::from_string("tag2"))
+        .expect("Failed to append");
+    nested
+        .append_unsafe(&ColumnValue::from_string("tag1"))
+        .expect("Failed to append"); // Repeated tag
+    nested
+        .append_unsafe(&ColumnValue::from_string("tag3"))
+        .expect("Failed to append");
 
     // Create Array column with offsets: [2, 4] for arrays [["tag1", "tag2"],
     // ["tag1", "tag3"]]
@@ -114,17 +119,16 @@ async fn test_array_lowcardinality_string_block_insert_boundary() {
 
     let mut id_col =
         clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-    let inner = Arc::new(ColumnString::new(Type::string()));
-    let mut nested = ColumnLowCardinality::with_inner(
-        Type::low_cardinality(Type::string()),
-        inner,
-    );
+    let mut nested =
+        ColumnLowCardinality::new(Type::low_cardinality(Type::string()));
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
 
         for &val in values {
-            nested.append_string(val.to_string());
+            nested
+                .append_unsafe(&ColumnValue::from_string(val))
+                .expect("Failed to append");
         }
     }
 
@@ -175,15 +179,14 @@ async fn test_array_lowcardinality_string_block_insert_many_elements() {
 
     // Create a large array with many repeated tags (good for LowCardinality
     // compression)
-    let inner = Arc::new(ColumnString::new(Type::string()));
-    let mut nested = ColumnLowCardinality::with_inner(
-        Type::low_cardinality(Type::string()),
-        inner,
-    );
+    let mut nested =
+        ColumnLowCardinality::new(Type::low_cardinality(Type::string()));
 
     let tags = vec!["tag1", "tag2", "tag3", "tag4", "tag5"];
     for i in 0..1000 {
-        nested.append_string(tags[i % tags.len()].to_string());
+        nested
+            .append_unsafe(&ColumnValue::from_string(tags[i % tags.len()]))
+            .expect("Failed to append");
     }
 
     let mut col = ColumnArray::with_nested(Arc::new(nested));
@@ -239,16 +242,15 @@ proptest! {
                 Type::uint32()
             );
 
-            let inner = Arc::new(ColumnString::new(Type::string()));
-            let mut nested = ColumnLowCardinality::with_inner(
-                Type::low_cardinality(Type::string()),
-                inner
-            );
+            let mut nested =
+                ColumnLowCardinality::new(Type::low_cardinality(Type::string()));
 
             for (idx, array) in arrays.iter().enumerate() {
                 id_col.append(idx as u32);
                 for val in array {
-                    nested.append_string(val.clone());
+                    nested
+                        .append_unsafe(&ColumnValue::from_string(val))
+                        .expect("Failed to append");
                 }
             }
 
