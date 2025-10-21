@@ -74,11 +74,8 @@ async fn test_lowcardinality_string_block_insert_basic() {
     let col_ref = blocks[0].column(0).expect("Column not found");
 
     let result_col = col_ref
-
         .as_any()
-
         .downcast_ref::<ColumnLowCardinality>()
-
         .expect("Invalid column type");
 
     // Dictionary should have only 3 unique values
@@ -203,11 +200,8 @@ async fn test_lowcardinality_string_block_insert_high_cardinality() {
     let col_ref = blocks[0].column(0).expect("Column not found");
 
     let result_col = col_ref
-
         .as_any()
-
         .downcast_ref::<ColumnLowCardinality>()
-
         .expect("Invalid column type");
 
     // Dictionary should have only 5 unique values despite 100 rows

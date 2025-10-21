@@ -79,11 +79,8 @@ async fn test_nullable_uuid_block_insert_basic() {
     let col_ref = blocks[0].column(0).expect("Column not found");
 
     let result_col = col_ref
-
         .as_any()
-
         .downcast_ref::<ColumnNullable>()
-
         .expect("Invalid column type");
 
     assert!(!result_col.is_null(0));
@@ -191,11 +188,8 @@ async fn test_nullable_uuid_block_insert_boundary() {
     let col_ref = blocks[0].column(0).expect("Column not found");
 
     let result_col = col_ref
-
         .as_any()
-
         .downcast_ref::<ColumnNullable>()
-
         .expect("Invalid column type");
 
     let nested = result_col
@@ -265,11 +259,8 @@ async fn test_nullable_uuid_block_insert_all_nulls() {
     let col_ref = blocks[0].column(0).expect("Column not found");
 
     let result_col = col_ref
-
         .as_any()
-
         .downcast_ref::<ColumnNullable>()
-
         .expect("Invalid column type");
 
     for i in 0..5 {
