@@ -260,15 +260,21 @@ impl Column for ColumnArray {
             )));
         }
 
-        for _ in 0..rows {
-            let offset_bytes = [
-                buffer[0], buffer[1], buffer[2], buffer[3], buffer[4],
-                buffer[5], buffer[6], buffer[7],
-            ];
-            let offset = u64::from_le_bytes(offset_bytes);
-            self.offsets.push(offset);
-            buffer.advance(8);
+        // Use bulk copy for performance
+        let current_len = self.offsets.len();
+        unsafe {
+            // Cast dest to bytes and use byte offset
+            let dest_ptr =
+                (self.offsets.as_mut_ptr() as *mut u8).add(current_len * 8);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.offsets.set_len(current_len + rows);
         }
+
+        buffer.advance(bytes_needed);
 
         // CRITICAL: Must also load the nested column data
         // The total number of nested elements is the last offset value
@@ -308,9 +314,14 @@ impl Column for ColumnArray {
         // Write offsets as fixed UInt64 (not varints!)
         // Wire format: UInt64 values stored as 8-byte little-endian
         // This matches load_from_buffer which reads fixed UInt64
-        use bytes::BufMut;
-        for &offset in &self.offsets {
-            buffer.put_u64_le(offset);
+        if !self.offsets.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.offsets.as_ptr() as *const u8,
+                    self.offsets.len() * 8,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
 
         // Write nested column data

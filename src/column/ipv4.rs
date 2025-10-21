@@ -7,10 +7,7 @@ use crate::{
     Error,
     Result,
 };
-use bytes::{
-    BufMut,
-    BytesMut,
-};
+use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Column for IPv4 addresses (stored as UInt32)
@@ -119,27 +116,42 @@ impl Column for ColumnIpv4 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        use bytes::Buf;
-
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 4 {
-                return Err(Error::Protocol(
-                    "Not enough data for IPv4".to_string(),
-                ));
-            }
-
-            let ip = buffer.get_u32_le();
-            self.data.push(ip);
+        let bytes_needed = rows * 4;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for IPv4, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 4);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        use bytes::Buf;
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for &ip in &self.data {
-            buffer.put_u32_le(ip);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 4,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }

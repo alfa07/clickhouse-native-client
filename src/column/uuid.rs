@@ -7,10 +7,7 @@ use crate::{
     Error,
     Result,
 };
-use bytes::{
-    BufMut,
-    BytesMut,
-};
+use bytes::BytesMut;
 use std::sync::Arc;
 
 /// UUID value stored as 128 bits (2x u64)
@@ -142,29 +139,44 @@ impl Column for ColumnUuid {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        use bytes::Buf;
-
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 16 {
-                return Err(Error::Protocol(
-                    "Not enough data for UUID".to_string(),
-                ));
-            }
-
-            let high = buffer.get_u64_le();
-            let low = buffer.get_u64_le();
-            self.data.push(Uuid { high, low });
+        let bytes_needed = rows * 16;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for UUID, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        // Uuid is repr(Rust) but contains two u64 fields in order,
+        // which matches the wire format
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 16);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        use bytes::Buf;
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for uuid in &self.data {
-            buffer.put_u64_le(uuid.high);
-            buffer.put_u64_le(uuid.low);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 16,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }
