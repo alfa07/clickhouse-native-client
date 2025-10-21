@@ -112,9 +112,8 @@ async fn test_array_lowcardinality_string_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let inner = Arc::new(ColumnString::new(Type::string()));
     let mut nested = ColumnLowCardinality::with_inner(
         Type::low_cardinality(Type::string()),

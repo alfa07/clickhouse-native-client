@@ -105,9 +105,8 @@ async fn test_enum8_block_insert_boundary() {
         vec![("Min value", -128), ("Zero value", 0), ("Max value", 127)];
 
     let mut block = Block::new();
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let mut val_col = ColumnEnum8::new(enum_type.clone());
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {

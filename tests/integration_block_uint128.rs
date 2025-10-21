@@ -95,9 +95,8 @@ async fn test_uint128_block_insert_boundary() {
     ];
 
     let mut block = Block::new();
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let mut val_col = ColumnUInt128::new(Type::uint128());
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {

@@ -145,9 +145,8 @@ async fn test_lowcardinality_uuid_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-        Type::uint32(),
-    );
+    let mut id_col =
+        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
     let lc_type = Type::lowcardinality(Type::uuid());
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
