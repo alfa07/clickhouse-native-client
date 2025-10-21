@@ -90,6 +90,9 @@ async fn test_array_string_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
+    let long_a = "a".repeat(1000);
+    let long_b = "b".repeat(500);
+
     let test_cases: Vec<(&str, Vec<&str>)> = vec![
         ("Empty array", vec![]),
         ("Single element", vec!["single"]),
@@ -97,10 +100,7 @@ async fn test_array_string_block_insert_boundary() {
         ("Empty strings", vec!["", "", ""]),
         ("Mixed empty and non-empty", vec!["hello", "", "world"]),
         ("Unicode strings", vec!["こんにちは", "世界", "🎉"]),
-        (
-            "Long strings",
-            vec!["a".repeat(1000).as_str(), "b".repeat(500).as_str()],
-        ),
+        ("Long strings", vec![long_a.as_str(), long_b.as_str()]),
         (
             "Special characters",
             vec!["tab\there", "newline\nhere", "quote\"here"],
