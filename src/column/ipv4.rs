@@ -128,6 +128,8 @@ impl Column for ColumnIpv4 {
         // Use bulk copy for performance
         let current_len = self.data.len();
         unsafe {
+            // Set length first to claim ownership of the memory
+            self.data.set_len(current_len + rows);
             let dest_ptr =
                 (self.data.as_mut_ptr() as *mut u8).add(current_len * 4);
             std::ptr::copy_nonoverlapping(
@@ -135,7 +137,6 @@ impl Column for ColumnIpv4 {
                 dest_ptr,
                 bytes_needed,
             );
-            self.data.set_len(current_len + rows);
         }
 
         use bytes::Buf;
