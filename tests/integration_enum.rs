@@ -2,11 +2,14 @@
 mod common;
 
 use clickhouse_client::{
-    column::numeric::{
-        ColumnInt16,
-        ColumnInt8,
+    column::enum_column::{
+        ColumnEnum16,
+        ColumnEnum8,
     },
-    types::Type,
+    types::{
+        EnumItem,
+        Type,
+    },
     Block,
 };
 use common::{
@@ -35,13 +38,18 @@ async fn test_enum8_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    // Enum8 is stored as Int8
-    let mut col = ColumnInt8::new(Type::int8());
-    col.append(1); // 'pending'
-    col.append(2); // 'active'
-    col.append(3); // 'inactive'
-    col.append(1); // 'pending' again
-    col.append(2); // 'active' again
+    // Enum8 with proper enum type definition
+    let items = vec![
+        EnumItem { name: "pending".to_string(), value: 1 },
+        EnumItem { name: "active".to_string(), value: 2 },
+        EnumItem { name: "inactive".to_string(), value: 3 },
+    ];
+    let mut col = ColumnEnum8::new(Type::enum8(items));
+    col.append_value(1); // 'pending'
+    col.append_value(2); // 'active'
+    col.append_value(3); // 'inactive'
+    col.append_value(1); // 'pending' again
+    col.append_value(2); // 'active' again
 
     block
         .append_column("status", Arc::new(col))
@@ -63,7 +71,7 @@ async fn test_enum8_roundtrip() {
 
     let result_col = col_ref
         .as_any()
-        .downcast_ref::<ColumnInt8>()
+        .downcast_ref::<ColumnEnum8>()
         .expect("Invalid column type");
 
     assert_eq!(result_col.at(0), 1);
@@ -96,13 +104,19 @@ async fn test_enum16_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    // Enum16 is stored as Int16
-    let mut col = ColumnInt16::new(Type::int16());
-    col.append(100); // 'low'
-    col.append(200); // 'medium'
-    col.append(300); // 'high'
-    col.append(1000); // 'critical'
-    col.append(200); // 'medium' again
+    // Enum16 with proper enum type definition
+    let items = vec![
+        EnumItem { name: "low".to_string(), value: 100 },
+        EnumItem { name: "medium".to_string(), value: 200 },
+        EnumItem { name: "high".to_string(), value: 300 },
+        EnumItem { name: "critical".to_string(), value: 1000 },
+    ];
+    let mut col = ColumnEnum16::new(Type::enum16(items));
+    col.append_value(100); // 'low'
+    col.append_value(200); // 'medium'
+    col.append_value(300); // 'high'
+    col.append_value(1000); // 'critical'
+    col.append_value(200); // 'medium' again
 
     block
         .append_column("priority", Arc::new(col))
@@ -124,7 +138,7 @@ async fn test_enum16_roundtrip() {
 
     let result_col = col_ref
         .as_any()
-        .downcast_ref::<ColumnInt16>()
+        .downcast_ref::<ColumnEnum16>()
         .expect("Invalid column type");
 
     assert_eq!(result_col.at(0), 100);
