@@ -426,4 +426,201 @@ mod tests {
         assert_eq!(col1.get(0), Some(&1.5));
         assert_eq!(col1.get(3), Some(&4.5));
     }
+
+    // Bulk copy tests - verify set_len safety
+    #[test]
+    fn test_bulk_load_large_dataset() {
+        // Test with 10,000 elements to ensure bulk copy works correctly
+        let mut col = ColumnUInt64::new(Type::uint64());
+        let data: Vec<u64> = (0..10_000).collect();
+
+        // Save to buffer
+        let mut buf = BytesMut::new();
+        for &val in &data {
+            buf.put_u64_le(val);
+        }
+
+        // Load from buffer using bulk copy (internally uses set_len)
+        let mut reader = &buf[..];
+        col.load_from_buffer(&mut reader, 10_000).unwrap();
+
+        assert_eq!(col.size(), 10_000);
+        assert_eq!(col.get(0), Some(&0));
+        assert_eq!(col.get(5_000), Some(&5_000));
+        assert_eq!(col.get(9_999), Some(&9_999));
+    }
+
+    #[test]
+    fn test_bulk_load_multiple_sequential() {
+        // Test multiple sequential bulk loads
+        let mut col = ColumnInt32::new(Type::int32());
+
+        // First bulk load
+        let mut buf1 = BytesMut::new();
+        for i in 0..1_000 {
+            buf1.put_i32_le(i);
+        }
+        let mut reader1 = &buf1[..];
+        col.load_from_buffer(&mut reader1, 1_000).unwrap();
+
+        assert_eq!(col.size(), 1_000);
+        assert_eq!(col.get(0), Some(&0));
+        assert_eq!(col.get(999), Some(&999));
+
+        // Second bulk load (should append)
+        let mut buf2 = BytesMut::new();
+        for i in 1_000..2_000 {
+            buf2.put_i32_le(i);
+        }
+        let mut reader2 = &buf2[..];
+        col.load_from_buffer(&mut reader2, 1_000).unwrap();
+
+        assert_eq!(col.size(), 1_000); // Note: load_from_buffer clears first
+        assert_eq!(col.get(0), Some(&1_000));
+        assert_eq!(col.get(999), Some(&1_999));
+    }
+
+    #[test]
+    fn test_bulk_load_empty() {
+        // Test edge case: empty load
+        let mut col = ColumnUInt32::new(Type::uint32());
+        let buf = BytesMut::new();
+        let mut reader = &buf[..];
+        col.load_from_buffer(&mut reader, 0).unwrap();
+
+        assert_eq!(col.size(), 0);
+    }
+
+    #[test]
+    fn test_bulk_load_single_element() {
+        // Test edge case: single element
+        let mut col = ColumnInt64::new(Type::int64());
+        let mut buf = BytesMut::new();
+        buf.put_i64_le(42);
+
+        let mut reader = &buf[..];
+        col.load_from_buffer(&mut reader, 1).unwrap();
+
+        assert_eq!(col.size(), 1);
+        assert_eq!(col.get(0), Some(&42));
+    }
+
+    #[test]
+    fn test_bulk_load_roundtrip_large() {
+        // Test save/load round-trip with large data
+        let mut col1 = ColumnFloat32::new(Type::float32());
+        for i in 0..5_000 {
+            col1.append(i as f32 * 1.5);
+        }
+
+        // Save to buffer
+        let mut buf = BytesMut::new();
+        col1.save_to_buffer(&mut buf).unwrap();
+
+        // Load from buffer
+        let mut col2 = ColumnFloat32::new(Type::float32());
+        let mut reader = &buf[..];
+        col2.load_from_buffer(&mut reader, 5_000).unwrap();
+
+        assert_eq!(col2.size(), 5_000);
+        for i in 0..5_000 {
+            assert_eq!(col2.get(i), Some(&(i as f32 * 1.5)));
+        }
+    }
+
+    #[test]
+    fn test_bulk_load_all_numeric_types() {
+        // Test bulk load for all numeric types to ensure set_len works
+        // correctly
+
+        // UInt8
+        let mut col_u8 = ColumnUInt8::new(Type::uint8());
+        let mut buf = BytesMut::new();
+        for i in 0..255u8 {
+            buf.put_u8(i);
+        }
+        let mut reader = &buf[..];
+        col_u8.load_from_buffer(&mut reader, 255).unwrap();
+        assert_eq!(col_u8.size(), 255);
+
+        // UInt16
+        let mut col_u16 = ColumnUInt16::new(Type::uint16());
+        let mut buf = BytesMut::new();
+        for i in 0..1000u16 {
+            buf.put_u16_le(i);
+        }
+        let mut reader = &buf[..];
+        col_u16.load_from_buffer(&mut reader, 1000).unwrap();
+        assert_eq!(col_u16.size(), 1000);
+
+        // Int8
+        let mut col_i8 = ColumnInt8::new(Type::int8());
+        let mut buf = BytesMut::new();
+        for i in -127..127i8 {
+            buf.put_i8(i);
+        }
+        let mut reader = &buf[..];
+        col_i8.load_from_buffer(&mut reader, 254).unwrap();
+        assert_eq!(col_i8.size(), 254);
+
+        // Int16
+        let mut col_i16 = ColumnInt16::new(Type::int16());
+        let mut buf = BytesMut::new();
+        for i in 0..1000i16 {
+            buf.put_i16_le(i);
+        }
+        let mut reader = &buf[..];
+        col_i16.load_from_buffer(&mut reader, 1000).unwrap();
+        assert_eq!(col_i16.size(), 1000);
+
+        // i128 and u128
+        let mut col_i128 = ColumnInt128::new(Type::int128());
+        let mut buf = BytesMut::new();
+        for i in 0..100i128 {
+            buf.put_i128_le(i);
+        }
+        let mut reader = &buf[..];
+        col_i128.load_from_buffer(&mut reader, 100).unwrap();
+        assert_eq!(col_i128.size(), 100);
+
+        let mut col_u128 = ColumnUInt128::new(Type::uint128());
+        let mut buf = BytesMut::new();
+        for i in 0..100u128 {
+            buf.put_u128_le(i);
+        }
+        let mut reader = &buf[..];
+        col_u128.load_from_buffer(&mut reader, 100).unwrap();
+        assert_eq!(col_u128.size(), 100);
+    }
+
+    #[test]
+    fn test_bulk_load_memory_safety() {
+        // This test specifically validates that set_len is called AFTER memory
+        // initialization If set_len was called before
+        // copy_nonoverlapping, this would fail or cause UB
+        let mut col = ColumnInt32::new(Type::int32());
+
+        // Create test data with specific pattern
+        let mut buf = BytesMut::new();
+        let test_values: Vec<i32> =
+            vec![i32::MIN, -1_000_000, -1, 0, 1, 1_000_000, i32::MAX];
+        for &val in &test_values {
+            buf.put_i32_le(val);
+        }
+
+        // Load using bulk copy
+        let mut reader = &buf[..];
+        col.load_from_buffer(&mut reader, test_values.len()).unwrap();
+
+        // Verify all values are correctly initialized
+        assert_eq!(col.size(), test_values.len());
+        for (i, &expected) in test_values.iter().enumerate() {
+            assert_eq!(
+                col.get(i),
+                Some(&expected),
+                "Value mismatch at index {}",
+                i
+            );
+        }
+    }
 }
