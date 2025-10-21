@@ -115,6 +115,24 @@ jobs:
         env:
           CLICKHOUSE_HOST: localhost
 
+      - name: Run Column Type Integration Tests
+        run: |
+          cargo test --test integration_numeric -- --ignored --nocapture
+          cargo test --test integration_string -- --ignored --nocapture
+          cargo test --test integration_date -- --ignored --nocapture
+          cargo test --test integration_decimal -- --ignored --nocapture
+          cargo test --test integration_enum -- --ignored --nocapture
+          cargo test --test integration_ipv4 -- --ignored --nocapture
+          cargo test --test integration_ipv6 -- --ignored --nocapture
+          cargo test --test integration_uuid -- --ignored --nocapture
+          cargo test --test integration_array -- --ignored --nocapture
+          cargo test --test integration_nullable -- --ignored --nocapture
+          cargo test --test integration_tuple -- --ignored --nocapture
+          cargo test --test integration_map -- --ignored --nocapture
+          cargo test --test integration_lowcardinality -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
       - name: Run Other Integration Tests
         run: |
           cargo test --test block_tests -- --ignored --nocapture

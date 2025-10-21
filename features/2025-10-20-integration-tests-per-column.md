@@ -190,8 +190,35 @@ Run with: `cargo test --ignored` when ClickHouse is available.
 - tests/integration_map.rs
 - tests/integration_lowcardinality.rs
 
-### Modified Files (1)
-- Cargo.toml
+### Modified Files (2)
+- Cargo.toml - Added `proptest = "1.4"` to dev-dependencies
+- .github/workflows/ci.yml - Added new integration tests to CI pipeline
+
+### CI/CD Integration
+
+Updated `.github/workflows/ci.yml` to run all new column type integration tests:
+- Added dedicated "Run Column Type Integration Tests" step
+- Tests run against ClickHouse 25.5 in GitHub Actions
+- All 13 new integration test files are executed in CI
+- Tests run with `--ignored` flag to execute integration tests
+- Environment variable `CLICKHOUSE_HOST=localhost` is set
+
+The CI now runs:
+```bash
+cargo test --test integration_numeric -- --ignored --nocapture
+cargo test --test integration_string -- --ignored --nocapture
+cargo test --test integration_date -- --ignored --nocapture
+cargo test --test integration_decimal -- --ignored --nocapture
+cargo test --test integration_enum -- --ignored --nocapture
+cargo test --test integration_ipv4 -- --ignored --nocapture
+cargo test --test integration_ipv6 -- --ignored --nocapture
+cargo test --test integration_uuid -- --ignored --nocapture
+cargo test --test integration_array -- --ignored --nocapture
+cargo test --test integration_nullable -- --ignored --nocapture
+cargo test --test integration_tuple -- --ignored --nocapture
+cargo test --test integration_map -- --ignored --nocapture
+cargo test --test integration_lowcardinality -- --ignored --nocapture
+```
 
 ## Test Statistics
 
