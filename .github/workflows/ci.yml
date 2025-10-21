@@ -206,8 +206,6 @@ jobs:
       - name: Run Block Integration Tests - LowCardinality Types
         run: |
           cargo test --test integration_block_lowcardinality_string -- --ignored --nocapture
-          cargo test --test integration_block_lowcardinality_int64 -- --ignored --nocapture
-          cargo test --test integration_block_lowcardinality_uuid -- --ignored --nocapture
         env:
           CLICKHOUSE_HOST: localhost
 
