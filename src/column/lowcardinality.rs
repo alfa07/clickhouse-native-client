@@ -362,39 +362,26 @@ impl Column for ColumnLowCardinality {
 
         // Read number of rows (should match the rows parameter)
         // Note: In some cases this field may be omitted/truncated or may be 0
-        // When LowCardinality is inside Map or similar compound types, this
-        // field may not be present or may be 0
-        let _number_of_rows = if buffer.len() >= 8 && number_of_keys > 0 {
-            // Peek at value before consuming
-            use bytes::Buf;
-            let peek_slice = &buffer.chunk()[..8.min(buffer.chunk().len())];
-            if peek_slice.len() >= 8 {
-                let val = u64::from_le_bytes([
-                    peek_slice[0],
-                    peek_slice[1],
-                    peek_slice[2],
-                    peek_slice[3],
-                    peek_slice[4],
-                    peek_slice[5],
-                    peek_slice[6],
-                    peek_slice[7],
-                ]) as usize;
+        let _number_of_rows = if buffer.len() >= 8 {
+            let val = buffer.get_u64_le() as usize;
 
-                // Only consume if value looks reasonable
-                if val > 0 && val <= rows * 2 {
-                    // Looks like a valid number_of_rows field
-                    buffer.get_u64_le(); // Actually consume it
-                    val
-                } else {
-                    // Value is 0 or too large - skip this field
-                    rows
-                }
-            } else {
+            // If val is 0 or doesn't match rows, use rows parameter
+            // This happens when LowCardinality is inside Map or other compound
+            // types
+            if val != 0 && val != rows {
+                return Err(Error::Protocol(format!(
+                    "LowCardinality row count mismatch: expected {}, got {}",
+                    rows, val
+                )));
+            }
+            if val == 0 {
                 rows
+            } else {
+                val
             }
         } else {
-            // If not enough bytes or empty dictionary, assume number_of_rows
-            // equals rows parameter
+            // If not enough bytes, assume number_of_rows equals rows parameter
+            // This may happen in certain protocol versions or formats
             rows
         };
 
