@@ -31,9 +31,9 @@ async fn test_fixedstring_block_insert_basic() {
 
     let mut block = Block::new();
     let mut col = ColumnFixedString::new(Type::fixed_string(10));
-    col.append("hello".as_bytes());
-    col.append("world".as_bytes());
-    col.append("test".as_bytes());
+    col.append("hello".to_string());
+    col.append("world".to_string());
+    col.append("test".to_string());
     block
         .append_column("value", Arc::new(col))
         .expect("Failed to append column");
@@ -59,7 +59,7 @@ async fn test_fixedstring_block_insert_basic() {
         .downcast_ref::<ColumnFixedString>()
         .expect("Invalid column type");
 
-    assert_eq!(result_col.size(), 3);
+    assert_eq!(result_col.len(), 3);
 
     cleanup_test_database(&db_name).await;
 }
@@ -81,16 +81,16 @@ async fn test_fixedstring_block_insert_boundary() {
         .expect("Failed to create table");
 
     let test_cases = vec![
-        ("Empty bytes", vec![0u8; 10]),
+        ("Empty bytes", String::from_utf8(vec![0u8; 10]).unwrap()),
         ("Partial fill", {
             let mut v = b"hello".to_vec();
             v.resize(10, 0);
-            v
+            String::from_utf8(v).unwrap()
         }),
         ("Full string", {
             let mut v = b"0123456789".to_vec();
             v.resize(10, 0);
-            v
+            String::from_utf8(v).unwrap()
         }),
     ];
 
@@ -101,7 +101,7 @@ async fn test_fixedstring_block_insert_boundary() {
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
-        val_col.append(value.as_slice());
+        val_col.append(value.clone());
     }
 
     block

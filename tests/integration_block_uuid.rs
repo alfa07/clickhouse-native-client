@@ -34,9 +34,9 @@ async fn test_uuid_block_insert_basic() {
 
     let mut block = Block::new();
     let mut col = ColumnUuid::new(Type::uuid());
-    col.append(Uuid::from_u128(12345678901234567890));
-    col.append(Uuid::from_u128(0));
-    col.append(Uuid::from_u128(u128::MAX));
+    col.append(Uuid::new(0, 12345678901234567890));
+    col.append(Uuid::new(0, 0));
+    col.append(Uuid::new(u64::MAX, u64::MAX));
     block
         .append_column("value", Arc::new(col))
         .expect("Failed to append column");
@@ -62,7 +62,7 @@ async fn test_uuid_block_insert_basic() {
         .downcast_ref::<ColumnUuid>()
         .expect("Invalid column type");
 
-    assert_eq!(result_col.at(0), Uuid::from_u128(0));
+    assert_eq!(result_col.at(0), Uuid::new(0, 0));
 
     cleanup_test_database(&db_name).await;
 }
@@ -84,10 +84,10 @@ async fn test_uuid_block_insert_boundary() {
         .expect("Failed to create table");
 
     let test_cases = vec![
-        ("Min UUID", Uuid::from_u128(0)),
-        ("Max UUID", Uuid::from_u128(u128::MAX)),
-        ("Mid UUID", Uuid::from_u128(u128::MAX / 2)),
-        ("Random UUID", Uuid::from_u128(0x123456789ABCDEF0123456789ABCDEF0)),
+        ("Min UUID", Uuid::new(0, 0)),
+        ("Max UUID", Uuid::new(u64::MAX, u64::MAX)),
+        ("Mid UUID", Uuid::new(u64::MAX / 2, u64::MAX)),
+        ("Random UUID", Uuid::new(0x123456789ABCDEF0, 0x123456789ABCDEF0)),
     ];
 
     let mut block = Block::new();
@@ -161,7 +161,9 @@ proptest! {
 
             for (idx, value) in values.iter().enumerate() {
                 id_col.append(idx as u32);
-                val_col.append(Uuid::from_u128(*value));
+                let high = (*value >> 64) as u64;
+                let low = *value as u64;
+                val_col.append(Uuid::new(high, low));
             }
 
             block
@@ -193,7 +195,9 @@ proptest! {
                 .expect("Invalid column type");
 
             for (idx, expected) in values.iter().enumerate() {
-                assert_eq!(result_col.at(idx), Uuid::from_u128(*expected));
+                let high = (*expected >> 64) as u64;
+                let low = *expected as u64;
+                assert_eq!(result_col.at(idx), Uuid::new(high, low));
             }
 
             cleanup_test_database(&db_name).await;
