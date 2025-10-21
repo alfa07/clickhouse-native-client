@@ -78,8 +78,8 @@ async fn test_lowcardinality_string_block_insert_basic() {
         .downcast_ref::<ColumnLowCardinality>()
         .expect("Invalid column type");
 
-    // Dictionary should have only 3 unique values
-    assert_eq!(result_col.dictionary_size(), 3);
+    // Dictionary includes default empty value + 3 unique values = 4 total
+    assert_eq!(result_col.dictionary_size(), 4);
     assert_eq!(result_col.len(), 5);
 
     cleanup_test_database(&db_name).await;
@@ -120,11 +120,10 @@ async fn test_lowcardinality_string_block_insert_boundary() {
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
 
-        for value in values {
-            lc_col
-                .append_unsafe(&ColumnValue::from_string(*value))
-                .expect("Failed to append");
-        }
+        // Append first value from each test case (one row per test case)
+        lc_col
+            .append_unsafe(&ColumnValue::from_string(values[0]))
+            .expect("Failed to append");
     }
 
     block
@@ -204,8 +203,8 @@ async fn test_lowcardinality_string_block_insert_high_cardinality() {
         .downcast_ref::<ColumnLowCardinality>()
         .expect("Invalid column type");
 
-    // Dictionary should have only 5 unique values despite 100 rows
-    assert_eq!(result_col.dictionary_size(), 5);
+    // Dictionary includes default empty value + 5 unique values = 6 total
+    assert_eq!(result_col.dictionary_size(), 6);
 
     cleanup_test_database(&db_name).await;
 }
@@ -283,8 +282,8 @@ proptest! {
 
                 .expect("Invalid column type");
 
-            // Dictionary should have at most 4 unique values
-            assert!(result_col.dictionary_size() <= 4);
+            // Dictionary includes default empty value + up to 4 unique values = at most 5
+            assert!(result_col.dictionary_size() <= 5);
 
             cleanup_test_database(&db_name).await;
         });
