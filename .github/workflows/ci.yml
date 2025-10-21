@@ -133,6 +133,102 @@ jobs:
         env:
           CLICKHOUSE_HOST: localhost
 
+      - name: Run Block Integration Tests - Numeric Types
+        run: |
+          cargo test --test integration_block_uint8 -- --ignored --nocapture
+          cargo test --test integration_block_uint16 -- --ignored --nocapture
+          cargo test --test integration_block_uint32 -- --ignored --nocapture
+          cargo test --test integration_block_uint64 -- --ignored --nocapture
+          cargo test --test integration_block_uint128 -- --ignored --nocapture
+          cargo test --test integration_block_int8 -- --ignored --nocapture
+          cargo test --test integration_block_int16 -- --ignored --nocapture
+          cargo test --test integration_block_int32 -- --ignored --nocapture
+          cargo test --test integration_block_int64 -- --ignored --nocapture
+          cargo test --test integration_block_int128 -- --ignored --nocapture
+          cargo test --test integration_block_float32 -- --ignored --nocapture
+          cargo test --test integration_block_float64 -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - String and UUID Types
+        run: |
+          cargo test --test integration_block_string -- --ignored --nocapture
+          cargo test --test integration_block_fixedstring -- --ignored --nocapture
+          cargo test --test integration_block_uuid -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - Date/Time Types
+        run: |
+          cargo test --test integration_block_date -- --ignored --nocapture
+          cargo test --test integration_block_date32 -- --ignored --nocapture
+          cargo test --test integration_block_datetime -- --ignored --nocapture
+          cargo test --test integration_block_datetime64 -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - Other Simple Types
+        run: |
+          cargo test --test integration_block_ipv4 -- --ignored --nocapture
+          cargo test --test integration_block_ipv6 -- --ignored --nocapture
+          cargo test --test integration_block_decimal -- --ignored --nocapture
+          cargo test --test integration_block_enum8 -- --ignored --nocapture
+          cargo test --test integration_block_enum16 -- --ignored --nocapture
+          cargo test --test integration_block_nothing -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - Array Types
+        run: |
+          cargo test --test integration_block_array_float32 -- --ignored --nocapture
+          cargo test --test integration_block_array_float64 -- --ignored --nocapture
+          cargo test --test integration_block_array_string -- --ignored --nocapture
+          cargo test --test integration_block_array_int32 -- --ignored --nocapture
+          cargo test --test integration_block_array_int64 -- --ignored --nocapture
+          cargo test --test integration_block_array_date -- --ignored --nocapture
+          cargo test --test integration_block_array_date32 -- --ignored --nocapture
+          cargo test --test integration_block_array_datetime -- --ignored --nocapture
+          cargo test --test integration_block_array_datetime64 -- --ignored --nocapture
+          cargo test --test integration_block_array_lowcardinality_string -- --ignored --nocapture
+          cargo test --test integration_block_array_decimal -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - Tuple Types
+        run: |
+          cargo test --test integration_block_tuple_float32_float64 -- --ignored --nocapture
+          cargo test --test integration_block_tuple_int32_int64 -- --ignored --nocapture
+          cargo test --test integration_block_tuple_string_int64 -- --ignored --nocapture
+          cargo test --test integration_block_tuple_string_int64_array_string -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - Map Types
+        run: |
+          cargo test --test integration_block_map_int8_string -- --ignored --nocapture
+          cargo test --test integration_block_map_string_array_array_int8 -- --ignored --nocapture
+          cargo test --test integration_block_map_uuid_nullable_string -- --ignored --nocapture
+          cargo test --test integration_block_map_uuid_nullable_lowcardinality_string -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - Nullable Types
+        run: |
+          cargo test --test integration_block_nullable_string -- --ignored --nocapture
+          cargo test --test integration_block_nullable_ipv6 -- --ignored --nocapture
+          cargo test --test integration_block_nullable_uuid -- --ignored --nocapture
+          cargo test --test integration_block_nullable_int64 -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
+      - name: Run Block Integration Tests - LowCardinality Types
+        run: |
+          cargo test --test integration_block_lowcardinality_string -- --ignored --nocapture
+          cargo test --test integration_block_lowcardinality_int64 -- --ignored --nocapture
+          cargo test --test integration_block_lowcardinality_uuid -- --ignored --nocapture
+        env:
+          CLICKHOUSE_HOST: localhost
+
       - name: Run Other Integration Tests
         run: |
           cargo test --test block_tests -- --ignored --nocapture

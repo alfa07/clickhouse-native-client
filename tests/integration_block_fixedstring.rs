@@ -1,0 +1,129 @@
+/// Integration tests for FixedString column using Block insertion
+mod common;
+
+use clickhouse_client::{
+    column::string::ColumnFixedString,
+    types::Type,
+    Block,
+};
+use common::{
+    cleanup_test_database,
+    create_isolated_test_client,
+};
+use proptest::prelude::*;
+use std::sync::Arc;
+
+#[tokio::test]
+#[ignore]
+async fn test_fixedstring_block_insert_basic() {
+    let (mut client, db_name) =
+        create_isolated_test_client("fixedstring_block_basic")
+            .await
+            .expect("Failed to create test client");
+
+    client
+        .query(format!(
+            "CREATE TABLE {}.test_table (value FixedString(10)) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create table");
+
+    let mut block = Block::new();
+    let mut col = ColumnFixedString::new(Type::fixed_string(10));
+    col.append("hello".as_bytes());
+    col.append("world".as_bytes());
+    col.append("test".as_bytes());
+    block
+        .append_column("value", Arc::new(col))
+        .expect("Failed to append column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
+
+    let result = client
+        .query(format!(
+            "SELECT value FROM {}.test_table ORDER BY value",
+            db_name
+        ))
+        .await
+        .expect("Failed to select");
+
+    assert_eq!(result.total_rows(), 3);
+    let result_col = result.blocks()[0]
+        .column(0)
+        .expect("Column not found")
+        .as_any()
+        .downcast_ref::<ColumnFixedString>()
+        .expect("Invalid column type");
+
+    assert_eq!(result_col.size(), 3);
+
+    cleanup_test_database(&db_name).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_fixedstring_block_insert_boundary() {
+    let (mut client, db_name) =
+        create_isolated_test_client("fixedstring_block_boundary")
+            .await
+            .expect("Failed to create test client");
+
+    client
+        .query(format!(
+            "CREATE TABLE {}.test_table (id UInt32, value FixedString(10)) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create table");
+
+    let test_cases = vec![
+        ("Empty bytes", vec![0u8; 10]),
+        ("Partial fill", {
+            let mut v = b"hello".to_vec();
+            v.resize(10, 0);
+            v
+        }),
+        ("Full string", {
+            let mut v = b"0123456789".to_vec();
+            v.resize(10, 0);
+            v
+        }),
+    ];
+
+    for (idx, (_desc, value)) in test_cases.iter().enumerate() {
+        let mut block = Block::new();
+
+        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+            Type::uint32(),
+        );
+        id_col.append(idx as u32);
+
+        let mut val_col = ColumnFixedString::new(Type::fixed_string(10));
+        val_col.append(value.as_slice());
+
+        block
+            .append_column("id", Arc::new(id_col))
+            .expect("Failed to append id column");
+        block
+            .append_column("value", Arc::new(val_col))
+            .expect("Failed to append value column");
+
+        client
+            .insert(&format!("{}.test_table", db_name), block)
+            .await
+            .expect("Failed to insert block");
+    }
+
+    let result = client
+        .query(format!("SELECT value FROM {}.test_table ORDER BY id", db_name))
+        .await
+        .expect("Failed to select");
+
+    assert_eq!(result.total_rows(), test_cases.len());
+
+    cleanup_test_database(&db_name).await;
+}
