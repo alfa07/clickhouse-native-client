@@ -263,6 +263,8 @@ impl Column for ColumnArray {
         // Use bulk copy for performance
         let current_len = self.offsets.len();
         unsafe {
+            // Set length first to claim ownership of the memory
+            self.offsets.set_len(current_len + rows);
             // Cast dest to bytes and use byte offset
             let dest_ptr =
                 (self.offsets.as_mut_ptr() as *mut u8).add(current_len * 8);
@@ -271,7 +273,6 @@ impl Column for ColumnArray {
                 dest_ptr,
                 bytes_needed,
             );
-            self.offsets.set_len(current_len + rows);
         }
 
         buffer.advance(bytes_needed);
