@@ -50,40 +50,52 @@ const SECONDS_PER_DAY: i64 = 86400;
 /// **Range:** 1970-01-01 to 2149-06-06
 ///
 /// **ClickHouse Reference:** <https://clickhouse.com/docs/en/sql-reference/data-types/date>
+///
+/// **C++ Implementation Pattern:**
+/// Uses delegation to `ColumnUInt16` for storage, matching the C++
+/// clickhouse-cpp reference implementation's `std::shared_ptr<ColumnUInt16>
+/// data_` pattern.
 pub struct ColumnDate {
     type_: Type,
-    data: Vec<u16>, // Days since Unix epoch
+    data: Arc<super::ColumnUInt16>, /* Delegates to ColumnUInt16, matches
+                                     * C++ pattern */
 }
 
 impl ColumnDate {
     pub fn new(type_: Type) -> Self {
-        Self { type_, data: Vec::new() }
+        Self {
+            type_,
+            data: Arc::new(super::ColumnUInt16::new(Type::uint16())),
+        }
     }
 
     pub fn with_data(mut self, data: Vec<u16>) -> Self {
-        self.data = data;
+        self.data =
+            Arc::new(super::ColumnUInt16::from_vec(Type::uint16(), data));
         self
     }
 
     /// Append days since epoch (raw UInt16 value)
     pub fn append(&mut self, days: u16) {
-        self.data.push(days);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append(days);
     }
 
     /// Append from Unix timestamp (seconds since epoch)
     pub fn append_timestamp(&mut self, timestamp: i64) {
         let days = (timestamp / SECONDS_PER_DAY) as u16;
-        self.data.push(days);
+        self.append(days);
     }
 
     /// Get raw days value at index
     pub fn at(&self, index: usize) -> u16 {
-        self.data[index]
+        self.data.at(index)
     }
 
     /// Get Unix timestamp (seconds) at index
     pub fn timestamp_at(&self, index: usize) -> i64 {
-        self.data[index] as i64 * SECONDS_PER_DAY
+        self.data.at(index) as i64 * SECONDS_PER_DAY
     }
 
     pub fn len(&self) -> usize {
@@ -93,6 +105,11 @@ impl ColumnDate {
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    /// Get reference to underlying data column (for advanced use)
+    pub fn data(&self) -> &super::ColumnUInt16 {
+        &self.data
+    }
 }
 
 impl Column for ColumnDate {
@@ -101,15 +118,19 @@ impl Column for ColumnDate {
     }
 
     fn size(&self) -> usize {
-        self.data.len()
+        self.data.size()
     }
 
     fn clear(&mut self) {
-        self.data.clear();
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot clear shared column")
+            .clear();
     }
 
     fn reserve(&mut self, new_cap: usize) {
-        self.data.reserve(new_cap);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot reserve on shared column")
+            .reserve(new_cap);
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
@@ -121,7 +142,10 @@ impl Column for ColumnDate {
                 }
             })?;
 
-        self.data.extend_from_slice(&other.data);
+        // Delegate to underlying ColumnUInt16
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append_column(other.data.clone() as ColumnRef)?;
         Ok(())
     }
 
@@ -130,45 +154,15 @@ impl Column for ColumnDate {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        let bytes_needed = rows * 2;
-        if buffer.len() < bytes_needed {
-            return Err(Error::Protocol(format!(
-                "Buffer underflow: need {} bytes for Date, have {}",
-                bytes_needed,
-                buffer.len()
-            )));
-        }
-
-        // Use bulk copy for performance
-        self.data.reserve(rows);
-        let current_len = self.data.len();
-        unsafe {
-            // Set length first to claim ownership of the memory
-            self.data.set_len(current_len + rows);
-            let dest_ptr =
-                (self.data.as_mut_ptr() as *mut u8).add(current_len * 2);
-            std::ptr::copy_nonoverlapping(
-                buffer.as_ptr(),
-                dest_ptr,
-                bytes_needed,
-            );
-        }
-
-        buffer.advance(bytes_needed);
-        Ok(())
+        // Delegate to ColumnUInt16 which has bulk copy optimization
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot load into shared column")
+            .load_from_buffer(buffer, rows)
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        if !self.data.is_empty() {
-            let byte_slice = unsafe {
-                std::slice::from_raw_parts(
-                    self.data.as_ptr() as *const u8,
-                    self.data.len() * 2,
-                )
-            };
-            buffer.extend_from_slice(byte_slice);
-        }
-        Ok(())
+        // Delegate to ColumnUInt16 which has bulk copy optimization
+        self.data.save_to_buffer(buffer)
     }
 
     fn clone_empty(&self) -> ColumnRef {
@@ -176,19 +170,23 @@ impl Column for ColumnDate {
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
-        if begin + len > self.data.len() {
-            return Err(Error::InvalidArgument(format!(
-                "Slice out of bounds: begin={}, len={}, size={}",
-                begin,
-                len,
-                self.data.len()
-            )));
-        }
+        // Delegate to underlying column and wrap result
+        let sliced_data = self.data.slice(begin, len)?;
 
-        let sliced_data = self.data[begin..begin + len].to_vec();
-        Ok(Arc::new(
-            ColumnDate::new(self.type_.clone()).with_data(sliced_data),
-        ))
+        Ok(Arc::new(ColumnDate {
+            type_: self.type_.clone(),
+            data: sliced_data
+                .as_any()
+                .downcast_ref::<super::ColumnUInt16>()
+                .map(|col| {
+                    // Create new Arc from the sliced data
+                    Arc::new(super::ColumnUInt16::from_vec(
+                        Type::uint16(),
+                        col.data().to_vec(),
+                    ))
+                })
+                .expect("Slice should return ColumnUInt16"),
+        }))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -202,40 +200,49 @@ impl Column for ColumnDate {
 
 /// Column for Date32 type (stored as Int32 - days since Unix epoch 1970-01-01)
 /// Extended range: 1900-01-01 to 2299-12-31
+///
+/// **C++ Implementation Pattern:**
+/// Uses delegation to `ColumnInt32` for storage, matching the C++
+/// clickhouse-cpp reference implementation's `std::shared_ptr<ColumnInt32>
+/// data_` pattern.
 pub struct ColumnDate32 {
     type_: Type,
-    data: Vec<i32>, // Days since Unix epoch (signed for extended range)
+    data: Arc<super::ColumnInt32>, /* Delegates to ColumnInt32, matches C++
+                                    * pattern */
 }
 
 impl ColumnDate32 {
     pub fn new(type_: Type) -> Self {
-        Self { type_, data: Vec::new() }
+        Self { type_, data: Arc::new(super::ColumnInt32::new(Type::int32())) }
     }
 
     pub fn with_data(mut self, data: Vec<i32>) -> Self {
-        self.data = data;
+        self.data =
+            Arc::new(super::ColumnInt32::from_vec(Type::int32(), data));
         self
     }
 
     /// Append days since epoch (raw Int32 value)
     pub fn append(&mut self, days: i32) {
-        self.data.push(days);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append(days);
     }
 
     /// Append from Unix timestamp (seconds since epoch)
     pub fn append_timestamp(&mut self, timestamp: i64) {
         let days = (timestamp / SECONDS_PER_DAY) as i32;
-        self.data.push(days);
+        self.append(days);
     }
 
     /// Get raw days value at index
     pub fn at(&self, index: usize) -> i32 {
-        self.data[index]
+        self.data.at(index)
     }
 
     /// Get Unix timestamp (seconds) at index
     pub fn timestamp_at(&self, index: usize) -> i64 {
-        self.data[index] as i64 * SECONDS_PER_DAY
+        self.data.at(index) as i64 * SECONDS_PER_DAY
     }
 
     pub fn len(&self) -> usize {
@@ -245,6 +252,11 @@ impl ColumnDate32 {
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    /// Get reference to underlying data column (for advanced use)
+    pub fn data(&self) -> &super::ColumnInt32 {
+        &self.data
+    }
 }
 
 impl Column for ColumnDate32 {
@@ -253,15 +265,19 @@ impl Column for ColumnDate32 {
     }
 
     fn size(&self) -> usize {
-        self.data.len()
+        self.data.size()
     }
 
     fn clear(&mut self) {
-        self.data.clear();
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot clear shared column")
+            .clear();
     }
 
     fn reserve(&mut self, new_cap: usize) {
-        self.data.reserve(new_cap);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot reserve on shared column")
+            .reserve(new_cap);
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
@@ -272,7 +288,10 @@ impl Column for ColumnDate32 {
             },
         )?;
 
-        self.data.extend_from_slice(&other.data);
+        // Delegate to underlying ColumnInt32
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append_column(other.data.clone() as ColumnRef)?;
         Ok(())
     }
 
@@ -281,45 +300,15 @@ impl Column for ColumnDate32 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        let bytes_needed = rows * 4;
-        if buffer.len() < bytes_needed {
-            return Err(Error::Protocol(format!(
-                "Buffer underflow: need {} bytes for Date32, have {}",
-                bytes_needed,
-                buffer.len()
-            )));
-        }
-
-        // Use bulk copy for performance
-        self.data.reserve(rows);
-        let current_len = self.data.len();
-        unsafe {
-            // Set length first to claim ownership of the memory
-            self.data.set_len(current_len + rows);
-            let dest_ptr =
-                (self.data.as_mut_ptr() as *mut u8).add(current_len * 4);
-            std::ptr::copy_nonoverlapping(
-                buffer.as_ptr(),
-                dest_ptr,
-                bytes_needed,
-            );
-        }
-
-        buffer.advance(bytes_needed);
-        Ok(())
+        // Delegate to ColumnInt32 which has bulk copy optimization
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot load into shared column")
+            .load_from_buffer(buffer, rows)
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        if !self.data.is_empty() {
-            let byte_slice = unsafe {
-                std::slice::from_raw_parts(
-                    self.data.as_ptr() as *const u8,
-                    self.data.len() * 4,
-                )
-            };
-            buffer.extend_from_slice(byte_slice);
-        }
-        Ok(())
+        // Delegate to ColumnInt32 which has bulk copy optimization
+        self.data.save_to_buffer(buffer)
     }
 
     fn clone_empty(&self) -> ColumnRef {
@@ -327,19 +316,23 @@ impl Column for ColumnDate32 {
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
-        if begin + len > self.data.len() {
-            return Err(Error::InvalidArgument(format!(
-                "Slice out of bounds: begin={}, len={}, size={}",
-                begin,
-                len,
-                self.data.len()
-            )));
-        }
+        // Delegate to underlying column and wrap result
+        let sliced_data = self.data.slice(begin, len)?;
 
-        let sliced_data = self.data[begin..begin + len].to_vec();
-        Ok(Arc::new(
-            ColumnDate32::new(self.type_.clone()).with_data(sliced_data),
-        ))
+        Ok(Arc::new(ColumnDate32 {
+            type_: self.type_.clone(),
+            data: sliced_data
+                .as_any()
+                .downcast_ref::<super::ColumnInt32>()
+                .map(|col| {
+                    // Create new Arc from the sliced data
+                    Arc::new(super::ColumnInt32::from_vec(
+                        Type::int32(),
+                        col.data().to_vec(),
+                    ))
+                })
+                .expect("Slice should return ColumnInt32"),
+        }))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -353,9 +346,15 @@ impl Column for ColumnDate32 {
 
 /// Column for DateTime type (stored as UInt32 - seconds since Unix epoch)
 /// Range: 1970-01-01 00:00:00 to 2106-02-07 06:28:15
+///
+/// **C++ Implementation Pattern:**
+/// Uses delegation to `ColumnUInt32` for storage, matching the C++
+/// clickhouse-cpp reference implementation's `std::shared_ptr<ColumnUInt32>
+/// data_` pattern.
 pub struct ColumnDateTime {
     type_: Type,
-    data: Vec<u32>, // Seconds since Unix epoch
+    data: Arc<super::ColumnUInt32>, /* Delegates to ColumnUInt32, matches
+                                     * C++ pattern */
     timezone: Option<String>,
 }
 
@@ -366,22 +365,29 @@ impl ColumnDateTime {
             _ => None,
         };
 
-        Self { type_, data: Vec::new(), timezone }
+        Self {
+            type_,
+            data: Arc::new(super::ColumnUInt32::new(Type::uint32())),
+            timezone,
+        }
     }
 
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
-        self.data = data;
+        self.data =
+            Arc::new(super::ColumnUInt32::from_vec(Type::uint32(), data));
         self
     }
 
     /// Append Unix timestamp (seconds since epoch)
     pub fn append(&mut self, timestamp: u32) {
-        self.data.push(timestamp);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append(timestamp);
     }
 
     /// Get timestamp at index
     pub fn at(&self, index: usize) -> u32 {
-        self.data[index]
+        self.data.at(index)
     }
 
     /// Get timezone
@@ -396,6 +402,11 @@ impl ColumnDateTime {
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    /// Get reference to underlying data column (for advanced use)
+    pub fn data(&self) -> &super::ColumnUInt32 {
+        &self.data
+    }
 }
 
 impl Column for ColumnDateTime {
@@ -404,15 +415,19 @@ impl Column for ColumnDateTime {
     }
 
     fn size(&self) -> usize {
-        self.data.len()
+        self.data.size()
     }
 
     fn clear(&mut self) {
-        self.data.clear();
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot clear shared column")
+            .clear();
     }
 
     fn reserve(&mut self, new_cap: usize) {
-        self.data.reserve(new_cap);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot reserve on shared column")
+            .reserve(new_cap);
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
@@ -424,7 +439,10 @@ impl Column for ColumnDateTime {
                 actual: other.column_type().name(),
             })?;
 
-        self.data.extend_from_slice(&other.data);
+        // Delegate to underlying ColumnUInt32
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append_column(other.data.clone() as ColumnRef)?;
         Ok(())
     }
 
@@ -433,45 +451,15 @@ impl Column for ColumnDateTime {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        let bytes_needed = rows * 4;
-        if buffer.len() < bytes_needed {
-            return Err(Error::Protocol(format!(
-                "Buffer underflow: need {} bytes for DateTime, have {}",
-                bytes_needed,
-                buffer.len()
-            )));
-        }
-
-        // Use bulk copy for performance
-        self.data.reserve(rows);
-        let current_len = self.data.len();
-        unsafe {
-            // Set length first to claim ownership of the memory
-            self.data.set_len(current_len + rows);
-            let dest_ptr =
-                (self.data.as_mut_ptr() as *mut u8).add(current_len * 4);
-            std::ptr::copy_nonoverlapping(
-                buffer.as_ptr(),
-                dest_ptr,
-                bytes_needed,
-            );
-        }
-
-        buffer.advance(bytes_needed);
-        Ok(())
+        // Delegate to ColumnUInt32 which has bulk copy optimization
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot load into shared column")
+            .load_from_buffer(buffer, rows)
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        if !self.data.is_empty() {
-            let byte_slice = unsafe {
-                std::slice::from_raw_parts(
-                    self.data.as_ptr() as *const u8,
-                    self.data.len() * 4,
-                )
-            };
-            buffer.extend_from_slice(byte_slice);
-        }
-        Ok(())
+        // Delegate to ColumnUInt32 which has bulk copy optimization
+        self.data.save_to_buffer(buffer)
     }
 
     fn clone_empty(&self) -> ColumnRef {
@@ -479,19 +467,24 @@ impl Column for ColumnDateTime {
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
-        if begin + len > self.data.len() {
-            return Err(Error::InvalidArgument(format!(
-                "Slice out of bounds: begin={}, len={}, size={}",
-                begin,
-                len,
-                self.data.len()
-            )));
-        }
+        // Delegate to underlying column and wrap result
+        let sliced_data = self.data.slice(begin, len)?;
 
-        let sliced_data = self.data[begin..begin + len].to_vec();
-        Ok(Arc::new(
-            ColumnDateTime::new(self.type_.clone()).with_data(sliced_data),
-        ))
+        Ok(Arc::new(ColumnDateTime {
+            type_: self.type_.clone(),
+            timezone: self.timezone.clone(),
+            data: sliced_data
+                .as_any()
+                .downcast_ref::<super::ColumnUInt32>()
+                .map(|col| {
+                    // Create new Arc from the sliced data
+                    Arc::new(super::ColumnUInt32::from_vec(
+                        Type::uint32(),
+                        col.data().to_vec(),
+                    ))
+                })
+                .expect("Slice should return ColumnUInt32"),
+        }))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -505,9 +498,13 @@ impl Column for ColumnDateTime {
 
 /// Column for DateTime64 type (stored as Int64 - subsecond precision)
 /// Supports arbitrary sub-second precision, extended date range
+///
+/// **C++ Implementation Pattern:**
+/// C++ uses delegation to `ColumnDecimal`, but we use `ColumnInt64` for
+/// simplicity since DateTime64 is fundamentally stored as Int64.
 pub struct ColumnDateTime64 {
     type_: Type,
-    data: Vec<i64>, // Timestamp with precision
+    data: Arc<super::ColumnInt64>, // Delegates to ColumnInt64
     precision: usize,
     timezone: Option<String>,
 }
@@ -521,23 +518,31 @@ impl ColumnDateTime64 {
             _ => panic!("ColumnDateTime64 requires DateTime64 type"),
         };
 
-        Self { type_, data: Vec::new(), precision, timezone }
+        Self {
+            type_,
+            data: Arc::new(super::ColumnInt64::new(Type::int64())),
+            precision,
+            timezone,
+        }
     }
 
     pub fn with_data(mut self, data: Vec<i64>) -> Self {
-        self.data = data;
+        self.data =
+            Arc::new(super::ColumnInt64::from_vec(Type::int64(), data));
         self
     }
 
     /// Append timestamp with precision (e.g., for precision 3, value is
     /// milliseconds)
     pub fn append(&mut self, value: i64) {
-        self.data.push(value);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append(value);
     }
 
     /// Get timestamp at index
     pub fn at(&self, index: usize) -> i64 {
-        self.data[index]
+        self.data.at(index)
     }
 
     /// Get precision (0-9, number of decimal places)
@@ -557,6 +562,11 @@ impl ColumnDateTime64 {
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    /// Get reference to underlying data column (for advanced use)
+    pub fn data(&self) -> &super::ColumnInt64 {
+        &self.data
+    }
 }
 
 impl Column for ColumnDateTime64 {
@@ -565,15 +575,19 @@ impl Column for ColumnDateTime64 {
     }
 
     fn size(&self) -> usize {
-        self.data.len()
+        self.data.size()
     }
 
     fn clear(&mut self) {
-        self.data.clear();
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot clear shared column")
+            .clear();
     }
 
     fn reserve(&mut self, new_cap: usize) {
-        self.data.reserve(new_cap);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot reserve on shared column")
+            .reserve(new_cap);
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
@@ -592,7 +606,10 @@ impl Column for ColumnDateTime64 {
             });
         }
 
-        self.data.extend_from_slice(&other.data);
+        // Delegate to underlying ColumnInt64
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append_column(other.data.clone() as ColumnRef)?;
         Ok(())
     }
 
@@ -601,45 +618,15 @@ impl Column for ColumnDateTime64 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        let bytes_needed = rows * 8;
-        if buffer.len() < bytes_needed {
-            return Err(Error::Protocol(format!(
-                "Buffer underflow: need {} bytes for DateTime64, have {}",
-                bytes_needed,
-                buffer.len()
-            )));
-        }
-
-        // Use bulk copy for performance
-        self.data.reserve(rows);
-        let current_len = self.data.len();
-        unsafe {
-            // Set length first to claim ownership of the memory
-            self.data.set_len(current_len + rows);
-            let dest_ptr =
-                (self.data.as_mut_ptr() as *mut u8).add(current_len * 8);
-            std::ptr::copy_nonoverlapping(
-                buffer.as_ptr(),
-                dest_ptr,
-                bytes_needed,
-            );
-        }
-
-        buffer.advance(bytes_needed);
-        Ok(())
+        // Delegate to ColumnInt64 which has bulk copy optimization
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot load into shared column")
+            .load_from_buffer(buffer, rows)
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        if !self.data.is_empty() {
-            let byte_slice = unsafe {
-                std::slice::from_raw_parts(
-                    self.data.as_ptr() as *const u8,
-                    self.data.len() * 8,
-                )
-            };
-            buffer.extend_from_slice(byte_slice);
-        }
-        Ok(())
+        // Delegate to ColumnInt64 which has bulk copy optimization
+        self.data.save_to_buffer(buffer)
     }
 
     fn clone_empty(&self) -> ColumnRef {
@@ -647,19 +634,25 @@ impl Column for ColumnDateTime64 {
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
-        if begin + len > self.data.len() {
-            return Err(Error::InvalidArgument(format!(
-                "Slice out of bounds: begin={}, len={}, size={}",
-                begin,
-                len,
-                self.data.len()
-            )));
-        }
+        // Delegate to underlying column and wrap result
+        let sliced_data = self.data.slice(begin, len)?;
 
-        let sliced_data = self.data[begin..begin + len].to_vec();
-        Ok(Arc::new(
-            ColumnDateTime64::new(self.type_.clone()).with_data(sliced_data),
-        ))
+        Ok(Arc::new(ColumnDateTime64 {
+            type_: self.type_.clone(),
+            precision: self.precision,
+            timezone: self.timezone.clone(),
+            data: sliced_data
+                .as_any()
+                .downcast_ref::<super::ColumnInt64>()
+                .map(|col| {
+                    // Create new Arc from the sliced data
+                    Arc::new(super::ColumnInt64::from_vec(
+                        Type::int64(),
+                        col.data().to_vec(),
+                    ))
+                })
+                .expect("Slice should return ColumnInt64"),
+        }))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

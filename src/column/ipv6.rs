@@ -11,6 +11,13 @@ use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Column for IPv6 addresses (stored as FixedString(16) - 16 bytes)
+///
+/// **Implementation Note:**
+/// Unlike C++, this does NOT delegate to `ColumnFixedString` because IPv6 data
+/// is pure binary (not UTF-8 text). Rust's `ColumnFixedString` uses `String`
+/// which requires valid UTF-8 and trims null bytes, corrupting binary IPv6
+/// data. Direct `Vec<[u8; 16]>` storage is more appropriate and preserves bulk
+/// copy performance.
 pub struct ColumnIpv6 {
     type_: Type,
     data: Vec<[u8; 16]>, // IPv6 addresses stored as 16 bytes

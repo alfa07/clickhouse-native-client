@@ -11,19 +11,28 @@ use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Column for IPv4 addresses (stored as UInt32)
+///
+/// **C++ Implementation Pattern:**
+/// Uses delegation to `ColumnUInt32` for storage, matching the C++
+/// clickhouse-cpp reference implementation's `std::shared_ptr<ColumnUInt32>
+/// data_` pattern.
 pub struct ColumnIpv4 {
     type_: Type,
-    data: Vec<u32>, /* IPv4 addresses stored as 32-bit integers (network
-                     * byte order) */
+    data: Arc<super::ColumnUInt32>, /* Delegates to ColumnUInt32, matches
+                                     * C++ pattern */
 }
 
 impl ColumnIpv4 {
     pub fn new(type_: Type) -> Self {
-        Self { type_, data: Vec::new() }
+        Self {
+            type_,
+            data: Arc::new(super::ColumnUInt32::new(Type::uint32())),
+        }
     }
 
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
-        self.data = data;
+        self.data =
+            Arc::new(super::ColumnUInt32::from_vec(Type::uint32(), data));
         self
     }
 
@@ -46,23 +55,25 @@ impl ColumnIpv4 {
             ip |= (octet as u32) << (24 - i * 8);
         }
 
-        self.data.push(ip);
+        self.append(ip);
         Ok(())
     }
 
     /// Append IPv4 from u32 value
     pub fn append(&mut self, value: u32) {
-        self.data.push(value);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append(value);
     }
 
     /// Get IPv4 at index as u32
     pub fn at(&self, index: usize) -> u32 {
-        self.data[index]
+        self.data.at(index)
     }
 
     /// Format IPv4 at index as dotted decimal string
     pub fn as_string(&self, index: usize) -> String {
-        let ip = self.data[index];
+        let ip = self.data.at(index);
         format!(
             "{}.{}.{}.{}",
             (ip >> 24) & 0xFF,
@@ -79,6 +90,11 @@ impl ColumnIpv4 {
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    /// Get reference to underlying data column (for advanced use)
+    pub fn data(&self) -> &super::ColumnUInt32 {
+        &self.data
+    }
 }
 
 impl Column for ColumnIpv4 {
@@ -87,15 +103,19 @@ impl Column for ColumnIpv4 {
     }
 
     fn size(&self) -> usize {
-        self.data.len()
+        self.data.size()
     }
 
     fn clear(&mut self) {
-        self.data.clear();
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot clear shared column")
+            .clear();
     }
 
     fn reserve(&mut self, new_cap: usize) {
-        self.data.reserve(new_cap);
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot reserve on shared column")
+            .reserve(new_cap);
     }
 
     fn append_column(&mut self, other: ColumnRef) -> Result<()> {
@@ -107,7 +127,10 @@ impl Column for ColumnIpv4 {
                 }
             })?;
 
-        self.data.extend_from_slice(&other.data);
+        // Delegate to underlying ColumnUInt32
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot append to shared column")
+            .append_column(other.data.clone() as ColumnRef)?;
         Ok(())
     }
 
@@ -116,46 +139,15 @@ impl Column for ColumnIpv4 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        let bytes_needed = rows * 4;
-        if buffer.len() < bytes_needed {
-            return Err(Error::Protocol(format!(
-                "Buffer underflow: need {} bytes for IPv4, have {}",
-                bytes_needed,
-                buffer.len()
-            )));
-        }
-
-        // Use bulk copy for performance
-        self.data.reserve(rows);
-        let current_len = self.data.len();
-        unsafe {
-            // Set length first to claim ownership of the memory
-            self.data.set_len(current_len + rows);
-            let dest_ptr =
-                (self.data.as_mut_ptr() as *mut u8).add(current_len * 4);
-            std::ptr::copy_nonoverlapping(
-                buffer.as_ptr(),
-                dest_ptr,
-                bytes_needed,
-            );
-        }
-
-        use bytes::Buf;
-        buffer.advance(bytes_needed);
-        Ok(())
+        // Delegate to ColumnUInt32 which has bulk copy optimization
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot load into shared column")
+            .load_from_buffer(buffer, rows)
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        if !self.data.is_empty() {
-            let byte_slice = unsafe {
-                std::slice::from_raw_parts(
-                    self.data.as_ptr() as *const u8,
-                    self.data.len() * 4,
-                )
-            };
-            buffer.extend_from_slice(byte_slice);
-        }
-        Ok(())
+        // Delegate to ColumnUInt32 which has bulk copy optimization
+        self.data.save_to_buffer(buffer)
     }
 
     fn clone_empty(&self) -> ColumnRef {
@@ -163,19 +155,23 @@ impl Column for ColumnIpv4 {
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
-        if begin + len > self.data.len() {
-            return Err(Error::InvalidArgument(format!(
-                "Slice out of bounds: begin={}, len={}, size={}",
-                begin,
-                len,
-                self.data.len()
-            )));
-        }
+        // Delegate to underlying column and wrap result
+        let sliced_data = self.data.slice(begin, len)?;
 
-        let sliced_data = self.data[begin..begin + len].to_vec();
-        Ok(Arc::new(
-            ColumnIpv4::new(self.type_.clone()).with_data(sliced_data),
-        ))
+        Ok(Arc::new(ColumnIpv4 {
+            type_: self.type_.clone(),
+            data: sliced_data
+                .as_any()
+                .downcast_ref::<super::ColumnUInt32>()
+                .map(|col| {
+                    // Create new Arc from the sliced data
+                    Arc::new(super::ColumnUInt32::from_vec(
+                        Type::uint32(),
+                        col.data().to_vec(),
+                    ))
+                })
+                .expect("Slice should return ColumnUInt32"),
+        }))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
