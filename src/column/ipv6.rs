@@ -7,10 +7,7 @@ use crate::{
     Error,
     Result,
 };
-use bytes::{
-    BufMut,
-    BytesMut,
-};
+use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Column for IPv6 addresses (stored as FixedString(16) - 16 bytes)
@@ -96,28 +93,42 @@ impl Column for ColumnIpv6 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        use bytes::Buf;
-
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 16 {
-                return Err(Error::Protocol(
-                    "Not enough data for IPv6".to_string(),
-                ));
-            }
-
-            let mut bytes = [0u8; 16];
-            buffer.copy_to_slice(&mut bytes);
-            self.data.push(bytes);
+        let bytes_needed = rows * 16;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for IPv6, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 16);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        use bytes::Buf;
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for bytes in &self.data {
-            buffer.put_slice(bytes);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 16,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }

@@ -39,7 +39,6 @@ use crate::{
 };
 use bytes::{
     Buf,
-    BufMut,
     BytesMut,
 };
 use std::sync::Arc;
@@ -131,24 +130,41 @@ impl Column for ColumnDate {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 2 {
-                return Err(Error::Protocol(
-                    "Not enough data for Date".to_string(),
-                ));
-            }
-            let value = buffer.get_u16_le();
-            self.data.push(value);
+        let bytes_needed = rows * 2;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for Date, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 2);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for &value in &self.data {
-            buffer.put_u16_le(value);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 2,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }
@@ -263,24 +279,41 @@ impl Column for ColumnDate32 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 4 {
-                return Err(Error::Protocol(
-                    "Not enough data for Date32".to_string(),
-                ));
-            }
-            let value = buffer.get_i32_le();
-            self.data.push(value);
+        let bytes_needed = rows * 4;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for Date32, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 4);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for &value in &self.data {
-            buffer.put_i32_le(value);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 4,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }
@@ -396,24 +429,41 @@ impl Column for ColumnDateTime {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 4 {
-                return Err(Error::Protocol(
-                    "Not enough data for DateTime".to_string(),
-                ));
-            }
-            let value = buffer.get_u32_le();
-            self.data.push(value);
+        let bytes_needed = rows * 4;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for DateTime, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 4);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for &value in &self.data {
-            buffer.put_u32_le(value);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 4,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }
@@ -545,24 +595,41 @@ impl Column for ColumnDateTime64 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 8 {
-                return Err(Error::Protocol(
-                    "Not enough data for DateTime64".to_string(),
-                ));
-            }
-            let value = buffer.get_i64_le();
-            self.data.push(value);
+        let bytes_needed = rows * 8;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for DateTime64, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 8);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for &value in &self.data {
-            buffer.put_i64_le(value);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 8,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }

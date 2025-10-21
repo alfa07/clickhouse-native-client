@@ -7,10 +7,7 @@ use crate::{
     Error,
     Result,
 };
-use bytes::{
-    BufMut,
-    BytesMut,
-};
+use bytes::BytesMut;
 use std::sync::Arc;
 
 /// Column for Enum8 type (stored as Int8 with name-value mapping in Type)
@@ -102,26 +99,42 @@ impl Column for ColumnEnum8 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        use bytes::Buf;
-
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.is_empty() {
-                return Err(Error::Protocol(
-                    "Not enough data for Enum8".to_string(),
-                ));
-            }
-            let value = buffer.get_i8();
-            self.data.push(value);
+        let bytes_needed = rows;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for Enum8, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        use bytes::Buf;
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for &value in &self.data {
-            buffer.put_i8(value);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len(),
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }
@@ -243,26 +256,42 @@ impl Column for ColumnEnum16 {
         buffer: &mut &[u8],
         rows: usize,
     ) -> Result<()> {
-        use bytes::Buf;
-
-        self.data.reserve(rows);
-
-        for _ in 0..rows {
-            if buffer.len() < 2 {
-                return Err(Error::Protocol(
-                    "Not enough data for Enum16".to_string(),
-                ));
-            }
-            let value = buffer.get_i16_le();
-            self.data.push(value);
+        let bytes_needed = rows * 2;
+        if buffer.len() < bytes_needed {
+            return Err(Error::Protocol(format!(
+                "Buffer underflow: need {} bytes for Enum16, have {}",
+                bytes_needed,
+                buffer.len()
+            )));
         }
 
+        // Use bulk copy for performance
+        let current_len = self.data.len();
+        unsafe {
+            let dest_ptr =
+                (self.data.as_mut_ptr() as *mut u8).add(current_len * 2);
+            std::ptr::copy_nonoverlapping(
+                buffer.as_ptr(),
+                dest_ptr,
+                bytes_needed,
+            );
+            self.data.set_len(current_len + rows);
+        }
+
+        use bytes::Buf;
+        buffer.advance(bytes_needed);
         Ok(())
     }
 
     fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
-        for &value in &self.data {
-            buffer.put_i16_le(value);
+        if !self.data.is_empty() {
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.data.as_ptr() as *const u8,
+                    self.data.len() * 2,
+                )
+            };
+            buffer.extend_from_slice(byte_slice);
         }
         Ok(())
     }
