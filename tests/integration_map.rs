@@ -134,6 +134,46 @@ async fn test_map_uuid_nullable_string() {
 }
 
 // ============================================================================
+// Map(UUID, Nullable(LowCardinality(String)))
+// ============================================================================
+
+#[tokio::test]
+#[ignore]
+async fn test_map_uuid_nullable_lowcardinality_string() {
+    let (mut client, db_name) = create_isolated_test_client("map_uuid_lc")
+        .await
+        .expect("Failed to create test client");
+
+    client
+        .query(format!(
+            "CREATE TABLE {}.test_table (data Map(UUID, Nullable(LowCardinality(String)))) ENGINE = Memory",
+            db_name
+        ))
+        .await
+        .expect("Failed to create table");
+
+    client
+        .query(format!(
+            "INSERT INTO {}.test_table VALUES
+            ({{'550e8400-e29b-41d4-a716-446655440000': 'tag1', '6ba7b810-9dad-11d1-80b4-00c04fd430c8': 'tag2'}}),
+            ({{}}),
+            ({{'00000000-0000-0000-0000-000000000000': NULL}})",
+            db_name
+        ))
+        .await
+        .expect("Failed to insert");
+
+    let result = client
+        .query(format!("SELECT data FROM {}.test_table", db_name))
+        .await
+        .expect("Failed to select");
+
+    assert_eq!(result.total_rows(), 3);
+
+    cleanup_test_database(&db_name).await;
+}
+
+// ============================================================================
 // Map with empty maps
 // ============================================================================
 
