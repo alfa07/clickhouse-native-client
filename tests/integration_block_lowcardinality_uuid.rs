@@ -46,7 +46,7 @@ async fn test_lowcardinality_uuid_block_insert_basic() {
 
     let mut block = Block::new();
 
-    let lc_type = Type::lowcardinality(Type::uuid());
+    let lc_type = Type::low_cardinality(Type::uuid());
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
     let uuid1 = Uuid::new(0x1111111111111111, 0x2222222222222222);
@@ -85,11 +85,16 @@ async fn test_lowcardinality_uuid_block_insert_basic() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 5);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+
+    let col_ref = blocks[0].column(0).expect("Column not found");
+
+    let result_col = col_ref
+
         .as_any()
+
         .downcast_ref::<ColumnLowCardinality>()
+
         .expect("Invalid column type");
 
     // Dictionary should have only 3 unique values
@@ -147,7 +152,7 @@ async fn test_lowcardinality_uuid_block_insert_boundary() {
 
     let mut id_col =
         clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-    let lc_type = Type::lowcardinality(Type::uuid());
+    let lc_type = Type::low_cardinality(Type::uuid());
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
@@ -200,7 +205,7 @@ async fn test_lowcardinality_uuid_block_insert_high_cardinality() {
 
     let mut block = Block::new();
 
-    let lc_type = Type::lowcardinality(Type::uuid());
+    let lc_type = Type::low_cardinality(Type::uuid());
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
     // Create many entries with few unique UUIDs
@@ -234,11 +239,16 @@ async fn test_lowcardinality_uuid_block_insert_high_cardinality() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 100);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+
+    let col_ref = blocks[0].column(0).expect("Column not found");
+
+    let result_col = col_ref
+
         .as_any()
+
         .downcast_ref::<ColumnLowCardinality>()
+
         .expect("Invalid column type");
 
     // Dictionary should have only 5 unique values despite 100 rows
@@ -282,7 +292,7 @@ proptest! {
 
             let mut id_col =
                 clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-            let lc_type = Type::lowcardinality(Type::uuid());
+            let lc_type = Type::low_cardinality(Type::uuid());
             let mut lc_col = ColumnLowCardinality::new(lc_type);
 
             for (idx, uuid_idx) in indices.iter().enumerate() {
@@ -314,11 +324,16 @@ proptest! {
                 .expect("Failed to select");
 
             assert_eq!(result.total_rows(), indices.len());
-            let result_col = result.blocks()[0]
-                .column(0)
-                .expect("Column not found")
+            let blocks = result.blocks();
+
+            let col_ref = blocks[0].column(0).expect("Column not found");
+
+            let result_col = col_ref
+
                 .as_any()
+
                 .downcast_ref::<ColumnLowCardinality>()
+
                 .expect("Invalid column type");
 
             // Dictionary should have at most 5 unique values

@@ -34,7 +34,7 @@ async fn test_lowcardinality_string_block_insert_basic() {
 
     let mut block = Block::new();
 
-    let lc_type = Type::lowcardinality(Type::string());
+    let lc_type = Type::low_cardinality(Type::string());
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
     // Add some values with repetition (good for low cardinality)
@@ -69,11 +69,16 @@ async fn test_lowcardinality_string_block_insert_basic() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 5);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+
+    let col_ref = blocks[0].column(0).expect("Column not found");
+
+    let result_col = col_ref
+
         .as_any()
+
         .downcast_ref::<ColumnLowCardinality>()
+
         .expect("Invalid column type");
 
     // Dictionary should have only 3 unique values
@@ -99,19 +104,20 @@ async fn test_lowcardinality_string_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
+    let long_x = "x".repeat(100);
     let test_cases: Vec<(&str, Vec<&str>)> = vec![
         ("Single unique", vec!["same", "same", "same"]),
         ("All different", vec!["a", "b", "c", "d"]),
         ("Empty string", vec!["", "test", ""]),
         ("Unicode", vec!["Hello", "世界", "Hello"]),
-        ("Long strings", vec![&"x".repeat(100), "short", &"x".repeat(100)]),
+        ("Long strings", vec![&long_x, "short", &long_x]),
     ];
 
     let mut block = Block::new();
 
     let mut id_col =
         clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-    let lc_type = Type::lowcardinality(Type::string());
+    let lc_type = Type::low_cardinality(Type::string());
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
@@ -164,7 +170,7 @@ async fn test_lowcardinality_string_block_insert_high_cardinality() {
 
     let mut block = Block::new();
 
-    let lc_type = Type::lowcardinality(Type::string());
+    let lc_type = Type::low_cardinality(Type::string());
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
     // Create many entries with few unique values (ideal for LowCardinality)
@@ -192,11 +198,16 @@ async fn test_lowcardinality_string_block_insert_high_cardinality() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 100);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+
+    let col_ref = blocks[0].column(0).expect("Column not found");
+
+    let result_col = col_ref
+
         .as_any()
+
         .downcast_ref::<ColumnLowCardinality>()
+
         .expect("Invalid column type");
 
     // Dictionary should have only 5 unique values despite 100 rows
@@ -235,7 +246,7 @@ proptest! {
 
             let mut id_col =
                 clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-            let lc_type = Type::lowcardinality(Type::string());
+            let lc_type = Type::low_cardinality(Type::string());
             let mut lc_col = ColumnLowCardinality::new(lc_type);
 
             for (idx, value) in values.iter().enumerate() {
@@ -266,11 +277,16 @@ proptest! {
                 .expect("Failed to select");
 
             assert_eq!(result.total_rows(), values.len());
-            let result_col = result.blocks()[0]
-                .column(0)
-                .expect("Column not found")
+            let blocks = result.blocks();
+
+            let col_ref = blocks[0].column(0).expect("Column not found");
+
+            let result_col = col_ref
+
                 .as_any()
+
                 .downcast_ref::<ColumnLowCardinality>()
+
                 .expect("Invalid column type");
 
             // Dictionary should have at most 4 unique values
