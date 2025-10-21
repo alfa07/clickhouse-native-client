@@ -132,6 +132,84 @@ logs:
 cli:
     docker exec -it clickhouse-server clickhouse-client
 
+# Run Claude agent in a git worktree with task from file
+run-agent FILE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Check if file exists
+    if [ ! -f "{{FILE}}" ]; then
+        echo "Error: File '{{FILE}}' not found"
+        exit 1
+    fi
+
+    # Convert file path to absolute path (for use after cd)
+    FILE_PATH=$(realpath "{{FILE}}")
+    echo "Task file: ${FILE_PATH}"
+
+    # Extract branch name from filename (remove directory path and .txt extension)
+    BRANCH_NAME=$(basename "{{FILE}}" .txt)
+    echo "Branch name: ${BRANCH_NAME}"
+
+    # Pull latest changes from main
+    echo ""
+    echo "==> Pulling latest changes from main branch..."
+    CURRENT_BRANCH=$(git branch --show-current)
+    git checkout main || { echo "Error: Failed to checkout main branch"; exit 1; }
+    git pull origin main || { echo "Error: Failed to pull from origin/main"; exit 1; }
+
+    # Return to original branch if it wasn't main
+    if [ "${CURRENT_BRANCH}" != "main" ]; then
+        git checkout "${CURRENT_BRANCH}" || true
+    fi
+
+    # Check if worktree already exists
+    WORKTREE_PATH="../${BRANCH_NAME}"
+    if [ -d "${WORKTREE_PATH}" ]; then
+        echo ""
+        echo "Error: Worktree directory '${WORKTREE_PATH}' already exists"
+        echo "To remove it, run: git worktree remove ${WORKTREE_PATH}"
+        exit 1
+    fi
+
+    # Check if branch already exists
+    if git show-ref --verify --quiet "refs/heads/${BRANCH_NAME}"; then
+        echo ""
+        echo "Error: Branch '${BRANCH_NAME}' already exists"
+        echo "To use existing branch: git worktree add ${WORKTREE_PATH} ${BRANCH_NAME}"
+        echo "To delete branch: git branch -d ${BRANCH_NAME}"
+        exit 1
+    fi
+
+    # Create worktree
+    echo ""
+    echo "==> Creating worktree at '${WORKTREE_PATH}' with branch '${BRANCH_NAME}'..."
+    git worktree add "${WORKTREE_PATH}" -b "${BRANCH_NAME}" || {
+        echo "Error: Failed to create worktree"
+        exit 1
+    }
+
+    # Run Claude in the worktree
+    echo ""
+    echo "==> Running Claude agent in worktree..."
+    echo "Task: $(head -n 1 "${FILE_PATH}")"
+    echo ""
+
+    cd "${WORKTREE_PATH}" || {
+        echo "Error: Failed to cd into worktree"
+        exit 1
+    }
+
+    claude --dangerously-skip-permissions --permission-mode bypassPermissions -p "$(cat "${FILE_PATH}")" || {
+        echo ""
+        echo "Error: Claude execution failed"
+        echo "Worktree is still available at: ${WORKTREE_PATH}"
+        exit 1
+    }
+
+    echo ""
+    echo "==> Agent completed. Worktree location: ${WORKTREE_PATH}"
+
 # Show help
 help:
     @just --list
