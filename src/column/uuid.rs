@@ -151,6 +151,7 @@ impl Column for ColumnUuid {
         // Use bulk copy for performance
         // Uuid is repr(Rust) but contains two u64 fields in order,
         // which matches the wire format
+        self.data.reserve(rows);
         let current_len = self.data.len();
         unsafe {
             // Set length first to claim ownership of the memory
