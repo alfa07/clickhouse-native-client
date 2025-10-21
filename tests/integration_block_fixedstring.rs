@@ -52,9 +52,9 @@ async fn test_fixedstring_block_insert_basic() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 3);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+    let col_ref = blocks[0].column(0).expect("Column not found");
+    let result_col = col_ref
         .as_any()
         .downcast_ref::<ColumnFixedString>()
         .expect("Invalid column type");

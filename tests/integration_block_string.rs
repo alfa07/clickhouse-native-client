@@ -52,9 +52,9 @@ async fn test_string_block_insert_basic() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 3);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+    let col_ref = blocks[0].column(0).expect("Column not found");
+    let result_col = col_ref
         .as_any()
         .downcast_ref::<ColumnString>()
         .expect("Invalid column type");
@@ -82,11 +82,12 @@ async fn test_string_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
+    let long_string = "x".repeat(1000);
     let test_cases = vec![
         ("Empty string", ""),
         ("Single char", "a"),
         ("Unicode", "Hello 世界 🌍"),
-        ("Long string", &"x".repeat(1000)),
+        ("Long string", long_string.as_str()),
         ("Special chars", "\n\t\"'"),
     ];
 
@@ -118,9 +119,9 @@ async fn test_string_block_insert_boundary() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), test_cases.len());
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+    let col_ref = blocks[0].column(0).expect("Column not found");
+    let result_col = col_ref
         .as_any()
         .downcast_ref::<ColumnString>()
         .expect("Invalid column type");
@@ -185,9 +186,9 @@ proptest! {
                 .expect("Failed to select");
 
             assert_eq!(result.total_rows(), values.len());
-            let result_col = result.blocks()[0]
-                .column(0)
-                .expect("Column not found")
+            let blocks = result.blocks();
+            let col_ref = blocks[0].column(0).expect("Column not found");
+            let result_col = col_ref
                 .as_any()
                 .downcast_ref::<ColumnString>()
                 .expect("Invalid column type");
