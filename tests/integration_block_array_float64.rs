@@ -101,34 +101,39 @@ async fn test_array_float64_block_insert_boundary() {
         ("High precision", vec![0.1234567890123456, 0.9876543210987654]),
     ];
 
-    for (idx, (_desc, values)) in test_cases.iter().enumerate() {
-        let mut block = Block::new();
+    let mut block = Block::new();
 
-        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-            Type::uint32(),
-        );
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+        Type::uint32(),
+    );
+    let mut nested = ColumnFloat64::new(Type::float64());
+
+    for (idx, (_desc, values)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
 
-        let mut nested = ColumnFloat64::new(Type::float64());
         for &val in values {
             nested.append(val);
         }
-
-        let mut array_col = ColumnArray::with_nested(Arc::new(nested));
-        array_col.append_offset(values.len() as u64);
-
-        block
-            .append_column("id", Arc::new(id_col))
-            .expect("Failed to append id column");
-        block
-            .append_column("values", Arc::new(array_col))
-            .expect("Failed to append values column");
-
-        client
-            .insert(&format!("{}.test_table", db_name), block)
-            .await
-            .expect("Failed to insert block");
     }
+
+    let mut array_col = ColumnArray::with_nested(Arc::new(nested));
+    let mut cumulative = 0u64;
+    for (_desc, values) in &test_cases {
+        cumulative += values.len() as u64;
+        array_col.append_offset(cumulative);
+    }
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("values", Arc::new(array_col))
+        .expect("Failed to append values column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
 
     let result = client
         .query(format!(

@@ -121,16 +121,16 @@ async fn test_nullable_string_block_insert_boundary() {
         ("Another null", None),
     ];
 
+    let mut block = Block::new();
+
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+        Type::uint32(),
+    );
+    let nullable_type = Type::nullable(Type::string());
+    let mut nullable_col = ColumnNullable::new(nullable_type);
+
     for (idx, (_desc, value_opt)) in test_cases.iter().enumerate() {
-        let mut block = Block::new();
-
-        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-            Type::uint32(),
-        );
         id_col.append(idx as u32);
-
-        let nullable_type = Type::nullable(Type::string());
-        let mut nullable_col = ColumnNullable::new(nullable_type);
 
         match value_opt {
             Some(value) => {
@@ -146,19 +146,19 @@ async fn test_nullable_string_block_insert_boundary() {
                 nullable_col.append_null();
             }
         }
-
-        block
-            .append_column("id", Arc::new(id_col))
-            .expect("Failed to append id column");
-        block
-            .append_column("value", Arc::new(nullable_col))
-            .expect("Failed to append value column");
-
-        client
-            .insert(&format!("{}.test_table", db_name), block)
-            .await
-            .expect("Failed to insert block");
     }
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("value", Arc::new(nullable_col))
+        .expect("Failed to append value column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
 
     let result = client
         .query(format!("SELECT value FROM {}.test_table ORDER BY id", db_name))

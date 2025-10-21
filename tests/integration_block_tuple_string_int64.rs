@@ -120,37 +120,36 @@ async fn test_tuple_string_int64_block_insert_boundary() {
         ("Single char", "a", 1000),
     ];
 
+    let mut block = Block::new();
+
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+        Type::uint32(),
+    );
+    let mut col1 = ColumnString::new(Type::string());
+    let mut col2 = ColumnInt64::new(Type::int64());
+
     for (idx, (_desc, val1, val2)) in test_cases.iter().enumerate() {
-        let mut block = Block::new();
-
-        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-            Type::uint32(),
-        );
         id_col.append(idx as u32);
-
-        let mut col1 = ColumnString::new(Type::string());
         col1.append(*val1);
-
-        let mut col2 = ColumnInt64::new(Type::int64());
         col2.append(*val2);
-
-        let tuple_type =
-            Type::Tuple { item_types: vec![Type::string(), Type::int64()] };
-        let tuple_col =
-            ColumnTuple::new(tuple_type, vec![Arc::new(col1), Arc::new(col2)]);
-
-        block
-            .append_column("id", Arc::new(id_col))
-            .expect("Failed to append id column");
-        block
-            .append_column("value", Arc::new(tuple_col))
-            .expect("Failed to append value column");
-
-        client
-            .insert(&format!("{}.test_table", db_name), block)
-            .await
-            .expect("Failed to insert block");
     }
+
+    let tuple_type =
+        Type::Tuple { item_types: vec![Type::string(), Type::int64()] };
+    let tuple_col =
+        ColumnTuple::new(tuple_type, vec![Arc::new(col1), Arc::new(col2)]);
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("value", Arc::new(tuple_col))
+        .expect("Failed to append value column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
 
     let result = client
         .query(format!("SELECT value FROM {}.test_table ORDER BY id", db_name))
