@@ -1,9 +1,17 @@
-/// Integration tests for Nothing column using Block insertion
+/// Integration tests for Nothing column
 ///
-/// Note: The Nothing type is special - it doesn't store actual data,
-/// only tracks size. According to the C++ implementation, SaveBody
-/// is not supported for Nothing columns, so we can't insert them
-/// directly. However, we can query them.
+/// IMPORTANT: The Nothing type is special in ClickHouse and CANNOT be used
+/// as a regular table column. From ClickHouse server:
+/// "Data type Nothing of column 'value' cannot be used in tables"
+///
+/// The Nothing type is used internally for:
+/// - Empty result sets
+/// - Null-only columns (via Nullable(Nothing))
+/// - Certain internal operations
+///
+/// Therefore, we don't test Nothing columns like other types (no table creation,
+/// no block insertion). The Column interface is tested via unit tests in
+/// src/column/nothing.rs instead.
 mod common;
 
 use clickhouse_client::{
@@ -12,134 +20,88 @@ use clickhouse_client::{
         Type,
         TypeCode,
     },
-    Block,
 };
-use common::{
-    cleanup_test_database,
-    create_isolated_test_client,
-};
+use std::sync::Arc;
 
 fn nothing_type() -> Type {
     Type::Simple(TypeCode::Void)
 }
 
+/// Test that we can create and use ColumnNothing programmatically
+/// (even though we can't use it in actual ClickHouse tables)
 #[tokio::test]
 #[ignore]
-async fn test_nothing_block_query() {
-    let (mut client, db_name) =
-        create_isolated_test_client("nothing_block_query")
-            .await
-            .expect("Failed to create test client");
+async fn test_nothing_column_interface() {
+    use clickhouse_client::column::Column;
 
-    // Create a table with a regular column to have some rows
-    client
-        .query(format!(
-            "CREATE TABLE {}.test_table (id UInt32, value Nothing) ENGINE = Memory",
-            db_name
-        ))
-        .await
-        .expect("Failed to create table");
+    // Test basic column operations
+    let mut col = ColumnNothing::new(nothing_type());
 
-    // Insert data using SQL (Nothing columns can't be inserted via Block)
-    client
-        .query(format!(
-            "INSERT INTO {}.test_table (id) VALUES (1), (2), (3)",
-            db_name
-        ))
-        .await
-        .expect("Failed to insert via SQL");
+    // Append some "nothing" values
+    col.append();
+    col.append();
+    col.append();
 
-    // Now query the Nothing column
-    let result = client
-        .query(format!("SELECT value FROM {}.test_table", db_name))
-        .await
-        .expect("Failed to select");
+    assert_eq!(col.len(), 3);
+    assert_eq!(col.at(0), None);
+    assert_eq!(col.at(1), None);
+    assert_eq!(col.at(2), None);
 
-    assert_eq!(result.total_rows(), 3);
-    let blocks = result.blocks();
-    let block = &blocks[0];
-    let column = block.column(0).expect("Column not found");
-    let result_col = column
+    // Test append_column
+    let col2 = Arc::new(ColumnNothing::new(nothing_type()).with_size(2));
+    col.append_column(col2)
+        .expect("Failed to append column");
+    assert_eq!(col.len(), 5);
+
+    // Test slice
+    let sliced = col.slice(1, 3).expect("Failed to slice");
+    let sliced_col = sliced
         .as_any()
         .downcast_ref::<ColumnNothing>()
         .expect("Invalid column type");
+    assert_eq!(sliced_col.len(), 3);
 
-    // Nothing column should have the same size as the number of rows
-    assert_eq!(result_col.len(), 3);
-
-    // All values should be None
-    for i in 0..3 {
-        assert_eq!(result_col.at(i), None);
-    }
-
-    cleanup_test_database(&db_name).await;
+    // Test clear
+    col.clear();
+    assert_eq!(col.len(), 0);
+    assert!(col.is_empty());
 }
 
-#[tokio::test]
-#[ignore]
-async fn test_nothing_with_nullable() {
-    let (mut client, db_name) =
-        create_isolated_test_client("nothing_nullable_query")
-            .await
-            .expect("Failed to create test client");
+/// Test load_from_buffer (reading Nothing column data)
+#[test]
+fn test_nothing_load_from_buffer() {
+    use clickhouse_client::column::Column;
 
-    // Nothing is often used with Nullable for NULL-only columns
-    client
-        .query(format!(
-            "CREATE TABLE {}.test_table (id UInt32, value Nullable(Nothing)) ENGINE = Memory",
-            db_name
-        ))
-        .await
-        .expect("Failed to create table");
+    let mut col = ColumnNothing::new(nothing_type());
 
-    // Insert rows with NULL values
-    client
-        .query(format!(
-            "INSERT INTO {}.test_table (id, value) VALUES (1, NULL), (2, NULL), (3, NULL)",
-            db_name
-        ))
-        .await
-        .expect("Failed to insert via SQL");
+    // Nothing columns consume 1 byte per row in the wire format
+    let mut buffer: &[u8] = &[0, 0, 0, 0, 0]; // 5 bytes for 5 rows
+    col.load_from_buffer(&mut buffer, 5)
+        .expect("Failed to load from buffer");
 
-    // Query the Nullable(Nothing) column
-    let result = client
-        .query(format!("SELECT value FROM {}.test_table", db_name))
-        .await
-        .expect("Failed to select");
-
-    assert_eq!(result.total_rows(), 3);
-
-    cleanup_test_database(&db_name).await;
+    assert_eq!(col.len(), 5);
+    assert!(buffer.is_empty()); // All bytes should be consumed
 }
 
-#[tokio::test]
-#[ignore]
-async fn test_nothing_empty_table() {
-    let (mut client, db_name) =
-        create_isolated_test_client("nothing_empty_query")
-            .await
-            .expect("Failed to create test client");
+/// Test save_to_buffer (should error - Nothing columns can't be saved)
+#[test]
+fn test_nothing_save_to_buffer_not_supported() {
+    use bytes::BytesMut;
+    use clickhouse_client::column::Column;
 
-    client
-        .query(format!(
-            "CREATE TABLE {}.test_table (value Nothing) ENGINE = Memory",
-            db_name
-        ))
-        .await
-        .expect("Failed to create table");
+    let col = ColumnNothing::new(nothing_type()).with_size(3);
+    let mut buffer = BytesMut::new();
 
-    // Query empty table
-    let result = client
-        .query(format!("SELECT value FROM {}.test_table", db_name))
-        .await
-        .expect("Failed to select");
-
-    assert_eq!(result.total_rows(), 0);
-
-    cleanup_test_database(&db_name).await;
+    // According to C++ implementation and ClickHouse semantics,
+    // Nothing columns cannot be saved/serialized
+    let result = col.save_to_buffer(&mut buffer);
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("not supported for Nothing"));
 }
 
-// Note: We don't have property-based tests for Nothing because:
-// 1. Nothing columns can't be inserted via Block (SaveBody not supported)
-// 2. They don't contain actual data to test
-// 3. They're mainly used for NULL-only columns or as placeholders
+// Note: No property-based tests or actual database integration tests
+// because Nothing columns cannot be used in ClickHouse tables.
+// The unit tests above verify the Column trait implementation works correctly.

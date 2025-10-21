@@ -48,8 +48,8 @@ async fn test_array_decimal_block_insert_basic() {
     // Create Array column with offsets: [2, 4] for arrays [[123.45, 678.90],
     // [0.00, -123.45]]
     let mut col = ColumnArray::with_nested(Arc::new(nested));
-    col.append_offset(2); // First array has 2 elements
-    col.append_offset(4); // Second array has 2 elements (total 4)
+    col.append_len(2); // First array has 2 elements
+    col.append_len(2); // Second array has 2 elements
 
     block
         .append_column("prices", Arc::new(col))
@@ -67,14 +67,14 @@ async fn test_array_decimal_block_insert_basic() {
 
     assert_eq!(result.total_rows(), 2);
 
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+    let col_ref = blocks[0].column(0).expect("Column not found");
+    let result_col = col_ref
         .as_any()
         .downcast_ref::<ColumnArray>()
         .expect("Invalid column type");
 
-    assert_eq!(result_col.size(), 2);
+    assert_eq!(result_col.len(), 2);
 
     cleanup_test_database(&db_name).await;
 }
@@ -125,10 +125,8 @@ async fn test_array_decimal_block_insert_boundary() {
     }
 
     let mut array_col = ColumnArray::with_nested(Arc::new(nested));
-    let mut cumulative = 0u64;
     for (_desc, values) in &test_cases {
-        cumulative += values.len() as u64;
-        array_col.append_offset(cumulative);
+        array_col.append_len(values.len() as u64);
     }
 
     block
@@ -184,7 +182,7 @@ async fn test_array_decimal_block_insert_many_elements() {
     }
 
     let mut col = ColumnArray::with_nested(Arc::new(nested));
-    col.append_offset(1000);
+    col.append_len(1000);
 
     block
         .append_column("prices", Arc::new(col))
@@ -248,10 +246,8 @@ proptest! {
             }
 
             let mut array_col = ColumnArray::with_nested(Arc::new(nested));
-            let mut cumulative = 0u64;
             for array in &arrays {
-                cumulative += array.len() as u64;
-                array_col.append_offset(cumulative);
+                array_col.append_len(array.len() as u64);
             }
 
             block
