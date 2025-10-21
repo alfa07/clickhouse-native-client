@@ -75,11 +75,16 @@ async fn test_nullable_ipv6_block_insert_basic() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 3);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+
+    let col_ref = blocks[0].column(0).expect("Column not found");
+
+    let result_col = col_ref
+
         .as_any()
+
         .downcast_ref::<ColumnNullable>()
+
         .expect("Invalid column type");
 
     assert!(!result_col.is_null(0));
@@ -160,11 +165,16 @@ async fn test_nullable_ipv6_block_insert_boundary() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), test_cases.len());
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+
+    let col_ref = blocks[0].column(0).expect("Column not found");
+
+    let result_col = col_ref
+
         .as_any()
+
         .downcast_ref::<ColumnNullable>()
+
         .expect("Invalid column type");
 
     for (idx, (_desc, expected_opt)) in test_cases.iter().enumerate() {
@@ -222,11 +232,16 @@ async fn test_nullable_ipv6_block_insert_all_nulls() {
         .expect("Failed to select");
 
     assert_eq!(result.total_rows(), 5);
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+
+    let col_ref = blocks[0].column(0).expect("Column not found");
+
+    let result_col = col_ref
+
         .as_any()
+
         .downcast_ref::<ColumnNullable>()
+
         .expect("Invalid column type");
 
     for i in 0..5 {
@@ -309,11 +324,16 @@ proptest! {
                 .expect("Failed to select");
 
             assert_eq!(result.total_rows(), values.len());
-            let result_col = result.blocks()[0]
-                .column(0)
-                .expect("Column not found")
+            let blocks = result.blocks();
+
+            let col_ref = blocks[0].column(0).expect("Column not found");
+
+            let result_col = col_ref
+
                 .as_any()
+
                 .downcast_ref::<ColumnNullable>()
+
                 .expect("Invalid column type");
 
             let nested = result_col
