@@ -48,6 +48,12 @@ async fn test_nullable_string_block_insert_basic() {
 
     // Add a null value
     nullable_col.append_null();
+    Arc::get_mut(nullable_col.nested_mut())
+        .unwrap()
+        .as_any_mut()
+        .downcast_mut::<ColumnString>()
+        .unwrap()
+        .append(""); // Placeholder for null value
 
     // Add another non-null value
     nullable_col.append_non_null();
@@ -146,6 +152,12 @@ async fn test_nullable_string_block_insert_boundary() {
             }
             None => {
                 nullable_col.append_null();
+                Arc::get_mut(nullable_col.nested_mut())
+                    .unwrap()
+                    .as_any_mut()
+                    .downcast_mut::<ColumnString>()
+                    .unwrap()
+                    .append(""); // Placeholder for null value
             }
         }
     }
@@ -222,6 +234,12 @@ async fn test_nullable_string_block_insert_all_nulls() {
     // Add 5 null values
     for _ in 0..5 {
         nullable_col.append_null();
+        Arc::get_mut(nullable_col.nested_mut())
+            .unwrap()
+            .as_any_mut()
+            .downcast_mut::<ColumnString>()
+            .unwrap()
+            .append(""); // Placeholder for null value
     }
 
     block
@@ -299,6 +317,12 @@ proptest! {
                     }
                     None => {
                         nullable_col.append_null();
+                        Arc::get_mut(nullable_col.nested_mut())
+                            .unwrap()
+                            .as_any_mut()
+                            .downcast_mut::<ColumnString>()
+                            .unwrap()
+                            .append(""); // Placeholder for null value
                     }
                 }
             }
