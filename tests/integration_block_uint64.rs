@@ -93,29 +93,28 @@ async fn test_uint64_block_insert_boundary() {
         ("Test value", 1000000000),
     ];
 
+    let mut block = Block::new();
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+        Type::uint32(),
+    );
+    let mut val_col = ColumnUInt64::new(Type::uint64());
+
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {
-        let mut block = Block::new();
-
-        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-            Type::uint32(),
-        );
         id_col.append(idx as u32);
-
-        let mut val_col = ColumnUInt64::new(Type::uint64());
         val_col.append(*value);
-
-        block
-            .append_column("id", Arc::new(id_col))
-            .expect("Failed to append id column");
-        block
-            .append_column("value", Arc::new(val_col))
-            .expect("Failed to append value column");
-
-        client
-            .insert(&format!("{}.test_table", db_name), block)
-            .await
-            .expect("Failed to insert block");
     }
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("value", Arc::new(val_col))
+        .expect("Failed to append value column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
 
     let result = client
         .query(format!("SELECT value FROM {}.test_table ORDER BY id", db_name))

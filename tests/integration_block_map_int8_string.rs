@@ -157,34 +157,35 @@ async fn test_map_int8_string_block_insert_boundary() {
         ("Unicode values", vec![(1, "Hello 世界")]),
     ];
 
+    let mut block = Block::new();
+
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+        Type::uint32(),
+    );
+
+    let map_type = Type::Map {
+        key_type: Box::new(Type::int8()),
+        value_type: Box::new(Type::string()),
+    };
+
+    let mut map_col = ColumnMap::new(map_type);
+
+    let array = Arc::get_mut(&mut map_col.data)
+        .expect("Failed to get mutable reference to map data");
+    let array_mut = array
+        .as_any_mut()
+        .downcast_mut::<ColumnArray>()
+        .expect("Map data should be ColumnArray");
+
+    let tuple = Arc::get_mut(array_mut.nested_mut())
+        .expect("Failed to get mutable reference to nested");
+    let tuple_mut = tuple
+        .as_any_mut()
+        .downcast_mut::<ColumnTuple>()
+        .expect("Nested should be ColumnTuple");
+
     for (idx, (_desc, entries)) in test_cases.iter().enumerate() {
-        let mut block = Block::new();
-
-        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-            Type::uint32(),
-        );
         id_col.append(idx as u32);
-
-        let map_type = Type::Map {
-            key_type: Box::new(Type::int8()),
-            value_type: Box::new(Type::string()),
-        };
-
-        let mut map_col = ColumnMap::new(map_type);
-
-        let array = Arc::get_mut(&mut map_col.data)
-            .expect("Failed to get mutable reference to map data");
-        let array_mut = array
-            .as_any_mut()
-            .downcast_mut::<ColumnArray>()
-            .expect("Map data should be ColumnArray");
-
-        let tuple = Arc::get_mut(array_mut.nested_mut())
-            .expect("Failed to get mutable reference to nested");
-        let tuple_mut = tuple
-            .as_any_mut()
-            .downcast_mut::<ColumnTuple>()
-            .expect("Nested should be ColumnTuple");
 
         for (key, value) in entries {
             tuple_mut
@@ -201,19 +202,19 @@ async fn test_map_int8_string_block_insert_boundary() {
                 .append(*value);
         }
         array_mut.append_len(entries.len() as u64);
-
-        block
-            .append_column("id", Arc::new(id_col))
-            .expect("Failed to append id column");
-        block
-            .append_column("value", Arc::new(map_col))
-            .expect("Failed to append value column");
-
-        client
-            .insert(&format!("{}.test_table", db_name), block)
-            .await
-            .expect("Failed to insert block");
     }
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("value", Arc::new(map_col))
+        .expect("Failed to append value column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
 
     let result = client
         .query(format!("SELECT value FROM {}.test_table ORDER BY id", db_name))

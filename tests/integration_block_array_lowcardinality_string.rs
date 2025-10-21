@@ -110,38 +110,43 @@ async fn test_array_lowcardinality_string_block_insert_boundary() {
         ("Unicode tags", vec!["タグ1", "标签2", "тег3"]),
     ];
 
-    for (idx, (_desc, values)) in test_cases.iter().enumerate() {
-        let mut block = Block::new();
+    let mut block = Block::new();
 
-        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-            Type::uint32(),
-        );
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+        Type::uint32(),
+    );
+    let inner = Arc::new(ColumnString::new(Type::string()));
+    let mut nested = ColumnLowCardinality::with_inner(
+        Type::low_cardinality(Type::string()),
+        inner,
+    );
+
+    for (idx, (_desc, values)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
 
-        let inner = Arc::new(ColumnString::new(Type::string()));
-        let mut nested = ColumnLowCardinality::with_inner(
-            Type::low_cardinality(Type::string()),
-            inner,
-        );
         for &val in values {
             nested.append_string(val.to_string());
         }
-
-        let mut array_col = ColumnArray::with_nested(Arc::new(nested));
-        array_col.append_offset(values.len() as u64);
-
-        block
-            .append_column("id", Arc::new(id_col))
-            .expect("Failed to append id column");
-        block
-            .append_column("tags", Arc::new(array_col))
-            .expect("Failed to append tags column");
-
-        client
-            .insert(&format!("{}.test_table", db_name), block)
-            .await
-            .expect("Failed to insert block");
     }
+
+    let mut array_col = ColumnArray::with_nested(Arc::new(nested));
+    let mut cumulative = 0u64;
+    for (_desc, values) in &test_cases {
+        cumulative += values.len() as u64;
+        array_col.append_offset(cumulative);
+    }
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("tags", Arc::new(array_col))
+        .expect("Failed to append tags column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
 
     let result = client
         .query(format!("SELECT tags FROM {}.test_table ORDER BY id", db_name))

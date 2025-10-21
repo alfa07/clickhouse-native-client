@@ -143,35 +143,35 @@ async fn test_lowcardinality_uuid_block_insert_boundary() {
         ),
     ];
 
+    let mut block = Block::new();
+
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
+        Type::uint32(),
+    );
+    let lc_type = Type::lowcardinality(Type::uuid());
+    let mut lc_col = ColumnLowCardinality::new(lc_type);
+
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
-        let mut block = Block::new();
-
-        let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-            Type::uint32(),
-        );
         id_col.append(idx as u32);
-
-        let lc_type = Type::lowcardinality(Type::uuid());
-        let mut lc_col = ColumnLowCardinality::new(lc_type);
 
         for uuid in values {
             lc_col
                 .append_unsafe(&uuid_to_column_value(*uuid))
                 .expect("Failed to append");
         }
-
-        block
-            .append_column("id", Arc::new(id_col))
-            .expect("Failed to append id column");
-        block
-            .append_column("value", Arc::new(lc_col))
-            .expect("Failed to append value column");
-
-        client
-            .insert(&format!("{}.test_table", db_name), block)
-            .await
-            .expect("Failed to insert block");
     }
+
+    block
+        .append_column("id", Arc::new(id_col))
+        .expect("Failed to append id column");
+    block
+        .append_column("value", Arc::new(lc_col))
+        .expect("Failed to append value column");
+
+    client
+        .insert(&format!("{}.test_table", db_name), block)
+        .await
+        .expect("Failed to insert block");
 
     let result = client
         .query(format!("SELECT value FROM {}.test_table ORDER BY id", db_name))
