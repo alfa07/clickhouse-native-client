@@ -94,11 +94,11 @@ async fn test_array_date32_block_insert_boundary() {
         ("Empty array", vec![]),
         ("Single element", vec![44562]), // 2022-01-01
         ("Multiple elements", vec![0, 25567, 44562]), /* 1900-01-01,
-                                                       * 1970-01-01,
-                                                       * 2022-01-01 */
+                                          * 1970-01-01,
+                                          * 2022-01-01 */
         ("Min date", vec![0]), // 1900-01-01
         ("Recent dates", vec![44927, 44928, 44929]), /* 2023-01-01 to
-                                                      * 2023-01-03 */
+                                * 2023-01-03 */
         ("Historical dates", vec![1, 365, 730]), // Early 1900s
         ("Future dates", vec![50000, 51000, 52000]),
     ];
