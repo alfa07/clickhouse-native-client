@@ -45,9 +45,9 @@ async fn test_array_float32_block_insert_basic() {
     // Create Array column with offsets: [2, 3, 5] for arrays [[1.5, 2.5],
     // [3.14159], [-1.5, 0.0]]
     let mut col = ColumnArray::with_nested(Arc::new(nested));
-    col.append_offset(2); // First array has 2 elements
-    col.append_offset(3); // Second array has 1 element (total 3)
-    col.append_offset(5); // Third array has 2 elements (total 5)
+    col.append_len(2); // First array has 2 elements
+    col.append_len(1); // Second array has 1 element
+    col.append_len(2); // Third array has 2 elements
 
     block
         .append_column("values", Arc::new(col))
@@ -65,14 +65,14 @@ async fn test_array_float32_block_insert_basic() {
 
     assert_eq!(result.total_rows(), 3);
 
-    let result_col = result.blocks()[0]
-        .column(0)
-        .expect("Column not found")
+    let blocks = result.blocks();
+    let col_ref = blocks[0].column(0).expect("Column not found");
+    let result_col = col_ref
         .as_any()
         .downcast_ref::<ColumnArray>()
         .expect("Invalid column type");
 
-    assert_eq!(result_col.size(), 3);
+    assert_eq!(result_col.len(), 3);
 
     cleanup_test_database(&db_name).await;
 }
@@ -117,10 +117,8 @@ async fn test_array_float32_block_insert_boundary() {
     }
 
     let mut array_col = ColumnArray::with_nested(Arc::new(nested));
-    let mut cumulative = 0u64;
     for (_desc, values) in &test_cases {
-        cumulative += values.len() as u64;
-        array_col.append_offset(cumulative);
+        array_col.append_len(values.len() as u64);
     }
 
     block
@@ -173,7 +171,7 @@ async fn test_array_float32_block_insert_many_elements() {
     }
 
     let mut col = ColumnArray::with_nested(Arc::new(nested));
-    col.append_offset(1000);
+    col.append_len(1000);
 
     block
         .append_column("values", Arc::new(col))
@@ -239,10 +237,8 @@ proptest! {
 
             // Recreate array column with populated nested
             let mut array_col = ColumnArray::with_nested(Arc::new(nested));
-            let mut cumulative = 0u64;
             for array in &arrays {
-                cumulative += array.len() as u64;
-                array_col.append_offset(cumulative);
+                array_col.append_len(array.len() as u64);
             }
 
             block
