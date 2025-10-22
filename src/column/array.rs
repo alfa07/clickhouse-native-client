@@ -45,7 +45,10 @@ use bytes::{
     Buf,
     BytesMut,
 };
-use std::sync::Arc;
+use std::{
+    marker::PhantomData,
+    sync::Arc,
+};
 
 /// Column for arrays of variable length
 ///
@@ -367,6 +370,264 @@ impl Column for ColumnArray {
         result.offsets = sliced_offsets;
 
         Ok(Arc::new(result))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+/// Typed wrapper for ColumnArray that provides type-safe access to nested
+/// column
+///
+/// This is analogous to `ColumnArrayT<T>` in clickhouse-cpp, providing
+/// compile-time type safety for array operations.
+///
+/// **Reference Implementation:** See
+/// `clickhouse-cpp/clickhouse/columns/array.h`
+pub struct ColumnArrayT<T>
+where
+    T: Column + 'static,
+{
+    inner: ColumnArray,
+    _phantom: PhantomData<fn() -> T>,
+}
+
+impl<T> ColumnArrayT<T>
+where
+    T: Column + 'static,
+{
+    /// Create a new typed array column from a typed nested column
+    pub fn with_nested(nested: Arc<T>) -> Self {
+        let inner = ColumnArray::with_nested(nested);
+        Self { inner, _phantom: PhantomData }
+    }
+
+    /// Create a new typed array column from an array type
+    ///
+    /// Returns an error if the nested column type doesn't match T
+    pub fn new(type_: Type) -> Result<Self> {
+        let inner = ColumnArray::new(type_);
+        // Verify the nested column is of the expected type
+        let _ =
+            inner.nested().as_any().downcast_ref::<T>().ok_or_else(|| {
+                Error::InvalidArgument(format!(
+                    "Type mismatch: expected nested column of type {}",
+                    std::any::type_name::<T>()
+                ))
+            })?;
+        Ok(Self { inner, _phantom: PhantomData })
+    }
+
+    /// Create with reserved capacity
+    pub fn with_capacity(type_: Type, capacity: usize) -> Result<Self> {
+        let inner = ColumnArray::with_capacity(type_, capacity);
+        // Verify type
+        let _ =
+            inner.nested().as_any().downcast_ref::<T>().ok_or_else(|| {
+                Error::InvalidArgument(format!(
+                    "Type mismatch: expected nested column of type {}",
+                    std::any::type_name::<T>()
+                ))
+            })?;
+        Ok(Self { inner, _phantom: PhantomData })
+    }
+
+    /// Get typed reference to the nested column
+    ///
+    /// This is safe because we verify the type at construction
+    pub fn nested_typed(&self) -> &T {
+        self.inner
+            .nested()
+            .as_any()
+            .downcast_ref::<T>()
+            .expect("Type mismatch in ColumnArrayT - internal error")
+    }
+
+    /// Get typed mutable reference to the nested column
+    ///
+    /// Returns an error if the column has multiple Arc references
+    pub fn nested_typed_mut(&mut self) -> Result<&mut T> {
+        let nested_arc = self.inner.nested_mut();
+        let nested_dyn = Arc::get_mut(nested_arc).ok_or_else(|| {
+            Error::Protocol(
+                "Cannot get mutable access - column has multiple references"
+                    .to_string(),
+            )
+        })?;
+        Ok(nested_dyn
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .expect("Type mismatch in ColumnArrayT - internal error"))
+    }
+
+    /// Append an array by building it with a closure
+    ///
+    /// The closure receives a mutable reference to the nested column
+    /// and can append elements. The array length is calculated automatically.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let mut arr =
+    /// ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))?;
+    /// arr.append_array(|nested| {
+    ///     nested.append(1);
+    ///     nested.append(2);
+    ///     nested.append(3);
+    /// })?;
+    /// ```
+    pub fn append_array<F>(&mut self, build_fn: F) -> Result<()>
+    where
+        F: FnOnce(&mut T),
+    {
+        let start_len = self.inner.nested().size();
+        let nested = self.nested_typed_mut()?;
+        build_fn(nested);
+        let end_len = self.inner.nested().size();
+        let array_len = end_len - start_len;
+        self.inner.append_len(array_len as u64);
+        Ok(())
+    }
+
+    /// Append an entire column as a single array element
+    pub fn append_array_column(&mut self, array_data: ColumnRef) {
+        self.inner.append_array(array_data)
+    }
+
+    /// Append an array specified by length
+    ///
+    /// The caller must ensure that `len` elements have been added to the
+    /// nested column
+    pub fn append_len(&mut self, len: u64) {
+        self.inner.append_len(len)
+    }
+
+    /// Get the array at the given index as a sliced column
+    pub fn at(&self, index: usize) -> ColumnRef {
+        self.inner.at(index)
+    }
+
+    /// Get the start and end indices for the array at the given index
+    pub fn get_array_range(&self, index: usize) -> Option<(usize, usize)> {
+        self.inner.get_array_range(index)
+    }
+
+    /// Get the length of the array at the given index
+    pub fn get_array_len(&self, index: usize) -> Option<usize> {
+        self.inner.get_array_len(index)
+    }
+
+    /// Get the offsets
+    pub fn offsets(&self) -> &[u64] {
+        self.inner.offsets()
+    }
+
+    /// Get the number of arrays
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Check if the array column is empty
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Get reference to inner ColumnArray
+    pub fn inner(&self) -> &ColumnArray {
+        &self.inner
+    }
+
+    /// Get mutable reference to inner ColumnArray
+    pub fn inner_mut(&mut self) -> &mut ColumnArray {
+        &mut self.inner
+    }
+
+    /// Convert into inner ColumnArray
+    pub fn into_inner(self) -> ColumnArray {
+        self.inner
+    }
+}
+
+impl<T> Column for ColumnArrayT<T>
+where
+    T: Column + 'static,
+{
+    fn column_type(&self) -> &Type {
+        self.inner.column_type()
+    }
+
+    fn size(&self) -> usize {
+        self.inner.size()
+    }
+
+    fn clear(&mut self) {
+        self.inner.clear()
+    }
+
+    fn reserve(&mut self, new_cap: usize) {
+        self.inner.reserve(new_cap)
+    }
+
+    fn append_column(&mut self, other: ColumnRef) -> Result<()> {
+        self.inner.append_column(other)
+    }
+
+    fn load_from_buffer(
+        &mut self,
+        buffer: &mut &[u8],
+        rows: usize,
+    ) -> Result<()> {
+        self.inner.load_from_buffer(buffer, rows)
+    }
+
+    fn load_prefix(&mut self, buffer: &mut &[u8], rows: usize) -> Result<()> {
+        self.inner.load_prefix(buffer, rows)
+    }
+
+    fn save_prefix(&self, buffer: &mut BytesMut) -> Result<()> {
+        self.inner.save_prefix(buffer)
+    }
+
+    fn save_to_buffer(&self, buffer: &mut BytesMut) -> Result<()> {
+        self.inner.save_to_buffer(buffer)
+    }
+
+    fn clone_empty(&self) -> ColumnRef {
+        Arc::new(ColumnArrayT::<T> {
+            inner: ColumnArray::with_nested(self.inner.nested().clone_empty()),
+            _phantom: PhantomData,
+        })
+    }
+
+    fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
+        let sliced_inner = self.inner.slice(begin, len)?;
+
+        // The sliced result is a ColumnArray with proper offsets and nested
+        // data We need to extract it and wrap it in ColumnArrayT
+        let sliced_array = sliced_inner
+            .as_any()
+            .downcast_ref::<ColumnArray>()
+            .ok_or_else(|| {
+                Error::InvalidArgument(
+                    "Failed to downcast sliced column".to_string(),
+                )
+            })?;
+
+        // Clone the sliced array structure (preserves offsets and nested)
+        let cloned_inner = ColumnArray {
+            type_: sliced_array.column_type().clone(),
+            nested: sliced_array.nested().clone(),
+            offsets: sliced_array.offsets().to_vec(),
+        };
+
+        Ok(Arc::new(ColumnArrayT::<T> {
+            inner: cloned_inner,
+            _phantom: PhantomData,
+        }))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -701,5 +962,246 @@ mod tests {
         let arr1 = col_loaded.at(1);
         let arr1_data = arr1.as_any().downcast_ref::<ColumnUInt64>().unwrap();
         assert_eq!(arr1_data.size(), 3, "Second array should have 3 elements");
+    }
+
+    // ColumnArrayT tests
+    #[test]
+    fn test_array_t_creation() {
+        let nested = Arc::new(ColumnUInt64::new());
+        let col = ColumnArrayT::<ColumnUInt64>::with_nested(nested);
+        assert_eq!(col.size(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn test_array_t_new() {
+        let col =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+        assert_eq!(col.size(), 0);
+    }
+
+    #[test]
+    fn test_array_t_append_array() {
+        let mut col =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+
+        // Append first array: [1, 2, 3]
+        col.append_array(|nested| {
+            nested.append(1);
+            nested.append(2);
+            nested.append(3);
+        })
+        .unwrap();
+
+        // Append second array: [4, 5]
+        col.append_array(|nested| {
+            nested.append(4);
+            nested.append(5);
+        })
+        .unwrap();
+
+        assert_eq!(col.size(), 2);
+        assert_eq!(col.get_array_len(0), Some(3));
+        assert_eq!(col.get_array_len(1), Some(2));
+        assert_eq!(col.offsets(), &[3, 5]);
+    }
+
+    #[test]
+    fn test_array_t_typed_access() {
+        let mut col =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+
+        col.append_array(|nested| {
+            nested.append(10);
+            nested.append(20);
+        })
+        .unwrap();
+
+        // Get typed access to nested column
+        let nested = col.nested_typed();
+        assert_eq!(nested.size(), 2);
+        assert_eq!(nested.at(0), 10);
+        assert_eq!(nested.at(1), 20);
+    }
+
+    #[test]
+    fn test_array_t_with_strings() {
+        let mut col =
+            ColumnArrayT::<ColumnString>::new(Type::array(Type::string()))
+                .unwrap();
+
+        col.append_array(|nested| {
+            nested.append("hello");
+            nested.append("world");
+        })
+        .unwrap();
+
+        col.append_array(|nested| {
+            nested.append("foo");
+        })
+        .unwrap();
+
+        assert_eq!(col.size(), 2);
+        assert_eq!(col.get_array_len(0), Some(2));
+        assert_eq!(col.get_array_len(1), Some(1));
+
+        let nested = col.nested_typed();
+        assert_eq!(nested.at(0), "hello");
+        assert_eq!(nested.at(1), "world");
+        assert_eq!(nested.at(2), "foo");
+    }
+
+    #[test]
+    fn test_array_t_empty_arrays() {
+        let mut col =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+
+        col.append_array(|_nested| {
+            // Empty array
+        })
+        .unwrap();
+
+        col.append_array(|nested| {
+            nested.append(42);
+        })
+        .unwrap();
+
+        col.append_array(|_nested| {
+            // Another empty array
+        })
+        .unwrap();
+
+        assert_eq!(col.size(), 3);
+        assert_eq!(col.get_array_len(0), Some(0));
+        assert_eq!(col.get_array_len(1), Some(1));
+        assert_eq!(col.get_array_len(2), Some(0));
+        assert_eq!(col.offsets(), &[0, 1, 1]);
+    }
+
+    #[test]
+    fn test_array_t_append_column() {
+        let mut col1 =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+        col1.append_array(|nested| {
+            nested.append(1);
+            nested.append(2);
+        })
+        .unwrap();
+
+        let mut col2 =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+        col2.append_array(|nested| {
+            nested.append(3);
+            nested.append(4);
+            nested.append(5);
+        })
+        .unwrap();
+
+        col1.append_column(Arc::new(col2.into_inner()))
+            .expect("append_column should succeed");
+
+        assert_eq!(col1.size(), 2);
+        assert_eq!(col1.get_array_len(0), Some(2));
+        assert_eq!(col1.get_array_len(1), Some(3));
+
+        let nested = col1.nested_typed();
+        assert_eq!(nested.size(), 5);
+    }
+
+    #[test]
+    fn test_array_t_slice() {
+        let mut col =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+
+        // Arrays: [1,2,3], [4,5], [6], [7,8,9,10]
+        col.append_array(|n| {
+            n.append(1);
+            n.append(2);
+            n.append(3);
+        })
+        .unwrap();
+        col.append_array(|n| {
+            n.append(4);
+            n.append(5);
+        })
+        .unwrap();
+        col.append_array(|n| {
+            n.append(6);
+        })
+        .unwrap();
+        col.append_array(|n| {
+            n.append(7);
+            n.append(8);
+            n.append(9);
+            n.append(10);
+        })
+        .unwrap();
+
+        // Slice arrays [4,5] and [6] (indices 1-2)
+        let sliced = col.slice(1, 2).unwrap();
+        let sliced_col = sliced
+            .as_any()
+            .downcast_ref::<ColumnArrayT<ColumnUInt64>>()
+            .unwrap();
+
+        assert_eq!(sliced_col.size(), 2);
+        assert_eq!(sliced_col.offsets(), &[2, 3]);
+
+        let nested = sliced_col.nested_typed();
+        assert_eq!(nested.size(), 3);
+        assert_eq!(nested.at(0), 4);
+        assert_eq!(nested.at(1), 5);
+        assert_eq!(nested.at(2), 6);
+    }
+
+    #[test]
+    fn test_array_t_roundtrip() {
+        use bytes::BytesMut;
+
+        let mut col =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+
+        col.append_array(|n| {
+            n.append(1);
+            n.append(2);
+        })
+        .unwrap();
+        col.append_array(|n| {
+            n.append(3);
+            n.append(4);
+            n.append(5);
+        })
+        .unwrap();
+
+        // Save to buffer
+        let mut buffer = BytesMut::new();
+        col.save_to_buffer(&mut buffer).unwrap();
+
+        // Load into new column
+        let mut col_loaded =
+            ColumnArrayT::<ColumnUInt64>::new(Type::array(Type::uint64()))
+                .unwrap();
+        let mut buf_slice = &buffer[..];
+        col_loaded.load_from_buffer(&mut buf_slice, 2).unwrap();
+
+        assert_eq!(col_loaded.size(), 2);
+        assert_eq!(col_loaded.get_array_len(0), Some(2));
+        assert_eq!(col_loaded.get_array_len(1), Some(3));
+
+        let nested = col_loaded.nested_typed();
+        assert_eq!(nested.size(), 5);
+        assert_eq!(nested.at(0), 1);
+        assert_eq!(nested.at(1), 2);
+        assert_eq!(nested.at(2), 3);
+        assert_eq!(nested.at(3), 4);
+        assert_eq!(nested.at(4), 5);
     }
 }

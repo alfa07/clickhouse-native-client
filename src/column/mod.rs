@@ -55,7 +55,10 @@ pub mod tuple;
 pub mod uuid;
 
 // Re-export column types for easier access
-pub use array::ColumnArray;
+pub use array::{
+    ColumnArray,
+    ColumnArrayT,
+};
 pub use date::{
     ColumnDate,
     ColumnDate32,
