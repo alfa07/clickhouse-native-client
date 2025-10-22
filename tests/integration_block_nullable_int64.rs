@@ -201,12 +201,8 @@ async fn test_nullable_int64_block_insert_all_nulls() {
     // Add 5 null values
     for _ in 0..5 {
         nullable_col.append_null();
-        Arc::get_mut(nullable_col.nested_mut())
-            .unwrap()
-            .as_any_mut()
-            .downcast_mut::<ColumnInt64>()
-            .unwrap()
-            .append(0); // Placeholder for null value
+        nullable_col.nested_mut::<ColumnInt64>().append(0); // Placeholder for
+                                                            // null value
     }
 
     block
@@ -264,12 +260,7 @@ async fn test_nullable_int64_block_insert_all_non_null() {
     // Add 5 non-null values
     for i in 0..5 {
         nullable_col.append_non_null();
-        Arc::get_mut(nullable_col.nested_mut())
-            .unwrap()
-            .as_any_mut()
-            .downcast_mut::<ColumnInt64>()
-            .unwrap()
-            .append(i * 10);
+        nullable_col.nested_mut::<ColumnInt64>().append(i * 10);
     }
 
     block
@@ -341,20 +332,12 @@ proptest! {
                 match value_opt {
                     Some(value) => {
                         nullable_col.append_non_null();
-                        Arc::get_mut(nullable_col.nested_mut())
-                            .unwrap()
-                            .as_any_mut()
-                            .downcast_mut::<ColumnInt64>()
-                            .unwrap()
+                        nullable_col.nested_mut::<ColumnInt64>()
                             .append(*value);
                     }
                     None => {
                         nullable_col.append_null();
-                        Arc::get_mut(nullable_col.nested_mut())
-                            .unwrap()
-                            .as_any_mut()
-                            .downcast_mut::<ColumnInt64>()
-                            .unwrap()
+                        nullable_col.nested_mut::<ColumnInt64>()
                             .append(0); // Placeholder for null value
                     }
                 }

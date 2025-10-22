@@ -219,30 +219,21 @@ async fn test_null_parameter_in_query() {
 
     // Manually append values since append_nullable is for UInt32
     nullable_col.append_non_null();
-    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnInt32>()
-        {
-            col.append(100);
-        }
+    {
+        let col = nullable_col.nested_mut::<ColumnInt32>();
+        col.append(100);
     }
 
     nullable_col.append_null();
-    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnInt32>()
-        {
-            col.append(0); // Placeholder for NULL
-        }
+    {
+        let col = nullable_col.nested_mut::<ColumnInt32>();
+        col.append(0); // Placeholder for NULL
     }
 
     nullable_col.append_non_null();
-    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnInt32>()
-        {
-            col.append(300);
-        }
+    {
+        let col = nullable_col.nested_mut::<ColumnInt32>();
+        col.append(300);
     }
 
     block.append_column("id", Arc::new(id_col)).unwrap();

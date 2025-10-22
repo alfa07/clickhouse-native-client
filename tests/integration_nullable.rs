@@ -52,42 +52,30 @@ async fn test_nullable_string_roundtrip() {
 
     // NULL value
     col.append_null();
-    if let Some(nested_mut) = Arc::get_mut(col.nested_mut()) {
-        if let Some(string_col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnString>()
-        {
-            string_col.append("".to_string()); // Placeholder
-        }
+    {
+        let string_col = col.nested_mut::<ColumnString>();
+        string_col.append("".to_string()); // Placeholder
     }
 
     // Non-NULL value
     col.append_non_null();
-    if let Some(nested_mut) = Arc::get_mut(col.nested_mut()) {
-        if let Some(string_col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnString>()
-        {
-            string_col.append("hello".to_string());
-        }
+    {
+        let string_col = col.nested_mut::<ColumnString>();
+        string_col.append("hello".to_string());
     }
 
     // NULL value
     col.append_null();
-    if let Some(nested_mut) = Arc::get_mut(col.nested_mut()) {
-        if let Some(string_col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnString>()
-        {
-            string_col.append("".to_string()); // Placeholder
-        }
+    {
+        let string_col = col.nested_mut::<ColumnString>();
+        string_col.append("".to_string()); // Placeholder
     }
 
     // Non-NULL value
     col.append_non_null();
-    if let Some(nested_mut) = Arc::get_mut(col.nested_mut()) {
-        if let Some(string_col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnString>()
-        {
-            string_col.append("world".to_string());
-        }
+    {
+        let string_col = col.nested_mut::<ColumnString>();
+        string_col.append("world".to_string());
     }
 
     block
