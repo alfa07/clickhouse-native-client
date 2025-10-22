@@ -170,7 +170,7 @@ async fn test_lowcardinality_string_block_insert_high_cardinality() {
 
     // Create many entries with few unique values (ideal for LowCardinality)
     let statuses =
-        vec!["active", "inactive", "pending", "archived", "deleted"];
+        ["active", "inactive", "pending", "archived", "deleted"];
     for i in 0..100 {
         let status = statuses[i % statuses.len()];
         lc_col

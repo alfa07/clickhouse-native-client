@@ -30,7 +30,7 @@ fn make_strings() -> Vec<String> {
 
 /// Generate fixed-size strings for testing
 fn make_fixed_strings(size: usize) -> Vec<String> {
-    let strs = vec!["aaa", "bbb", "ccc", "ddd", "eee"];
+    let strs = ["aaa", "bbb", "ccc", "ddd", "eee"];
     strs.into_iter()
         .map(|s| {
             let mut padded = s.to_string();
@@ -334,7 +334,7 @@ fn test_nullable_all_non_null() {
 
 #[test]
 fn test_tuple_basic() {
-    let types = vec![Type::uint64(), Type::string()];
+    let types = [Type::uint64(), Type::string()];
     let tuple_type = Type::tuple(types.clone());
 
     // Create and populate inner columns first

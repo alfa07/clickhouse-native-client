@@ -219,10 +219,7 @@ impl<'a> IntoIterator for &'a Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        column::numeric::ColumnUInt64,
-        types::Type,
-    };
+    use crate::column::numeric::ColumnUInt64;
     use std::sync::Arc;
 
     #[test]

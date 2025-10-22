@@ -80,7 +80,7 @@ async fn test_fixedstring_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Empty bytes", String::from_utf8(vec![0u8; 10]).unwrap()),
         ("Partial fill", {
             let mut v = b"hello".to_vec();

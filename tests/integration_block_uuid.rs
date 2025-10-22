@@ -83,7 +83,7 @@ async fn test_uuid_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Min UUID", Uuid::new(0, 0)),
         ("Max UUID", Uuid::new(u64::MAX, u64::MAX)),
         ("Mid UUID", Uuid::new(u64::MAX / 2, u64::MAX)),
@@ -153,9 +153,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnUuid::new(Type::uuid());
 
             for (idx, value) in values.iter().enumerate() {

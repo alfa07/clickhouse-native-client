@@ -71,7 +71,7 @@ async fn test_enum8_block_insert_basic() {
         .downcast_ref::<ColumnEnum8>()
         .expect("Invalid column type");
 
-    let expected = vec![1, 2, 3];
+    let expected = [1, 2, 3];
     for (idx, exp) in expected.iter().enumerate() {
         assert_eq!(result_col.at(idx), *exp);
     }
@@ -102,7 +102,7 @@ async fn test_enum8_block_insert_boundary() {
     ]);
 
     let test_cases =
-        vec![("Min value", -128), ("Zero value", 0), ("Max value", 127)];
+        [("Min value", -128), ("Zero value", 0), ("Max value", 127)];
 
     let mut block = Block::new();
     let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
@@ -168,9 +168,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnEnum8::new(create_enum8_type());
 
             for (idx, value) in values.iter().enumerate() {

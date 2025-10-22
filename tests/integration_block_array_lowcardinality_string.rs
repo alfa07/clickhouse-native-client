@@ -181,7 +181,7 @@ async fn test_array_lowcardinality_string_block_insert_many_elements() {
     let mut nested =
         ColumnLowCardinality::new(Type::low_cardinality(Type::string()));
 
-    let tags = vec!["tag1", "tag2", "tag3", "tag4", "tag5"];
+    let tags = ["tag1", "tag2", "tag3", "tag4", "tag5"];
     for i in 0..1000 {
         nested
             .append_unsafe(&ColumnValue::from_string(tags[i % tags.len()]))
@@ -237,9 +237,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
 
             let mut nested =
                 ColumnLowCardinality::new(Type::low_cardinality(Type::string()));

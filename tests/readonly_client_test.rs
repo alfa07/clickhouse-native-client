@@ -434,7 +434,7 @@ async fn test_readonly_error_messages_are_clear() {
         .expect("Failed to create table");
 
     // Test various operations and check error messages
-    let operations = vec![
+    let operations = [
         ("INSERT INTO test_readonly_errors VALUES (1)", "INSERT"),
         ("UPDATE test_readonly_errors SET id = 2 WHERE id = 1", "UPDATE"),
         ("DELETE FROM test_readonly_errors WHERE id = 1", "DELETE"),
