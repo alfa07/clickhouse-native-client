@@ -351,8 +351,8 @@ proptest! {
 
                 .expect("Invalid column type");
 
-            let nested = result_col
-                .nested()
+            let nested_ref = result_col.nested();
+            let nested = nested_ref
                 .as_any()
                 .downcast_ref::<ColumnIpv6>()
                 .expect("Nested should be ColumnIpv6");

@@ -93,8 +93,8 @@ async fn test_nullable_uuid_block_insert_basic() {
     assert!(result_col.is_null(1));
     assert!(!result_col.is_null(2));
 
-    let nested = result_col
-        .nested()
+    let nested_ref = result_col.nested();
+    let nested = nested_ref
         .as_any()
         .downcast_ref::<ColumnUuid>()
         .expect("Nested should be ColumnUuid");
@@ -204,8 +204,8 @@ async fn test_nullable_uuid_block_insert_boundary() {
         .downcast_ref::<ColumnNullable>()
         .expect("Invalid column type");
 
-    let nested = result_col
-        .nested()
+    let nested_ref = result_col.nested();
+    let nested = nested_ref
         .as_any()
         .downcast_ref::<ColumnUuid>()
         .expect("Nested should be ColumnUuid");
@@ -378,8 +378,8 @@ proptest! {
 
                 .expect("Invalid column type");
 
-            let nested = result_col
-                .nested()
+            let nested_ref = result_col.nested();
+            let nested = nested_ref
                 .as_any()
                 .downcast_ref::<ColumnUuid>()
                 .expect("Nested should be ColumnUuid");
