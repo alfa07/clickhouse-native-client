@@ -437,13 +437,14 @@ where
     pub fn new(type_: Type) -> Result<Self> {
         let inner = ColumnArray::new(type_);
         // Verify the nested column is of the expected type
-        let _ =
-            inner.nested().as_any().downcast_ref::<T>().ok_or_else(|| {
+        let _ = inner.nested_ref().as_any().downcast_ref::<T>().ok_or_else(
+            || {
                 Error::InvalidArgument(format!(
                     "Type mismatch: expected nested column of type {}",
                     std::any::type_name::<T>()
                 ))
-            })?;
+            },
+        )?;
         Ok(Self { inner, _phantom: PhantomData })
     }
 
@@ -451,13 +452,14 @@ where
     pub fn with_capacity(type_: Type, capacity: usize) -> Result<Self> {
         let inner = ColumnArray::with_capacity(type_, capacity);
         // Verify type
-        let _ =
-            inner.nested().as_any().downcast_ref::<T>().ok_or_else(|| {
+        let _ = inner.nested_ref().as_any().downcast_ref::<T>().ok_or_else(
+            || {
                 Error::InvalidArgument(format!(
                     "Type mismatch: expected nested column of type {}",
                     std::any::type_name::<T>()
                 ))
-            })?;
+            },
+        )?;
         Ok(Self { inner, _phantom: PhantomData })
     }
 
@@ -465,28 +467,16 @@ where
     ///
     /// This is safe because we verify the type at construction
     pub fn nested_typed(&self) -> &T {
-        self.inner
-            .nested()
-            .as_any()
-            .downcast_ref::<T>()
-            .expect("Type mismatch in ColumnArrayT - internal error")
+        // Use the generic nested method to get typed access directly
+        self.inner.nested::<T>()
     }
 
     /// Get typed mutable reference to the nested column
     ///
     /// Returns an error if the column has multiple Arc references
     pub fn nested_typed_mut(&mut self) -> Result<&mut T> {
-        let nested_arc = self.inner.nested_mut();
-        let nested_dyn = Arc::get_mut(nested_arc).ok_or_else(|| {
-            Error::Protocol(
-                "Cannot get mutable access - column has multiple references"
-                    .to_string(),
-            )
-        })?;
-        Ok(nested_dyn
-            .as_any_mut()
-            .downcast_mut::<T>()
-            .expect("Type mismatch in ColumnArrayT - internal error"))
+        // Use the generic nested_mut to get typed access directly
+        Ok(self.inner.nested_mut::<T>())
     }
 
     /// Append an array by building it with a closure
@@ -508,10 +498,10 @@ where
     where
         F: FnOnce(&mut T),
     {
-        let start_len = self.inner.nested().size();
+        let start_len = self.inner.nested_ref().size();
         let nested = self.nested_typed_mut()?;
         build_fn(nested);
-        let end_len = self.inner.nested().size();
+        let end_len = self.inner.nested_ref().size();
         let array_len = end_len - start_len;
         self.inner.append_len(array_len as u64);
         Ok(())
@@ -622,7 +612,9 @@ where
 
     fn clone_empty(&self) -> ColumnRef {
         Arc::new(ColumnArrayT::<T> {
-            inner: ColumnArray::with_nested(self.inner.nested().clone_empty()),
+            inner: ColumnArray::with_nested(
+                self.inner.nested_ref().clone_empty(),
+            ),
             _phantom: PhantomData,
         })
     }
@@ -644,7 +636,7 @@ where
         // Clone the sliced array structure (preserves offsets and nested)
         let cloned_inner = ColumnArray {
             type_: sliced_array.column_type().clone(),
-            nested: sliced_array.nested().clone(),
+            nested: sliced_array.nested_ref().clone(),
             offsets: sliced_array.offsets().to_vec(),
         };
 
