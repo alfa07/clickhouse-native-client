@@ -86,7 +86,7 @@ async fn test_decimal_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Zero", 0),
         ("Positive small", 1),
         ("Negative small", -1),
@@ -158,9 +158,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnDecimal::new(Type::decimal(18, 4));
 
             for (idx, value) in values.iter().enumerate() {

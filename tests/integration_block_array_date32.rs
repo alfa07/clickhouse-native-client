@@ -90,7 +90,7 @@ async fn test_array_date32_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Empty array", vec![]),
         ("Single element", vec![44562]), // 2022-01-01
         ("Multiple elements", vec![0, 25567, 44562]), /* 1900-01-01,
@@ -217,9 +217,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut nested = ColumnDate32::new(Type::date32());
 
             for (idx, array) in arrays.iter().enumerate() {

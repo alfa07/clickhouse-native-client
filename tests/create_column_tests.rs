@@ -328,7 +328,7 @@ fn test_bool_is_uint8() {
 #[test]
 fn test_type_names_preserved() {
     // Test that type names are preserved through parse and create
-    let type_strings = vec![
+    let type_strings = [
         "Int8",
         "Int16",
         "Int32",

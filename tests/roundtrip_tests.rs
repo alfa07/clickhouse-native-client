@@ -87,7 +87,7 @@ fn test_roundtrip_float32() {
 
 #[test]
 fn test_roundtrip_uint8() {
-    let data = vec![1u8, 2, 3, 5, 7, 11, 13, 17, 19, 23, 31];
+    let data = [1u8, 2, 3, 5, 7, 11, 13, 17, 19, 23, 31];
     let col = ColumnUInt8::new().with_data(data.clone());
 
     let result = roundtrip_column(&col).unwrap();
@@ -295,7 +295,7 @@ fn test_roundtrip_nullable_uint32() {
 
 #[test]
 fn test_roundtrip_tuple() {
-    let types = vec![Type::uint64(), Type::string()];
+    let types = [Type::uint64(), Type::string()];
     let tuple_type = Type::tuple(types.clone());
 
     // Create and populate inner columns first

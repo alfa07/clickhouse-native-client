@@ -86,7 +86,7 @@ async fn test_date32_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Historic date (1900-01-01)", -25567),
         ("Unix epoch (1970-01-01)", 0),
         ("Future date", 100000),
@@ -157,9 +157,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnDate32::new(Type::date32());
 
             for (idx, value) in values.iter().enumerate() {

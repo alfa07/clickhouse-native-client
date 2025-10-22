@@ -83,7 +83,7 @@ async fn test_string_block_insert_boundary() {
         .expect("Failed to create table");
 
     let long_string = "x".repeat(1000);
-    let test_cases = vec![
+    let test_cases = [
         ("Empty string", ""),
         ("Single char", "a"),
         ("Unicode", "Hello 世界 🌍"),
@@ -154,9 +154,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnString::new(Type::string());
 
             for (idx, value) in values.iter().enumerate() {

@@ -269,7 +269,7 @@ fn test_enum16_empty() {
 
 #[test]
 fn test_type_parse_and_name_roundtrip() {
-    let type_strings = vec![
+    let type_strings = [
         "Int8",
         "Int16",
         "Int32",

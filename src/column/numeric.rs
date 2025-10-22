@@ -233,6 +233,14 @@ impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnVector<T> {
     }
 }
 
+impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> Default
+    for ColumnVector<T>
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: FixedSize> Column for ColumnVector<T> {
     fn column_type(&self) -> &Type {
         &self.type_

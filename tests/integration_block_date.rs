@@ -86,7 +86,7 @@ async fn test_date_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Min value (1970-01-01)", 0),
         ("Max value (2149-06-06)", 65535),
         ("Mid value", 32767),
@@ -157,9 +157,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnDate::new(Type::date());
 
             for (idx, value) in values.iter().enumerate() {

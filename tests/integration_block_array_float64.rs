@@ -91,7 +91,7 @@ async fn test_array_float64_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Empty array", vec![]),
         ("Single element", vec![3.14159265358979]),
         ("Multiple elements", vec![1.0, 2.0, 3.0, 4.0, 5.0]),
@@ -217,9 +217,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut nested = ColumnFloat64::new();
 
             let mut cumulative = 0u64;

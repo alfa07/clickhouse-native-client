@@ -86,7 +86,7 @@ async fn test_ipv4_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Min value 0.0.0.0", 0x00000000),
         ("Max value 255.255.255.255", 0xFFFFFFFF),
         ("Localhost 127.0.0.1", 0x7F000001),
@@ -157,9 +157,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnIpv4::new(Type::ipv4());
 
             for (idx, value) in values.iter().enumerate() {

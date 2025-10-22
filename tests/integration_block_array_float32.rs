@@ -93,7 +93,7 @@ async fn test_array_float32_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Empty array", vec![]),
         ("Single element", vec![42.5]),
         ("Multiple elements", vec![1.0, 2.0, 3.0, 4.0, 5.0]),
@@ -218,9 +218,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut nested = ColumnFloat32::new();
             let mut array_col = ColumnArray::with_nested(Arc::new(ColumnFloat32::new()));
 

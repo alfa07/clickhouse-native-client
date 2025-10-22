@@ -837,10 +837,7 @@ impl BlockWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        column::numeric::ColumnUInt64,
-        types::Type,
-    };
+    use crate::column::numeric::ColumnUInt64;
 
     #[test]
     fn test_block_writer_serialization() {

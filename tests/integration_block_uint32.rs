@@ -86,7 +86,7 @@ async fn test_uint32_block_insert_boundary() {
         .await
         .expect("Failed to create table");
 
-    let test_cases = vec![
+    let test_cases = [
         ("Min value", 0),
         ("Max value", 4294967295),
         ("Mid value", 2147483647),
@@ -156,9 +156,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
-                Type::uint32()
-            );
+            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnUInt32::new();
 
             for (idx, value) in values.iter().enumerate() {
