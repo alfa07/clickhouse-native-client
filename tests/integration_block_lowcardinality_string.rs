@@ -169,8 +169,7 @@ async fn test_lowcardinality_string_block_insert_high_cardinality() {
     let mut lc_col = ColumnLowCardinality::new(lc_type);
 
     // Create many entries with few unique values (ideal for LowCardinality)
-    let statuses =
-        ["active", "inactive", "pending", "archived", "deleted"];
+    let statuses = ["active", "inactive", "pending", "archived", "deleted"];
     for i in 0..100 {
         let status = statuses[i % statuses.len()];
         lc_col
