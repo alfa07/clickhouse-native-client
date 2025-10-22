@@ -37,11 +37,11 @@ impl ColumnDecimal {
         // Choose appropriate storage type based on precision (like C++
         // implementation)
         let data: ColumnRef = if precision <= 9 {
-            Arc::new(ColumnInt32::new(Type::int32()))
+            Arc::new(ColumnInt32::new())
         } else if precision <= 18 {
-            Arc::new(ColumnInt64::new(Type::int64()))
+            Arc::new(ColumnInt64::new())
         } else {
-            Arc::new(ColumnInt128::new(Type::int128()))
+            Arc::new(ColumnInt128::new())
         };
 
         Self { type_, precision, scale, data }
@@ -50,19 +50,19 @@ impl ColumnDecimal {
     pub fn with_data(mut self, data: Vec<i128>) -> Self {
         // Convert Vec<i128> to the appropriate column type
         if self.precision <= 9 {
-            let mut col = ColumnInt32::new(Type::int32());
+            let mut col = ColumnInt32::new();
             for value in data {
                 col.append(value as i32);
             }
             self.data = Arc::new(col);
         } else if self.precision <= 18 {
-            let mut col = ColumnInt64::new(Type::int64());
+            let mut col = ColumnInt64::new();
             for value in data {
                 col.append(value as i64);
             }
             self.data = Arc::new(col);
         } else {
-            let mut col = ColumnInt128::new(Type::int128());
+            let mut col = ColumnInt128::new();
             for value in data {
                 col.append(value);
             }

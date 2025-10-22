@@ -288,7 +288,7 @@ async fn test_insert_block() {
         .expect("Failed to append name column");
 
     // Add UInt64 column
-    let mut value_col = ColumnUInt64::new(Type::uint64());
+    let mut value_col = ColumnUInt64::new();
     value_col.append(100);
     value_col.append(200);
     value_col.append(300);
@@ -454,13 +454,13 @@ async fn test_nullable_column_insertion() {
     let mut block = Block::new();
 
     // Create id column
-    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut id_col = ColumnUInt64::new();
     id_col.append(1);
     id_col.append(2);
     id_col.append(3);
 
     // Create nullable column
-    let nested_col = Arc::new(ColumnUInt64::new(Type::uint64()));
+    let nested_col = Arc::new(ColumnUInt64::new());
     let mut nullable_col = ColumnNullable::with_nested(nested_col);
 
     // Append values: Some(100), None, Some(300)
@@ -605,7 +605,7 @@ async fn test_large_block_insert() {
     // Create large block with 10,000 rows
     let mut block = Block::new();
 
-    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut id_col = ColumnUInt64::new();
     let mut text_col = ColumnString::new(Type::string());
 
     for i in 0..10000 {
@@ -674,7 +674,7 @@ async fn test_large_result_set() {
 
     // Insert 50,000 rows
     let mut block = Block::new();
-    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut id_col = ColumnUInt64::new();
 
     for i in 0..50000 {
         id_col.append(i);
@@ -968,7 +968,7 @@ async fn test_query_id_parameters() {
     // Test insert_with_id()
     let mut block = Block::new();
 
-    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut id_col = ColumnUInt64::new();
     id_col.append(1);
     id_col.append(2);
     id_col.append(3);
@@ -1042,7 +1042,7 @@ async fn test_external_tables() {
     // Create external table block with enrichment data
     let mut ext_block = Block::new();
 
-    let mut ext_id_col = ColumnUInt64::new(Type::uint64());
+    let mut ext_id_col = ColumnUInt64::new();
     ext_id_col.append(1);
     ext_id_col.append(2);
     ext_id_col.append(4);
@@ -1118,7 +1118,7 @@ async fn test_external_tables_with_id() {
     // External table
     let mut ext_block = Block::new();
 
-    let mut ext_id_col = ColumnUInt64::new(Type::uint64());
+    let mut ext_id_col = ColumnUInt64::new();
     ext_id_col.append(2);
     ext_id_col.append(3);
     ext_id_col.append(4);

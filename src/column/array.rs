@@ -393,14 +393,14 @@ mod tests {
 
     #[test]
     fn test_array_creation() {
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let col = ColumnArray::with_nested(nested);
         assert_eq!(col.size(), 0);
     }
 
     #[test]
     fn test_array_append() {
-        let mut nested = ColumnUInt64::new(Type::uint64());
+        let mut nested = ColumnUInt64::new();
         // First array: [1, 2, 3]
         nested.append(1);
         nested.append(2);
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_array_offsets() {
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(3); // Array with 3 elements
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn test_array_empty_arrays() {
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(0);
@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     fn test_array_save_load() {
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(3);
@@ -477,7 +477,7 @@ mod tests {
     fn test_array_load_offsets() {
         use bytes::BufMut;
 
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let mut col = ColumnArray::with_nested(nested);
 
         // Encode offsets manually as fixed UInt64: 3, 5, 8 (total 8 nested
@@ -501,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_array_slice() {
-        let mut nested = ColumnUInt64::new(Type::uint64());
+        let mut nested = ColumnUInt64::new();
         // Arrays: [1,2,3], [4,5], [6], [7,8,9,10]
         for i in 1..=10 {
             nested.append(i);
@@ -536,7 +536,7 @@ mod tests {
 
     #[test]
     fn test_array_type_mismatch() {
-        let nested1 = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested1 = Arc::new(ColumnUInt64::new());
         let mut col1 = ColumnArray::with_nested(nested1);
 
         let nested2 = Arc::new(ColumnString::new(Type::string()));
@@ -548,7 +548,7 @@ mod tests {
 
     #[test]
     fn test_array_out_of_bounds() {
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let mut col = ColumnArray::with_nested(nested);
 
         col.append_len(3);
@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn test_array_append_column() {
         // Create first array column with data: [[1, 2], [3]]
-        let mut nested1 = ColumnUInt64::new(Type::uint64());
+        let mut nested1 = ColumnUInt64::new();
         nested1.append(1);
         nested1.append(2);
         nested1.append(3);
@@ -571,7 +571,7 @@ mod tests {
         col1.append_len(1); // Second array: [3]
 
         // Create second array column with data: [[4, 5, 6]]
-        let mut nested2 = ColumnUInt64::new(Type::uint64());
+        let mut nested2 = ColumnUInt64::new();
         nested2.append(4);
         nested2.append(5);
         nested2.append(6);
@@ -623,7 +623,7 @@ mod tests {
     )]
     fn test_array_clear_panics_on_shared_nested() {
         // Create an array column
-        let mut nested = ColumnUInt64::new(Type::uint64());
+        let mut nested = ColumnUInt64::new();
         nested.append(1);
         nested.append(2);
         nested.append(3);
@@ -645,7 +645,7 @@ mod tests {
         use bytes::BytesMut;
 
         // Create array column with actual nested data: [[1, 2], [3, 4, 5]]
-        let mut nested = ColumnUInt64::new(Type::uint64());
+        let mut nested = ColumnUInt64::new();
         nested.append(1);
         nested.append(2);
         nested.append(3);
@@ -663,7 +663,7 @@ mod tests {
         col.save_to_buffer(&mut buffer).expect("save should succeed");
 
         // Load into new array column
-        let nested_empty = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested_empty = Arc::new(ColumnUInt64::new());
         let mut col_loaded = ColumnArray::with_nested(nested_empty);
 
         let mut buf_slice = &buffer[..];

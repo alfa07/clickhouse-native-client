@@ -35,7 +35,7 @@ async fn test_array_int64_block_insert_basic() {
     let mut block = Block::new();
 
     // Create nested Int64 column
-    let mut nested = ColumnInt64::new(Type::int64());
+    let mut nested = ColumnInt64::new();
     nested.append(-9223372036854775808);
     nested.append(0);
     nested.append(9223372036854775807);
@@ -104,9 +104,8 @@ async fn test_array_int64_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col =
-        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-    let mut nested = ColumnInt64::new(Type::int64());
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut nested = ColumnInt64::new();
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
@@ -165,7 +164,7 @@ async fn test_array_int64_block_insert_many_elements() {
     let mut block = Block::new();
 
     // Create a large array with 1000 elements
-    let mut nested = ColumnInt64::new(Type::int64());
+    let mut nested = ColumnInt64::new();
     for i in 0..1000 {
         nested.append((i - 500) * 1000000); // Large values
     }
@@ -222,7 +221,7 @@ proptest! {
             let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
                 Type::uint32()
             );
-            let mut nested = ColumnInt64::new(Type::int64());
+            let mut nested = ColumnInt64::new();
 
             for (idx, array) in arrays.iter().enumerate() {
                 id_col.append(idx as u32);

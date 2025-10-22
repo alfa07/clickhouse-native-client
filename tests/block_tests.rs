@@ -19,7 +19,7 @@ use std::sync::Arc;
 fn make_test_block() -> Block {
     let mut block = Block::new();
 
-    let mut col1 = ColumnUInt8::new(Type::uint8());
+    let mut col1 = ColumnUInt8::new();
     col1.append(1);
     col1.append(2);
     col1.append(3);
@@ -211,7 +211,7 @@ fn test_block_empty() {
 fn test_block_refresh_row_count() {
     let mut block = Block::new();
 
-    let mut col1 = ColumnUInt8::new(Type::uint8());
+    let mut col1 = ColumnUInt8::new();
     col1.append(1);
     col1.append(2);
     col1.append(3);
@@ -230,7 +230,7 @@ fn test_block_refresh_row_count() {
 fn test_block_mismatched_row_counts() {
     let mut block = Block::new();
 
-    let mut col1 = ColumnUInt8::new(Type::uint8());
+    let mut col1 = ColumnUInt8::new();
     col1.append(1);
     col1.append(2);
 
@@ -365,7 +365,7 @@ fn test_block_column_type_info() {
 fn test_block_single_column() {
     let mut block = Block::new();
 
-    let mut col = ColumnUInt8::new(Type::uint8());
+    let mut col = ColumnUInt8::new();
     col.append(42);
 
     block.append_column("single", Arc::new(col)).unwrap();
@@ -379,7 +379,7 @@ fn test_block_single_column() {
 fn test_block_single_row() {
     let mut block = Block::new();
 
-    let mut col1 = ColumnUInt8::new(Type::uint8());
+    let mut col1 = ColumnUInt8::new();
     col1.append(1);
 
     let mut col2 = ColumnString::new(Type::string());
@@ -398,7 +398,7 @@ fn test_block_many_columns() {
 
     // Add 100 columns
     for i in 0..100 {
-        let mut col = ColumnUInt8::new(Type::uint8());
+        let mut col = ColumnUInt8::new();
         col.append((i % 256) as u8);
 
         block.append_column(format!("col{}", i), Arc::new(col)).unwrap();
@@ -418,7 +418,7 @@ fn test_block_many_columns() {
 fn test_block_many_rows() {
     let mut block = Block::new();
 
-    let mut col = ColumnUInt8::new(Type::uint8());
+    let mut col = ColumnUInt8::new();
 
     // Add 10000 rows
     for i in 0..10000 {
@@ -459,10 +459,10 @@ use clickhouse_client::column::numeric::ColumnUInt64;
 fn test_block_can_store_different_numeric_types() {
     let mut block = Block::new();
 
-    let mut col1 = ColumnUInt8::new(Type::uint8());
+    let mut col1 = ColumnUInt8::new();
     col1.append(1);
 
-    let mut col2 = ColumnUInt64::new(Type::uint64());
+    let mut col2 = ColumnUInt64::new();
     col2.append(1000);
 
     block.append_column("u8", Arc::new(col1)).unwrap();

@@ -237,7 +237,7 @@ mod tests {
     fn test_block_append_column() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(1);
         col1.append(2);
         col1.append(3);
@@ -253,11 +253,11 @@ mod tests {
     fn test_block_multiple_columns() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(1);
         col1.append(2);
 
-        let mut col2 = ColumnUInt64::new(Type::uint64());
+        let mut col2 = ColumnUInt64::new();
         col2.append(100);
         col2.append(200);
 
@@ -272,11 +272,11 @@ mod tests {
     fn test_block_mismatched_rows() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(1);
         col1.append(2);
 
-        let mut col2 = ColumnUInt64::new(Type::uint64());
+        let mut col2 = ColumnUInt64::new();
         col2.append(100);
         col2.append(200);
         col2.append(300); // Extra row!
@@ -291,7 +291,7 @@ mod tests {
     fn test_block_get_column() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(42);
 
         block.append_column("test", Arc::new(col1)).unwrap();
@@ -306,7 +306,7 @@ mod tests {
     fn test_block_get_column_by_name() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(42);
 
         block.append_column("my_column", Arc::new(col1)).unwrap();
@@ -321,7 +321,7 @@ mod tests {
     fn test_block_column_name() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(1);
 
         block.append_column("test_name", Arc::new(col1)).unwrap();
@@ -334,10 +334,10 @@ mod tests {
     fn test_block_iterator() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(1);
 
-        let mut col2 = ColumnUInt64::new(Type::uint64());
+        let mut col2 = ColumnUInt64::new();
         col2.append(2);
 
         block.append_column("first", Arc::new(col1)).unwrap();
@@ -363,7 +363,7 @@ mod tests {
     fn test_block_column_mut_exclusive_access() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(42);
 
         block.append_column("test", Arc::new(col1)).unwrap();
@@ -389,7 +389,7 @@ mod tests {
     fn test_block_column_mut_panics_on_shared() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(42);
 
         block.append_column("test", Arc::new(col1)).unwrap();
@@ -414,7 +414,7 @@ mod tests {
     fn test_block_column_by_name_mut_exclusive_access() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(42);
 
         block.append_column("my_column", Arc::new(col1)).unwrap();
@@ -442,7 +442,7 @@ mod tests {
     fn test_block_column_by_name_mut_panics_on_shared() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(42);
 
         block.append_column("my_column", Arc::new(col1)).unwrap();
@@ -458,7 +458,7 @@ mod tests {
     fn test_block_column_by_name_mut_not_found() {
         let mut block = Block::new();
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(42);
 
         block.append_column("my_column", Arc::new(col1)).unwrap();

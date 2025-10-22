@@ -63,7 +63,7 @@ async fn test_column_names_with_spaces() {
     // Insert using block
     let mut block = Block::new();
 
-    let mut col1 = ColumnUInt64::new(Type::uint64());
+    let mut col1 = ColumnUInt64::new();
     col1.append(1);
     col1.append(2);
 
@@ -113,7 +113,7 @@ async fn test_column_names_with_unicode() {
     // Insert data
     let mut block = Block::new();
 
-    let mut col1 = ColumnUInt64::new(Type::uint64());
+    let mut col1 = ColumnUInt64::new();
     col1.append(42);
 
     let mut col2 = ColumnString::new(Type::string());
@@ -208,13 +208,13 @@ async fn test_null_parameter_in_query() {
     let mut block = Block::new();
 
     // Create id column
-    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut id_col = ColumnUInt64::new();
     id_col.append(1);
     id_col.append(2);
     id_col.append(3);
 
     // Create nullable Int32 column
-    let nested_col = Arc::new(ColumnInt32::new(Type::int32()));
+    let nested_col = Arc::new(ColumnInt32::new());
     let mut nullable_col = ColumnNullable::with_nested(nested_col);
 
     // Manually append values since append_nullable is for UInt32
@@ -391,7 +391,7 @@ async fn test_empty_string_values() {
     // Insert empty strings
     let mut block = Block::new();
 
-    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut id_col = ColumnUInt64::new();
     id_col.append(1);
     id_col.append(2);
     id_col.append(3);

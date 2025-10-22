@@ -41,7 +41,10 @@ use super::{
     ColumnTyped,
 };
 use crate::{
-    types::Type,
+    types::{
+        ToType,
+        Type,
+    },
     Error,
     Result,
 };
@@ -126,11 +129,14 @@ pub struct ColumnVector<T: FixedSize> {
 }
 
 impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
-    pub fn new(type_: Type) -> Self {
+    /// Create a new column with explicit type (backward compatible)
+    pub fn with_type(type_: Type) -> Self {
         Self { type_, data: Vec::new() }
     }
 
-    pub fn with_capacity(type_: Type, capacity: usize) -> Self {
+    /// Create a new column with explicit type and capacity (backward
+    /// compatible)
+    pub fn with_type_and_capacity(type_: Type, capacity: usize) -> Self {
         Self { type_, data: Vec::with_capacity(capacity) }
     }
 
@@ -189,6 +195,41 @@ impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
 
     pub fn data_mut(&mut self) -> &mut Vec<T> {
         &mut self.data
+    }
+}
+
+/// Type-inferred constructors for ColumnVector
+/// Implements the type map pattern from C++ Type::CreateSimple<T>()
+impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnVector<T> {
+    /// Create a new column with type inferred from T
+    /// Equivalent to C++ pattern where type is determined from template
+    /// parameter
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use clickhouse_client::column::ColumnVector;
+    /// use clickhouse_client::types::Type;
+    ///
+    /// let col = ColumnVector::<i32>::new();
+    /// assert_eq!(col.column_type(), &Type::int32());
+    /// ```
+    pub fn new() -> Self {
+        Self { type_: T::to_type(), data: Vec::new() }
+    }
+
+    /// Create a new column with type inferred from T and specified capacity
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use clickhouse_client::column::ColumnVector;
+    ///
+    /// let col = ColumnVector::<u64>::with_capacity(100);
+    /// assert_eq!(col.len(), 0);
+    /// ```
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self { type_: T::to_type(), data: Vec::with_capacity(capacity) }
     }
 }
 
@@ -278,7 +319,7 @@ impl<T: FixedSize> Column for ColumnVector<T> {
     }
 
     fn clone_empty(&self) -> ColumnRef {
-        Arc::new(ColumnVector::<T>::new(self.type_.clone()))
+        Arc::new(ColumnVector::<T>::with_type(self.type_.clone()))
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
@@ -345,14 +386,20 @@ mod tests {
 
     #[test]
     fn test_column_creation() {
-        let col = ColumnUInt32::new(Type::uint32());
+        // Test type-inferred constructor
+        let col = ColumnUInt32::new();
         assert_eq!(col.size(), 0);
         assert_eq!(col.column_type().name(), "UInt32");
+
+        // Test explicit type constructor
+        let col2 = ColumnUInt32::with_type(Type::uint32());
+        assert_eq!(col2.size(), 0);
+        assert_eq!(col2.column_type().name(), "UInt32");
     }
 
     #[test]
     fn test_column_append() {
-        let mut col = ColumnUInt32::new(Type::uint32());
+        let mut col = ColumnUInt32::new();
         col.append(42);
         col.append(100);
 
@@ -363,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_column_clear() {
-        let mut col = ColumnInt64::new(Type::int64());
+        let mut col = ColumnInt64::new();
         col.append(-123);
         col.append(456);
         assert_eq!(col.size(), 2);
@@ -374,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_column_slice() {
-        let mut col = ColumnUInt64::new(Type::uint64());
+        let mut col = ColumnUInt64::new();
         for i in 0..10 {
             col.append(i);
         }
@@ -390,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_column_save_load() {
-        let mut col = ColumnInt32::new(Type::int32());
+        let mut col = ColumnInt32::new();
         col.append(1);
         col.append(-2);
         col.append(3);
@@ -400,7 +447,7 @@ mod tests {
         col.save_to_buffer(&mut buf).unwrap();
 
         // Load from buffer
-        let mut col2 = ColumnInt32::new(Type::int32());
+        let mut col2 = ColumnInt32::new();
         let mut reader = &buf[..];
         col2.load_from_buffer(&mut reader, 3).unwrap();
 
@@ -412,11 +459,11 @@ mod tests {
 
     #[test]
     fn test_column_append_column() {
-        let mut col1 = ColumnFloat64::new(Type::float64());
+        let mut col1 = ColumnFloat64::new();
         col1.append(1.5);
         col1.append(2.5);
 
-        let mut col2 = ColumnFloat64::new(Type::float64());
+        let mut col2 = ColumnFloat64::new();
         col2.append(3.5);
         col2.append(4.5);
 
@@ -431,7 +478,7 @@ mod tests {
     #[test]
     fn test_bulk_load_large_dataset() {
         // Test with 10,000 elements to ensure bulk copy works correctly
-        let mut col = ColumnUInt64::new(Type::uint64());
+        let mut col = ColumnUInt64::new();
         let data: Vec<u64> = (0..10_000).collect();
 
         // Save to buffer
@@ -453,7 +500,7 @@ mod tests {
     #[test]
     fn test_bulk_load_multiple_sequential() {
         // Test multiple sequential bulk loads
-        let mut col = ColumnInt32::new(Type::int32());
+        let mut col = ColumnInt32::new();
 
         // First bulk load
         let mut buf1 = BytesMut::new();
@@ -483,7 +530,7 @@ mod tests {
     #[test]
     fn test_bulk_load_empty() {
         // Test edge case: empty load
-        let mut col = ColumnUInt32::new(Type::uint32());
+        let mut col = ColumnUInt32::new();
         let buf = BytesMut::new();
         let mut reader = &buf[..];
         col.load_from_buffer(&mut reader, 0).unwrap();
@@ -494,7 +541,7 @@ mod tests {
     #[test]
     fn test_bulk_load_single_element() {
         // Test edge case: single element
-        let mut col = ColumnInt64::new(Type::int64());
+        let mut col = ColumnInt64::new();
         let mut buf = BytesMut::new();
         buf.put_i64_le(42);
 
@@ -508,7 +555,7 @@ mod tests {
     #[test]
     fn test_bulk_load_roundtrip_large() {
         // Test save/load round-trip with large data
-        let mut col1 = ColumnFloat32::new(Type::float32());
+        let mut col1 = ColumnFloat32::new();
         for i in 0..5_000 {
             col1.append(i as f32 * 1.5);
         }
@@ -518,7 +565,7 @@ mod tests {
         col1.save_to_buffer(&mut buf).unwrap();
 
         // Load from buffer
-        let mut col2 = ColumnFloat32::new(Type::float32());
+        let mut col2 = ColumnFloat32::new();
         let mut reader = &buf[..];
         col2.load_from_buffer(&mut reader, 5_000).unwrap();
 
@@ -534,7 +581,7 @@ mod tests {
         // correctly
 
         // UInt8
-        let mut col_u8 = ColumnUInt8::new(Type::uint8());
+        let mut col_u8 = ColumnUInt8::new();
         let mut buf = BytesMut::new();
         for i in 0..255u8 {
             buf.put_u8(i);
@@ -544,7 +591,7 @@ mod tests {
         assert_eq!(col_u8.size(), 255);
 
         // UInt16
-        let mut col_u16 = ColumnUInt16::new(Type::uint16());
+        let mut col_u16 = ColumnUInt16::new();
         let mut buf = BytesMut::new();
         for i in 0..1000u16 {
             buf.put_u16_le(i);
@@ -554,7 +601,7 @@ mod tests {
         assert_eq!(col_u16.size(), 1000);
 
         // Int8
-        let mut col_i8 = ColumnInt8::new(Type::int8());
+        let mut col_i8 = ColumnInt8::new();
         let mut buf = BytesMut::new();
         for i in -127..127i8 {
             buf.put_i8(i);
@@ -564,7 +611,7 @@ mod tests {
         assert_eq!(col_i8.size(), 254);
 
         // Int16
-        let mut col_i16 = ColumnInt16::new(Type::int16());
+        let mut col_i16 = ColumnInt16::new();
         let mut buf = BytesMut::new();
         for i in 0..1000i16 {
             buf.put_i16_le(i);
@@ -574,7 +621,7 @@ mod tests {
         assert_eq!(col_i16.size(), 1000);
 
         // i128 and u128
-        let mut col_i128 = ColumnInt128::new(Type::int128());
+        let mut col_i128 = ColumnInt128::new();
         let mut buf = BytesMut::new();
         for i in 0..100i128 {
             buf.put_i128_le(i);
@@ -583,7 +630,7 @@ mod tests {
         col_i128.load_from_buffer(&mut reader, 100).unwrap();
         assert_eq!(col_i128.size(), 100);
 
-        let mut col_u128 = ColumnUInt128::new(Type::uint128());
+        let mut col_u128 = ColumnUInt128::new();
         let mut buf = BytesMut::new();
         for i in 0..100u128 {
             buf.put_u128_le(i);
@@ -598,7 +645,7 @@ mod tests {
         // This test specifically validates that set_len is called AFTER memory
         // initialization If set_len was called before
         // copy_nonoverlapping, this would fail or cause UB
-        let mut col = ColumnInt32::new(Type::int32());
+        let mut col = ColumnInt32::new();
 
         // Create test data with specific pattern
         let mut buf = BytesMut::new();

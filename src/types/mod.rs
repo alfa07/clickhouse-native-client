@@ -88,6 +88,98 @@ pub use parser::{
 
 use std::sync::Arc;
 
+/// Trait for mapping Rust primitive types to ClickHouse types
+/// Equivalent to C++ Type::CreateSimple<T>() template specializations
+///
+/// This trait allows type inference in column constructors, eliminating the
+/// need to pass Type explicitly when creating typed columns.
+///
+/// # Examples
+///
+/// ```
+/// use clickhouse_client::types::{Type, ToType};
+///
+/// assert_eq!(i32::to_type(), Type::int32());
+/// assert_eq!(u64::to_type(), Type::uint64());
+/// assert_eq!(f64::to_type(), Type::float64());
+/// ```
+pub trait ToType {
+    fn to_type() -> Type;
+}
+
+// Implement ToType for all primitive numeric types
+impl ToType for i8 {
+    fn to_type() -> Type {
+        Type::int8()
+    }
+}
+
+impl ToType for i16 {
+    fn to_type() -> Type {
+        Type::int16()
+    }
+}
+
+impl ToType for i32 {
+    fn to_type() -> Type {
+        Type::int32()
+    }
+}
+
+impl ToType for i64 {
+    fn to_type() -> Type {
+        Type::int64()
+    }
+}
+
+impl ToType for i128 {
+    fn to_type() -> Type {
+        Type::int128()
+    }
+}
+
+impl ToType for u8 {
+    fn to_type() -> Type {
+        Type::uint8()
+    }
+}
+
+impl ToType for u16 {
+    fn to_type() -> Type {
+        Type::uint16()
+    }
+}
+
+impl ToType for u32 {
+    fn to_type() -> Type {
+        Type::uint32()
+    }
+}
+
+impl ToType for u64 {
+    fn to_type() -> Type {
+        Type::uint64()
+    }
+}
+
+impl ToType for u128 {
+    fn to_type() -> Type {
+        Type::uint128()
+    }
+}
+
+impl ToType for f32 {
+    fn to_type() -> Type {
+        Type::float32()
+    }
+}
+
+impl ToType for f64 {
+    fn to_type() -> Type {
+        Type::float64()
+    }
+}
+
 /// Type code enumeration matching ClickHouse types
 ///
 /// Each variant represents a base type in ClickHouse. For parametric types
@@ -519,6 +611,26 @@ impl Type {
 
     pub fn multi_polygon() -> Self {
         Type::Simple(TypeCode::MultiPolygon)
+    }
+
+    pub fn nothing() -> Self {
+        Type::Simple(TypeCode::Void)
+    }
+
+    /// Create a Type from a Rust primitive type
+    /// Equivalent to C++ Type::CreateSimple<T>()
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use clickhouse_client::types::Type;
+    ///
+    /// assert_eq!(Type::for_rust_type::<i32>(), Type::int32());
+    /// assert_eq!(Type::for_rust_type::<u64>(), Type::uint64());
+    /// assert_eq!(Type::for_rust_type::<f32>(), Type::float32());
+    /// ```
+    pub fn for_rust_type<T: ToType>() -> Self {
+        T::to_type()
     }
 
     /// Convert TypeAst to Type

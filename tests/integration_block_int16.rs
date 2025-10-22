@@ -30,7 +30,7 @@ async fn test_int16_block_insert_basic() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnInt16::new(Type::int16());
+    let mut col = ColumnInt16::new();
     col.append(1000);
     col.append(-32768);
     col.append(32767);
@@ -94,9 +94,8 @@ async fn test_int16_block_insert_boundary() {
     ];
 
     let mut block = Block::new();
-    let mut id_col =
-        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-    let mut val_col = ColumnInt16::new(Type::int16());
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut val_col = ColumnInt16::new();
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
@@ -160,7 +159,7 @@ proptest! {
             let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
                 Type::uint32()
             );
-            let mut val_col = ColumnInt16::new(Type::int16());
+            let mut val_col = ColumnInt16::new();
 
             for (idx, value) in values.iter().enumerate() {
                 id_col.append(idx as u32);

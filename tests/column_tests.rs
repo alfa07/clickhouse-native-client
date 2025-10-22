@@ -50,7 +50,7 @@ fn make_fixed_strings(size: usize) -> Vec<String> {
 #[test]
 fn test_numeric_init() {
     let numbers = make_numbers();
-    let col = ColumnUInt32::new(Type::uint32()).with_data(numbers.clone());
+    let col = ColumnUInt32::new().with_data(numbers.clone());
 
     assert_eq!(col.len(), 11);
     assert_eq!(col.at(3), 5); // Index 3 = value 5 (primes: 1,2,3,5,7,11,...)
@@ -60,7 +60,7 @@ fn test_numeric_init() {
 
 #[test]
 fn test_numeric_append() {
-    let mut col = ColumnUInt32::new(Type::uint32());
+    let mut col = ColumnUInt32::new();
 
     col.append(42);
     col.append(100);
@@ -75,7 +75,7 @@ fn test_numeric_append() {
 #[test]
 fn test_numeric_slice() {
     let numbers = make_numbers();
-    let col = ColumnUInt32::new(Type::uint32()).with_data(numbers);
+    let col = ColumnUInt32::new().with_data(numbers);
 
     // Slice from index 3, length 3  (gets indices 3,4,5 = values 5,7,11)
     let slice = col.slice(3, 3).unwrap();
@@ -89,7 +89,7 @@ fn test_numeric_slice() {
 
 #[test]
 fn test_int64_column() {
-    let mut col = ColumnInt64::new(Type::int64());
+    let mut col = ColumnInt64::new();
 
     col.append(-100);
     col.append(0);
@@ -103,7 +103,7 @@ fn test_int64_column() {
 
 #[test]
 fn test_float_column() {
-    let mut col = ColumnFloat32::new(Type::float32());
+    let mut col = ColumnFloat32::new();
 
     col.append(std::f32::consts::PI);
     col.append(-2.71);
@@ -338,7 +338,7 @@ fn test_tuple_basic() {
     let tuple_type = Type::tuple(types.clone());
 
     // Create and populate inner columns first
-    let mut inner1 = ColumnUInt64::new(Type::uint64());
+    let mut inner1 = ColumnUInt64::new();
     inner1.append(42);
     inner1.append(100);
 

@@ -24,10 +24,7 @@ pub struct ColumnIpv4 {
 
 impl ColumnIpv4 {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Arc::new(super::ColumnUInt32::new(Type::uint32())),
-        }
+        Self { type_, data: Arc::new(super::ColumnUInt32::new()) }
     }
 
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
