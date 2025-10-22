@@ -195,7 +195,7 @@ mod tests {
         let types = vec![Type::uint64(), Type::string()];
         let tuple_type = Type::tuple(types);
 
-        let col1 = Arc::new(ColumnUInt64::new(Type::uint64())) as ColumnRef;
+        let col1 = Arc::new(ColumnUInt64::new()) as ColumnRef;
         let col2 = Arc::new(ColumnString::new(Type::string())) as ColumnRef;
 
         let tuple = ColumnTuple::new(tuple_type, vec![col1, col2]);
@@ -209,7 +209,7 @@ mod tests {
         let types = vec![Type::uint64(), Type::string()];
         let tuple_type = Type::tuple(types);
 
-        let mut col1 = ColumnUInt64::new(Type::uint64());
+        let mut col1 = ColumnUInt64::new();
         col1.append(1);
         col1.append(2);
         col1.append(3);

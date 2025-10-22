@@ -60,10 +60,7 @@ pub struct ColumnDate {
 
 impl ColumnDate {
     pub fn new(type_: Type) -> Self {
-        Self {
-            type_,
-            data: Arc::new(super::ColumnUInt16::new(Type::uint16())),
-        }
+        Self { type_, data: Arc::new(super::ColumnUInt16::new()) }
     }
 
     pub fn with_data(mut self, data: Vec<u16>) -> Self {
@@ -210,7 +207,7 @@ pub struct ColumnDate32 {
 
 impl ColumnDate32 {
     pub fn new(type_: Type) -> Self {
-        Self { type_, data: Arc::new(super::ColumnInt32::new(Type::int32())) }
+        Self { type_, data: Arc::new(super::ColumnInt32::new()) }
     }
 
     pub fn with_data(mut self, data: Vec<i32>) -> Self {
@@ -362,11 +359,7 @@ impl ColumnDateTime {
             _ => None,
         };
 
-        Self {
-            type_,
-            data: Arc::new(super::ColumnUInt32::new(Type::uint32())),
-            timezone,
-        }
+        Self { type_, data: Arc::new(super::ColumnUInt32::new()), timezone }
     }
 
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
@@ -517,7 +510,7 @@ impl ColumnDateTime64 {
 
         Self {
             type_,
-            data: Arc::new(super::ColumnInt64::new(Type::int64())),
+            data: Arc::new(super::ColumnInt64::new()),
             precision,
             timezone,
         }

@@ -37,7 +37,7 @@ async fn test_uint8_roundtrip() {
 
     // Create block with boundary values
     let mut block = Block::new();
-    let mut col = ColumnUInt8::new(Type::uint8());
+    let mut col = ColumnUInt8::new();
     col.append(0); // Min value
     col.append(127); // Mid value
     col.append(255); // Max value
@@ -96,7 +96,7 @@ async fn test_uint16_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnUInt16::new(Type::uint16());
+    let mut col = ColumnUInt16::new();
     col.append(0); // Min
     col.append(32767); // Mid
     col.append(65535); // Max
@@ -151,7 +151,7 @@ async fn test_uint32_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnUInt32::new(Type::uint32());
+    let mut col = ColumnUInt32::new();
     col.append(0); // Min
     col.append(2147483647); // Mid
     col.append(4294967295); // Max
@@ -206,7 +206,7 @@ async fn test_uint64_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
     col.append(0); // Min
     col.append(9223372036854775807); // Mid
     col.append(18446744073709551615); // Max
@@ -261,7 +261,7 @@ async fn test_uint128_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnUInt128::new(Type::uint128());
+    let mut col = ColumnUInt128::new();
     col.append(0); // Min
     col.append(170141183460469231731687303715884105727); // Mid
     col.append(340282366920938463463374607431768211455); // Max
@@ -315,7 +315,7 @@ async fn test_int8_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnInt8::new(Type::int8());
+    let mut col = ColumnInt8::new();
     col.append(-128); // Min
     col.append(-1); // Negative
     col.append(0); // Zero
@@ -371,7 +371,7 @@ async fn test_int16_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnInt16::new(Type::int16());
+    let mut col = ColumnInt16::new();
     col.append(-32768); // Min
     col.append(-1000); // Negative
     col.append(0); // Zero
@@ -427,7 +427,7 @@ async fn test_int32_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnInt32::new(Type::int32());
+    let mut col = ColumnInt32::new();
     col.append(-2147483648); // Min
     col.append(-1000000); // Negative
     col.append(0); // Zero
@@ -483,7 +483,7 @@ async fn test_int64_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnInt64::new(Type::int64());
+    let mut col = ColumnInt64::new();
     col.append(-9223372036854775808); // Min (i64::MIN)
     col.append(-1000000000); // Negative
     col.append(0); // Zero
@@ -540,7 +540,7 @@ async fn test_int128_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnInt128::new(Type::int128());
+    let mut col = ColumnInt128::new();
     col.append(-170141183460469231731687303715884105728); // Min
     col.append(-1000000000000000000); // Negative
     col.append(0); // Zero
@@ -597,7 +597,7 @@ async fn test_float32_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnFloat32::new(Type::float32());
+    let mut col = ColumnFloat32::new();
     col.append(-3.4028235e38); // Near min
     col.append(-1.5); // Negative
     col.append(0.0); // Zero
@@ -662,7 +662,7 @@ async fn test_float64_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnFloat64::new(Type::float64());
+    let mut col = ColumnFloat64::new();
     col.append(-1.7976931348623157e308); // Near min
     col.append(-2.5); // Negative
     col.append(0.0); // Zero
@@ -728,7 +728,7 @@ async fn test_bool_roundtrip() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnUInt8::new(Type::uint8());
+    let mut col = ColumnUInt8::new();
     col.append(0); // False
     col.append(1); // True
     col.append(0); // False
@@ -787,7 +787,7 @@ proptest! {
                 .expect("Failed to create table");
 
             let mut block = Block::new();
-            let mut col = ColumnUInt32::new(Type::uint32());
+            let mut col = ColumnUInt32::new();
             for &val in &values {
                 col.append(val);
             }
@@ -830,7 +830,7 @@ proptest! {
                 .expect("Failed to create table");
 
             let mut block = Block::new();
-            let mut col = ColumnInt64::new(Type::int64());
+            let mut col = ColumnInt64::new();
             for &val in &values {
                 col.append(val);
             }
@@ -873,7 +873,7 @@ proptest! {
                 .expect("Failed to create table");
 
             let mut block = Block::new();
-            let mut col = ColumnFloat64::new(Type::float64());
+            let mut col = ColumnFloat64::new();
             for &val in &values {
                 col.append(val);
             }

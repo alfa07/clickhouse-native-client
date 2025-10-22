@@ -30,7 +30,7 @@ async fn test_uint128_block_insert_basic() {
         .expect("Failed to create table");
 
     let mut block = Block::new();
-    let mut col = ColumnUInt128::new(Type::uint128());
+    let mut col = ColumnUInt128::new();
     col.append(1000000000000);
     col.append(0);
     col.append(340282366920938463463374607431768211455);
@@ -95,9 +95,8 @@ async fn test_uint128_block_insert_boundary() {
     ];
 
     let mut block = Block::new();
-    let mut id_col =
-        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
-    let mut val_col = ColumnUInt128::new(Type::uint128());
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut val_col = ColumnUInt128::new();
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {
         id_col.append(idx as u32);
@@ -161,7 +160,7 @@ proptest! {
             let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new(
                 Type::uint32()
             );
-            let mut val_col = ColumnUInt128::new(Type::uint128());
+            let mut val_col = ColumnUInt128::new();
 
             for (idx, value) in values.iter().enumerate() {
                 id_col.append(idx as u32);

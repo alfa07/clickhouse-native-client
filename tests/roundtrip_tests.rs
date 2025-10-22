@@ -39,7 +39,7 @@ fn roundtrip_column<T: Column + 'static>(
 
 #[test]
 fn test_roundtrip_uint32() {
-    let mut col = ColumnUInt32::new(Type::uint32());
+    let mut col = ColumnUInt32::new();
     col.append(42);
     col.append(100);
     col.append(255);
@@ -55,7 +55,7 @@ fn test_roundtrip_uint32() {
 
 #[test]
 fn test_roundtrip_int64() {
-    let mut col = ColumnInt64::new(Type::int64());
+    let mut col = ColumnInt64::new();
     col.append(-100);
     col.append(0);
     col.append(9223372036854775807); // i64::MAX
@@ -71,7 +71,7 @@ fn test_roundtrip_int64() {
 
 #[test]
 fn test_roundtrip_float32() {
-    let mut col = ColumnFloat32::new(Type::float32());
+    let mut col = ColumnFloat32::new();
     col.append(std::f32::consts::PI);
     col.append(-2.71);
     col.append(0.0);
@@ -88,7 +88,7 @@ fn test_roundtrip_float32() {
 #[test]
 fn test_roundtrip_uint8() {
     let data = vec![1u8, 2, 3, 5, 7, 11, 13, 17, 19, 23, 31];
-    let col = ColumnUInt8::new(Type::uint8()).with_data(data.clone());
+    let col = ColumnUInt8::new().with_data(data.clone());
 
     let result = roundtrip_column(&col).unwrap();
     let result_u8 = result.as_any().downcast_ref::<ColumnUInt8>().unwrap();
@@ -299,7 +299,7 @@ fn test_roundtrip_tuple() {
     let tuple_type = Type::tuple(types.clone());
 
     // Create and populate inner columns first
-    let mut inner1 = ColumnUInt64::new(Type::uint64());
+    let mut inner1 = ColumnUInt64::new();
     inner1.append(42);
     inner1.append(100);
 
@@ -339,7 +339,7 @@ fn test_roundtrip_empty_columns() {
     // Test that empty columns roundtrip correctly
 
     // Empty UInt32
-    let col_u32 = ColumnUInt32::new(Type::uint32());
+    let col_u32 = ColumnUInt32::new();
     let result_u32 = roundtrip_column(&col_u32).unwrap();
     assert_eq!(result_u32.size(), 0);
 
@@ -361,7 +361,7 @@ fn test_roundtrip_empty_columns() {
 #[test]
 fn test_roundtrip_large_dataset() {
     // Test with larger dataset to ensure buffer handling is correct
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
 
     for i in 0..1000 {
         col.append(i);

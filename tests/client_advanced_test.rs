@@ -84,7 +84,7 @@ async fn test_client_with_compression_lz4() {
     // Insert data with compression
     let mut block = Block::new();
 
-    let mut id_col = ColumnUInt64::new(Type::uint64());
+    let mut id_col = ColumnUInt64::new();
     let mut text_col = ColumnString::new(Type::string());
 
     for i in 0..100 {
@@ -153,7 +153,7 @@ async fn test_column_name_escaping_backticks() {
     // Insert using block - column name should be escaped properly
     let mut block = Block::new();
 
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
     col.append(42);
 
     // When appending column, backticks in name should be handled

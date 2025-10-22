@@ -94,8 +94,7 @@ async fn test_ipv4_block_insert_boundary() {
     ];
 
     let mut block = Block::new();
-    let mut id_col =
-        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
     let mut val_col = ColumnIpv4::new(Type::ipv4());
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {

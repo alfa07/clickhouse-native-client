@@ -112,8 +112,7 @@ async fn test_array_decimal_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col =
-        clickhouse_client::column::numeric::ColumnUInt32::new(Type::uint32());
+    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
     let mut nested = ColumnDecimal::new(Type::decimal(precision, scale));
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
