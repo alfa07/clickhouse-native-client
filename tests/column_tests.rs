@@ -334,7 +334,7 @@ fn test_nullable_all_non_null() {
 
 #[test]
 fn test_tuple_basic() {
-    let types = [Type::uint64(), Type::string()];
+    let types = vec![Type::uint64(), Type::string()];
     let tuple_type = Type::tuple(types.clone());
 
     // Create and populate inner columns first
