@@ -466,30 +466,21 @@ async fn test_nullable_column_insertion() {
     // Append values: Some(100), None, Some(300)
     // Manually append since append_nullable is only for UInt32
     nullable_col.append_non_null();
-    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>()
-        {
-            col.append(100);
-        }
+    {
+        let col = nullable_col.nested_mut::<ColumnUInt64>();
+        col.append(100);
     }
 
     nullable_col.append_null();
-    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>()
-        {
-            col.append(0); // Placeholder for NULL
-        }
+    {
+        let col = nullable_col.nested_mut::<ColumnUInt64>();
+        col.append(0); // Placeholder for NULL
     }
 
     nullable_col.append_non_null();
-    if let Some(nested_mut) = Arc::get_mut(nullable_col.nested_mut()) {
-        if let Some(col) =
-            nested_mut.as_any_mut().downcast_mut::<ColumnUInt64>()
-        {
-            col.append(300);
-        }
+    {
+        let col = nullable_col.nested_mut::<ColumnUInt64>();
+        col.append(300);
     }
 
     block

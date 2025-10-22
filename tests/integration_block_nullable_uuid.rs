@@ -40,29 +40,18 @@ async fn test_nullable_uuid_block_insert_basic() {
 
     // Add some non-null values
     nullable_col.append_non_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnUuid>()
-        .unwrap()
+    nullable_col
+        .nested_mut::<ColumnUuid>()
         .append(Uuid::new(0x1234567890abcdef, 0xfedcba0987654321));
 
     // Add a null value
     nullable_col.append_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnUuid>()
-        .unwrap()
-        .append(Uuid::new(0, 0)); // Placeholder for null value
+    nullable_col.nested_mut::<ColumnUuid>().append(Uuid::new(0, 0)); // Placeholder for null value
 
     // Add another non-null value
     nullable_col.append_non_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnUuid>()
-        .unwrap()
+    nullable_col
+        .nested_mut::<ColumnUuid>()
         .append(Uuid::new(0xabcdef1234567890, 0x0987654321fedcba));
 
     block
@@ -93,11 +82,7 @@ async fn test_nullable_uuid_block_insert_basic() {
     assert!(result_col.is_null(1));
     assert!(!result_col.is_null(2));
 
-    let nested_ref = result_col.nested();
-    let nested = nested_ref
-        .as_any()
-        .downcast_ref::<ColumnUuid>()
-        .expect("Nested should be ColumnUuid");
+    let nested: &ColumnUuid = result_col.nested();
     assert_eq!(
         nested.at(0),
         Uuid::new(0x1234567890abcdef, 0xfedcba0987654321)
@@ -157,20 +142,12 @@ async fn test_nullable_uuid_block_insert_boundary() {
         match value_opt {
             Some(value) => {
                 nullable_col.append_non_null();
-                Arc::get_mut(nullable_col.nested_mut())
-                    .unwrap()
-                    .as_any_mut()
-                    .downcast_mut::<ColumnUuid>()
-                    .unwrap()
-                    .append(*value);
+                nullable_col.nested_mut::<ColumnUuid>().append(*value);
             }
             None => {
                 nullable_col.append_null();
-                Arc::get_mut(nullable_col.nested_mut())
-                    .unwrap()
-                    .as_any_mut()
-                    .downcast_mut::<ColumnUuid>()
-                    .unwrap()
+                nullable_col
+                    .nested_mut::<ColumnUuid>()
                     .append(Uuid::new(0, 0)); // Placeholder for null value
             }
         }
@@ -203,11 +180,7 @@ async fn test_nullable_uuid_block_insert_boundary() {
         .downcast_ref::<ColumnNullable>()
         .expect("Invalid column type");
 
-    let nested_ref = result_col.nested();
-    let nested = nested_ref
-        .as_any()
-        .downcast_ref::<ColumnUuid>()
-        .expect("Nested should be ColumnUuid");
+    let nested: &ColumnUuid = result_col.nested();
 
     for (idx, (_desc, expected_opt)) in test_cases.iter().enumerate() {
         match expected_opt {
@@ -248,12 +221,7 @@ async fn test_nullable_uuid_block_insert_all_nulls() {
     // Add 5 null values
     for _ in 0..5 {
         nullable_col.append_null();
-        Arc::get_mut(nullable_col.nested_mut())
-            .unwrap()
-            .as_any_mut()
-            .downcast_mut::<ColumnUuid>()
-            .unwrap()
-            .append(Uuid::new(0, 0)); // Placeholder for null value
+        nullable_col.nested_mut::<ColumnUuid>().append(Uuid::new(0, 0)); // Placeholder for null value
     }
 
     block
@@ -325,20 +293,12 @@ proptest! {
                 match value_opt {
                     Some((high, low)) => {
                         nullable_col.append_non_null();
-                        Arc::get_mut(nullable_col.nested_mut())
-                            .unwrap()
-                            .as_any_mut()
-                            .downcast_mut::<ColumnUuid>()
-                            .unwrap()
+                        nullable_col.nested_mut::<ColumnUuid>()
                             .append(Uuid::new(*high, *low));
                     }
                     None => {
                         nullable_col.append_null();
-                        Arc::get_mut(nullable_col.nested_mut())
-                            .unwrap()
-                            .as_any_mut()
-                            .downcast_mut::<ColumnUuid>()
-                            .unwrap()
+                        nullable_col.nested_mut::<ColumnUuid>()
                             .append(Uuid::new(0, 0)); // Placeholder for null value
                     }
                 }
@@ -377,11 +337,7 @@ proptest! {
 
                 .expect("Invalid column type");
 
-            let nested_ref = result_col.nested();
-            let nested = nested_ref
-                .as_any()
-                .downcast_ref::<ColumnUuid>()
-                .expect("Nested should be ColumnUuid");
+            let nested: &ColumnUuid = result_col.nested();
 
             for (idx, expected_opt) in values.iter().enumerate() {
                 match expected_opt {

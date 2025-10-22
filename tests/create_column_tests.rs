@@ -237,7 +237,7 @@ fn test_create_nullable_fixed_string() {
 
     // Check nested type
     let nullable = col.as_any().downcast_ref::<ColumnNullable>().unwrap();
-    let nested = nullable.nested();
+    let nested = nullable.nested_ref();
     assert!(nested.as_any().downcast_ref::<ColumnFixedString>().is_some());
 }
 
@@ -250,7 +250,7 @@ fn test_create_array_uint64() {
 
     // Check nested type
     let array = col.as_any().downcast_ref::<ColumnArray>().unwrap();
-    let nested = array.nested();
+    let nested = array.nested_ref();
     assert!(nested.as_any().downcast_ref::<ColumnUInt64>().is_some());
 }
 
@@ -263,7 +263,7 @@ fn test_create_array_enum8() {
 
     // Check nested type uses ColumnEnum8
     let array = col.as_any().downcast_ref::<ColumnArray>().unwrap();
-    let nested = array.nested();
+    let nested = array.nested_ref();
     assert!(nested.as_any().downcast_ref::<ColumnEnum8>().is_some());
 }
 
@@ -382,7 +382,7 @@ fn test_array_of_nullable() {
 
     // Check that nested is Nullable
     let array = col.as_any().downcast_ref::<ColumnArray>().unwrap();
-    let nested = array.nested();
+    let nested = array.nested_ref();
     assert!(nested.as_any().downcast_ref::<ColumnNullable>().is_some());
 }
 

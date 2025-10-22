@@ -39,30 +39,19 @@ async fn test_nullable_ipv6_block_insert_basic() {
 
     // Add some non-null values
     nullable_col.append_non_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnIpv6>()
-        .unwrap()
+    nullable_col
+        .nested_mut::<ColumnIpv6>()
         .append_from_string("::1")
         .expect("Failed to parse IPv6");
 
     // Add a null value
     nullable_col.append_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnIpv6>()
-        .unwrap()
-        .append([0u8; 16]); // Placeholder for null value
+    nullable_col.nested_mut::<ColumnIpv6>().append([0u8; 16]); // Placeholder for null value
 
     // Add another non-null value
     nullable_col.append_non_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnIpv6>()
-        .unwrap()
+    nullable_col
+        .nested_mut::<ColumnIpv6>()
         .append_from_string("2001:db8::1")
         .expect("Failed to parse IPv6");
 
@@ -135,22 +124,14 @@ async fn test_nullable_ipv6_block_insert_boundary() {
         match value_opt {
             Some(value) => {
                 nullable_col.append_non_null();
-                Arc::get_mut(nullable_col.nested_mut())
-                    .unwrap()
-                    .as_any_mut()
-                    .downcast_mut::<ColumnIpv6>()
-                    .unwrap()
+                nullable_col
+                    .nested_mut::<ColumnIpv6>()
                     .append_from_string(*value)
                     .expect("Failed to parse IPv6");
             }
             None => {
                 nullable_col.append_null();
-                Arc::get_mut(nullable_col.nested_mut())
-                    .unwrap()
-                    .as_any_mut()
-                    .downcast_mut::<ColumnIpv6>()
-                    .unwrap()
-                    .append([0u8; 16]); // Placeholder for null value
+                nullable_col.nested_mut::<ColumnIpv6>().append([0u8; 16]); // Placeholder for null value
             }
         }
     }
@@ -350,11 +331,7 @@ proptest! {
 
                 .expect("Invalid column type");
 
-            let nested_ref = result_col.nested();
-            let nested = nested_ref
-                .as_any()
-                .downcast_ref::<ColumnIpv6>()
-                .expect("Nested should be ColumnIpv6");
+            let nested: &ColumnIpv6 = result_col.nested();
 
             for (idx, expected_opt) in values.iter().enumerate() {
                 match expected_opt {

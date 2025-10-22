@@ -300,7 +300,7 @@ pub fn get_column_item(
                 if col.is_null(index) {
                     Ok(ColumnValue::void())
                 } else {
-                    get_column_item(col.nested().as_ref(), index)
+                    get_column_item(col.nested_ref().as_ref(), index)
                 }
             } else {
                 Err(Error::Protocol(
@@ -402,8 +402,8 @@ pub fn append_column_item(
                     Ok(())
                 } else {
                     // Get mutable access to the nested Arc<dyn Column>
-                    let nested_arc = col.nested_mut();
-                    let nested_mut = Arc::get_mut(nested_arc).ok_or_else(|| {
+                    let nested_ref = col.nested_ref_mut();
+                    let nested_mut = Arc::get_mut(nested_ref).ok_or_else(|| {
                         Error::Protocol(
                             "Cannot append to shared nullable column - column has multiple references"
                                 .to_string(),
