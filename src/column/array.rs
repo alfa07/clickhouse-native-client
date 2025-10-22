@@ -695,11 +695,7 @@ mod tests {
         col.append_len(3); // Array of 3 elements
 
         // Second array: [4, 5]
-        let nested_mut = Arc::get_mut(&mut col.nested)
-            .unwrap()
-            .as_any_mut()
-            .downcast_mut::<ColumnUInt64>()
-            .unwrap();
+        let nested_mut: &mut ColumnUInt64 = col.nested_mut();
         nested_mut.append(4);
         nested_mut.append(5);
 
