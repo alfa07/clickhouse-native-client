@@ -200,12 +200,8 @@ async fn test_nullable_string_block_insert_all_nulls() {
     // Add 5 null values
     for _ in 0..5 {
         nullable_col.append_null();
-        Arc::get_mut(nullable_col.nested_mut())
-            .unwrap()
-            .as_any_mut()
-            .downcast_mut::<ColumnString>()
-            .unwrap()
-            .append(""); // Placeholder for null value
+        nullable_col.nested_mut::<ColumnString>().append(""); // Placeholder
+                                                              // for null value
     }
 
     block
@@ -274,20 +270,12 @@ proptest! {
                 match value_opt {
                     Some(value) => {
                         nullable_col.append_non_null();
-                        Arc::get_mut(nullable_col.nested_mut())
-                            .unwrap()
-                            .as_any_mut()
-                            .downcast_mut::<ColumnString>()
-                            .unwrap()
+                        nullable_col.nested_mut::<ColumnString>()
                             .append(value.as_str());
                     }
                     None => {
                         nullable_col.append_null();
-                        Arc::get_mut(nullable_col.nested_mut())
-                            .unwrap()
-                            .as_any_mut()
-                            .downcast_mut::<ColumnString>()
-                            .unwrap()
+                        nullable_col.nested_mut::<ColumnString>()
                             .append(""); // Placeholder for null value
                     }
                 }
