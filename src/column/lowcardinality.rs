@@ -103,9 +103,38 @@ impl ColumnLowCardinality {
         }
     }
 
-    /// Get the dictionary column
-    pub fn dictionary(&self) -> &ColumnRef {
-        &self.dictionary
+    /// Get a reference to the dictionary column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let col: ColumnLowCardinality = ...;
+    /// let dict: &ColumnString = col.dictionary();
+    /// ```
+    pub fn dictionary<T: Column + 'static>(&self) -> &T {
+        self.dictionary
+            .as_any()
+            .downcast_ref::<T>()
+            .expect("Failed to downcast dictionary column to requested type")
+    }
+
+    /// Get mutable reference to the dictionary column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let mut col: ColumnLowCardinality = ...;
+    /// let dict_mut: &mut ColumnString = col.dictionary_mut();
+    /// ```
+    pub fn dictionary_mut<T: Column + 'static>(&mut self) -> &mut T {
+        Arc::get_mut(&mut self.dictionary)
+            .expect("Cannot get mutable reference to shared dictionary column")
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .expect("Failed to downcast dictionary column to requested type")
+    }
+
+    /// Get the dictionary column as a ColumnRef (Arc<dyn Column>)
+    pub fn dictionary_ref(&self) -> ColumnRef {
+        self.dictionary.clone()
     }
 
     /// Get the number of unique values in the dictionary
@@ -341,12 +370,16 @@ impl Column for ColumnLowCardinality {
             if let Some(nullable_col) =
                 dict_mut.as_any_mut().downcast_mut::<ColumnNullable>()
             {
-                let nested_mut = Arc::get_mut(nullable_col.nested_mut()).ok_or_else(|| {
-                    Error::Protocol(
-                        "Cannot load into shared nested column - column has multiple references"
-                            .to_string(),
-                    )
-                })?;
+                // Use nested_ref_mut to get mutable access without knowing
+                // concrete type
+                let nested_ref = nullable_col.nested_ref_mut();
+                let nested_mut = Arc::get_mut(nested_ref)
+                    .ok_or_else(|| {
+                        Error::Protocol(
+                            "Cannot load into shared nested column - column has multiple references"
+                                .to_string(),
+                        )
+                    })?;
                 nested_mut.load_from_buffer(buffer, number_of_keys)?;
 
                 // After loading, mark all entries as non-null for now
@@ -493,7 +526,7 @@ impl Column for ColumnLowCardinality {
             self.dictionary.as_any().downcast_ref::<ColumnNullable>()
         {
             // For Nullable, save only the nested column (no null bitmap)
-            nullable_col.nested().save_to_buffer(buffer)?;
+            nullable_col.nested_ref().save_to_buffer(buffer)?;
         } else {
             // For non-Nullable, save normally
             self.dictionary.save_to_buffer(buffer)?;

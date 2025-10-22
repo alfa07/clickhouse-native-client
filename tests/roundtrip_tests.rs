@@ -282,8 +282,7 @@ fn test_roundtrip_nullable_uint32() {
     assert!(!result_nullable.is_null_at(4));
 
     // Check values (for non-null entries)
-    let nested = result_nullable.nested();
-    let nested_u32 = nested.as_any().downcast_ref::<ColumnUInt32>().unwrap();
+    let nested_u32: &ColumnUInt32 = result_nullable.nested();
     assert_eq!(nested_u32.at(0), 42);
     assert_eq!(nested_u32.at(2), 100);
     assert_eq!(nested_u32.at(4), 255);

@@ -144,19 +144,52 @@ impl ColumnNullable {
         nulls_col.at(index) != 0
     }
 
-    /// Get the nested column (matches C++ Nested)
-    pub fn nested(&self) -> ColumnRef {
+    /// Get a reference to the nested column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let col: ColumnNullable = ...;
+    /// let nested: &ColumnUInt32 = col.nested();
+    /// ```
+    pub fn nested<T: Column + 'static>(&self) -> &T {
+        self.nested
+            .as_any()
+            .downcast_ref::<T>()
+            .expect("Failed to downcast nested column to requested type")
+    }
+
+    /// Get mutable reference to the nested column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let mut col: ColumnNullable = ...;
+    /// let nested_mut: &mut ColumnUInt32 = col.nested_mut();
+    /// ```
+    pub fn nested_mut<T: Column + 'static>(&mut self) -> &mut T {
+        Arc::get_mut(&mut self.nested)
+            .expect("Cannot get mutable reference to shared nested column")
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .expect("Failed to downcast nested column to requested type")
+    }
+
+    /// Get the nested column as a ColumnRef (Arc<dyn Column>)
+    pub fn nested_ref(&self) -> ColumnRef {
         self.nested.clone()
+    }
+
+    /// Get mutable access to the nested ColumnRef for dynamic dispatch
+    /// scenarios
+    ///
+    /// This is useful when you need to modify the nested column but don't know
+    /// its concrete type at compile time.
+    pub fn nested_ref_mut(&mut self) -> &mut ColumnRef {
+        &mut self.nested
     }
 
     /// Get the nulls column (matches C++ Nulls)
     pub fn nulls(&self) -> ColumnRef {
         self.nulls.clone()
-    }
-
-    /// Get mutable access to the nested column
-    pub fn nested_mut(&mut self) -> &mut ColumnRef {
-        &mut self.nested
     }
 
     /// Append a nullable UInt32 value (convenience method for tests)
@@ -198,7 +231,7 @@ impl ColumnNullable {
     /// Returns the nested column for accessing the value (check is_null
     /// first!)
     pub fn at(&self, _index: usize) -> ColumnRef {
-        self.nested.clone()
+        self.nested_ref()
     }
 
     /// Get the number of elements (alias for size())
@@ -412,7 +445,7 @@ impl<T: Column + 'static> ColumnNullableT<T> {
 
         // Clone the inner data to create owned ColumnNullable
         Ok(Self::wrap(ColumnNullable::from_parts(
-            nullable.nested(),
+            nullable.nested_ref(),
             nullable.nulls(),
         )?))
     }
@@ -420,14 +453,14 @@ impl<T: Column + 'static> ColumnNullableT<T> {
     /// Get the typed nested column
     pub fn typed_nested(&self) -> Result<Arc<T>> {
         self.inner
-            .nested()
+            .nested_ref()
             .as_any()
             .downcast_ref::<T>()
             .map(|_| {
                 // We need to clone the Arc with the right type
                 // This is safe because we just verified the type
                 unsafe {
-                    let ptr = Arc::into_raw(self.inner.nested());
+                    let ptr = Arc::into_raw(self.inner.nested_ref());
                     let typed_ptr = ptr as *const T;
                     Arc::from_raw(typed_ptr)
                 }
@@ -745,9 +778,7 @@ mod tests {
         assert!(!col1.is_null(4), "Element 4 should not be null (value=5)");
 
         // Verify nested data was actually appended
-        let nested_ref = col1.nested();
-        let nested =
-            nested_ref.as_any().downcast_ref::<ColumnUInt32>().unwrap();
+        let nested: &ColumnUInt32 = col1.nested();
         assert_eq!(
             nested.size(),
             5,
@@ -809,9 +840,7 @@ mod tests {
         assert!(!col_loaded.is_null(2), "Element 2 should not be null");
 
         // Verify nested data was actually loaded
-        let nested_ref = col_loaded.nested();
-        let nested_loaded =
-            nested_ref.as_any().downcast_ref::<ColumnUInt32>().unwrap();
+        let nested_loaded: &ColumnUInt32 = col_loaded.nested();
         assert_eq!(
             nested_loaded.size(),
             3,

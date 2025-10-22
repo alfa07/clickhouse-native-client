@@ -39,30 +39,15 @@ async fn test_nullable_int64_block_insert_basic() {
 
     // Add some non-null values
     nullable_col.append_non_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnInt64>()
-        .unwrap()
-        .append(42);
+    nullable_col.nested_mut::<ColumnInt64>().append(42);
 
     // Add a null value
     nullable_col.append_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnInt64>()
-        .unwrap()
-        .append(0); // Placeholder for null value
+    nullable_col.nested_mut::<ColumnInt64>().append(0); // Placeholder for null value
 
     // Add another non-null value
     nullable_col.append_non_null();
-    Arc::get_mut(nullable_col.nested_mut())
-        .unwrap()
-        .as_any_mut()
-        .downcast_mut::<ColumnInt64>()
-        .unwrap()
-        .append(-1000);
+    nullable_col.nested_mut::<ColumnInt64>().append(-1000);
 
     block
         .append_column("value", Arc::new(nullable_col))
@@ -92,11 +77,7 @@ async fn test_nullable_int64_block_insert_basic() {
     assert!(result_col.is_null(1));
     assert!(!result_col.is_null(2));
 
-    let nested_ref = result_col.nested();
-    let nested = nested_ref
-        .as_any()
-        .downcast_ref::<ColumnInt64>()
-        .expect("Nested should be ColumnInt64");
+    let nested: &ColumnInt64 = result_col.nested();
     assert_eq!(nested.at(0), 42);
     assert_eq!(nested.at(2), -1000);
 
@@ -143,21 +124,11 @@ async fn test_nullable_int64_block_insert_boundary() {
         match value_opt {
             Some(value) => {
                 nullable_col.append_non_null();
-                Arc::get_mut(nullable_col.nested_mut())
-                    .unwrap()
-                    .as_any_mut()
-                    .downcast_mut::<ColumnInt64>()
-                    .unwrap()
-                    .append(*value);
+                nullable_col.nested_mut::<ColumnInt64>().append(*value);
             }
             None => {
                 nullable_col.append_null();
-                Arc::get_mut(nullable_col.nested_mut())
-                    .unwrap()
-                    .as_any_mut()
-                    .downcast_mut::<ColumnInt64>()
-                    .unwrap()
-                    .append(0); // Placeholder for null value
+                nullable_col.nested_mut::<ColumnInt64>().append(0); // Placeholder for null value
             }
         }
     }
@@ -189,11 +160,7 @@ async fn test_nullable_int64_block_insert_boundary() {
         .downcast_ref::<ColumnNullable>()
         .expect("Invalid column type");
 
-    let nested_ref = result_col.nested();
-    let nested = nested_ref
-        .as_any()
-        .downcast_ref::<ColumnInt64>()
-        .expect("Nested should be ColumnInt64");
+    let nested: &ColumnInt64 = result_col.nested();
 
     for (idx, (_desc, expected_opt)) in test_cases.iter().enumerate() {
         match expected_opt {
@@ -329,11 +296,7 @@ async fn test_nullable_int64_block_insert_all_non_null() {
         .downcast_ref::<ColumnNullable>()
         .expect("Invalid column type");
 
-    let nested_ref = result_col.nested();
-    let nested = nested_ref
-        .as_any()
-        .downcast_ref::<ColumnInt64>()
-        .expect("Nested should be ColumnInt64");
+    let nested: &ColumnInt64 = result_col.nested();
 
     for i in 0..5 {
         assert!(!result_col.is_null(i));

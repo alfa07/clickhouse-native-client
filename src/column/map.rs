@@ -44,9 +44,38 @@ impl ColumnMap {
         Self { type_, data }
     }
 
-    /// Get the underlying array column as ColumnRef
-    pub fn data(&self) -> &ColumnRef {
-        &self.data
+    /// Get a reference to the data column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let col: ColumnMap = ...;
+    /// let data: &ColumnArray = col.data();
+    /// ```
+    pub fn data<T: Column + 'static>(&self) -> &T {
+        self.data
+            .as_any()
+            .downcast_ref::<T>()
+            .expect("Failed to downcast data column to requested type")
+    }
+
+    /// Get mutable reference to the data column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let mut col: ColumnMap = ...;
+    /// let data_mut: &mut ColumnArray = col.data_mut();
+    /// ```
+    pub fn data_mut<T: Column + 'static>(&mut self) -> &mut T {
+        Arc::get_mut(&mut self.data)
+            .expect("Cannot get mutable reference to shared data column")
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .expect("Failed to downcast data column to requested type")
+    }
+
+    /// Get the data column as a ColumnRef (Arc<dyn Column>)
+    pub fn data_ref(&self) -> ColumnRef {
+        self.data.clone()
     }
 
     /// Get the underlying array column as ColumnArray if possible

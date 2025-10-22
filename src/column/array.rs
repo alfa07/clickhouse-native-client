@@ -134,14 +134,38 @@ impl ColumnArray {
         self.get_array_range(index).map(|(start, end)| end - start)
     }
 
-    /// Get the nested column
-    pub fn nested(&self) -> &ColumnRef {
-        &self.nested
+    /// Get a reference to the nested column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let col: ColumnArray = ...;
+    /// let nested: &ColumnUInt32 = col.nested();
+    /// ```
+    pub fn nested<T: Column + 'static>(&self) -> &T {
+        self.nested
+            .as_any()
+            .downcast_ref::<T>()
+            .expect("Failed to downcast nested column to requested type")
     }
 
-    /// Get mutable access to the nested column
-    pub fn nested_mut(&mut self) -> &mut ColumnRef {
-        &mut self.nested
+    /// Get mutable reference to the nested column as a specific type
+    ///
+    /// # Example
+    /// ```
+    /// let mut col: ColumnArray = ...;
+    /// let nested_mut: &mut ColumnUInt32 = col.nested_mut();
+    /// ```
+    pub fn nested_mut<T: Column + 'static>(&mut self) -> &mut T {
+        Arc::get_mut(&mut self.nested)
+            .expect("Cannot get mutable reference to shared nested column")
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .expect("Failed to downcast nested column to requested type")
+    }
+
+    /// Get the nested column as a ColumnRef (Arc<dyn Column>)
+    pub fn nested_ref(&self) -> ColumnRef {
+        self.nested.clone()
     }
 
     /// Get the offsets
@@ -866,8 +890,7 @@ mod tests {
 
         // CRITICAL: Verify nested data was actually appended
         // The nested column should contain [1, 2, 3, 4, 5, 6]
-        let nested =
-            col1.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        let nested: &ColumnUInt64 = col1.nested();
         assert_eq!(
             nested.size(),
             6,
@@ -946,8 +969,7 @@ mod tests {
         );
 
         // CRITICAL: Verify nested data was actually loaded
-        let nested_loaded =
-            col_loaded.nested.as_any().downcast_ref::<ColumnUInt64>().unwrap();
+        let nested_loaded: &ColumnUInt64 = col_loaded.nested();
         assert_eq!(
             nested_loaded.size(),
             5,
