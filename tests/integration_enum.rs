@@ -39,7 +39,7 @@ async fn test_enum8_roundtrip() {
 
     let mut block = Block::new();
     // Enum8 with proper enum type definition
-    let items = [
+    let items = vec![
         EnumItem { name: "pending".to_string(), value: 1 },
         EnumItem { name: "active".to_string(), value: 2 },
         EnumItem { name: "inactive".to_string(), value: 3 },
@@ -105,7 +105,7 @@ async fn test_enum16_roundtrip() {
 
     let mut block = Block::new();
     // Enum16 with proper enum type definition
-    let items = [
+    let items = vec![
         EnumItem { name: "low".to_string(), value: 100 },
         EnumItem { name: "medium".to_string(), value: 200 },
         EnumItem { name: "high".to_string(), value: 300 },
