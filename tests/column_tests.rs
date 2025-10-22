@@ -244,12 +244,12 @@ fn test_array_uint64() {
     let mut col = ColumnArray::new(col_type.clone());
 
     // Create inner column with data
-    let mut inner1 = ColumnUInt64::new(inner_type.clone());
+    let mut inner1 = ColumnUInt64::with_type(inner_type.clone());
     inner1.append(1);
     inner1.append(2);
     inner1.append(3);
 
-    let mut inner2 = ColumnUInt64::new(inner_type.clone());
+    let mut inner2 = ColumnUInt64::with_type(inner_type.clone());
     inner2.append(10);
     inner2.append(20);
 

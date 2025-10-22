@@ -2,7 +2,8 @@
 
 **Date:** 2025-10-21
 **Branch:** ensure-types-are-implemented
-**Status:** ✅ Complete
+**PR:** https://github.com/alfa07/clickhouse-native-client/pull/19
+**Status:** 🔄 In Review - CI checks in progress
 
 ## Summary
 

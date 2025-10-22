@@ -62,14 +62,14 @@ impl ColumnNullable {
             _ => panic!("ColumnNullable requires Nullable type"),
         };
 
-        let nulls = Arc::new(ColumnUInt8::new(Type::uint8()));
+        let nulls = Arc::new(ColumnUInt8::new());
         Self { type_, nested, nulls }
     }
 
     /// Create a new nullable column wrapping an existing nested column
     pub fn with_nested(nested: ColumnRef) -> Self {
         let nested_type = nested.column_type().clone();
-        let nulls = Arc::new(ColumnUInt8::new(Type::uint8()));
+        let nulls = Arc::new(ColumnUInt8::new());
         Self { type_: Type::nullable(nested_type), nested, nulls }
     }
 
@@ -105,7 +105,7 @@ impl ColumnNullable {
             _ => panic!("ColumnNullable requires Nullable type"),
         };
 
-        let mut nulls = ColumnUInt8::new(Type::uint8());
+        let mut nulls = ColumnUInt8::new();
         nulls.reserve(capacity);
         Self { type_, nested, nulls: Arc::new(nulls) }
     }
@@ -378,7 +378,7 @@ impl<T: Column + 'static> ColumnNullableT<T> {
     /// Create from nested column only (all non-null initially)
     pub fn from_nested(nested: Arc<T>) -> Self {
         let size = nested.size();
-        let mut nulls = ColumnUInt8::new(Type::uint8());
+        let mut nulls = ColumnUInt8::new();
         for _ in 0..size {
             nulls.append(0);
         }
@@ -821,14 +821,14 @@ mod tests {
 
     #[test]
     fn test_nullable_t_creation() {
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let col = ColumnNullableT::<ColumnUInt64>::from_nested(nested);
         assert_eq!(col.size(), 0);
     }
 
     #[test]
     fn test_nullable_t_wrap() {
-        let nested = Arc::new(ColumnUInt64::new(Type::uint64()));
+        let nested = Arc::new(ColumnUInt64::new());
         let nullable = ColumnNullable::with_nested(nested);
         let col_t = ColumnNullableT::<ColumnUInt64>::wrap(nullable);
         assert_eq!(col_t.size(), 0);
@@ -836,7 +836,7 @@ mod tests {
 
     #[test]
     fn test_nullable_t_typed_nested() {
-        let mut nested = ColumnUInt64::new(Type::uint64());
+        let mut nested = ColumnUInt64::new();
         nested.append(42);
         let col =
             ColumnNullableT::<ColumnUInt64>::from_nested(Arc::new(nested));
