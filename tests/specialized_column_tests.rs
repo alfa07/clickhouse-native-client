@@ -433,7 +433,7 @@ fn test_decimal_serialization_int64() {
 
 #[test]
 fn test_enum8_append_by_value() {
-    let items = [
+    let items = vec![
         EnumItem { name: "Red".to_string(), value: 1 },
         EnumItem { name: "Green".to_string(), value: 2 },
         EnumItem { name: "Blue".to_string(), value: 3 },
@@ -452,7 +452,7 @@ fn test_enum8_append_by_value() {
 
 #[test]
 fn test_enum8_append_by_name() {
-    let items = [
+    let items = vec![
         EnumItem { name: "Red".to_string(), value: 1 },
         EnumItem { name: "Green".to_string(), value: 2 },
     ];
@@ -468,7 +468,7 @@ fn test_enum8_append_by_name() {
 
 #[test]
 fn test_enum8_name_lookup() {
-    let items = [
+    let items = vec![
         EnumItem { name: "Red".to_string(), value: 1 },
         EnumItem { name: "Green".to_string(), value: 2 },
     ];
@@ -483,7 +483,7 @@ fn test_enum8_name_lookup() {
 
 #[test]
 fn test_enum8_invalid_name() {
-    let items = [EnumItem { name: "Red".to_string(), value: 1 }];
+    let items = vec![EnumItem { name: "Red".to_string(), value: 1 }];
     let mut col = ColumnEnum8::new(Type::enum8(items));
 
     let result = col.append_name("InvalidColor");
@@ -492,7 +492,7 @@ fn test_enum8_invalid_name() {
 
 #[test]
 fn test_enum8_serialization() {
-    let items = [
+    let items = vec![
         EnumItem { name: "Red".to_string(), value: 1 },
         EnumItem { name: "Green".to_string(), value: 2 },
     ];
@@ -518,7 +518,7 @@ fn test_enum8_serialization() {
 
 #[test]
 fn test_enum16_append_by_value() {
-    let items = [
+    let items = vec![
         EnumItem { name: "Small".to_string(), value: 100 },
         EnumItem { name: "Large".to_string(), value: 1000 },
     ];
@@ -534,7 +534,7 @@ fn test_enum16_append_by_value() {
 
 #[test]
 fn test_enum16_append_by_name() {
-    let items = [
+    let items = vec![
         EnumItem { name: "Small".to_string(), value: 100 },
         EnumItem { name: "Large".to_string(), value: 1000 },
     ];
@@ -550,7 +550,7 @@ fn test_enum16_append_by_name() {
 
 #[test]
 fn test_enum16_serialization() {
-    let items = [
+    let items = vec![
         EnumItem { name: "Small".to_string(), value: 100 },
         EnumItem { name: "Large".to_string(), value: 1000 },
     ];
@@ -576,7 +576,7 @@ fn test_enum16_serialization() {
 
 #[test]
 fn test_enum16_negative_values() {
-    let items = [
+    let items = vec![
         EnumItem { name: "NegOne".to_string(), value: -1 },
         EnumItem { name: "Zero".to_string(), value: 0 },
         EnumItem { name: "PosOne".to_string(), value: 1 },
@@ -595,7 +595,7 @@ fn test_enum16_negative_values() {
 
 #[test]
 fn test_enum_slice() {
-    let items = [
+    let items = vec![
         EnumItem { name: "A".to_string(), value: 1 },
         EnumItem { name: "B".to_string(), value: 2 },
         EnumItem { name: "C".to_string(), value: 3 },
