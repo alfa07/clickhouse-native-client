@@ -44,7 +44,7 @@ fn test_map_underlying_data() {
     };
 
     let col = ColumnMap::new(map_type);
-    let data = col.data();
+    let data: &ColumnArray = col.data();
     assert_eq!(data.size(), 0);
 }
 
@@ -133,7 +133,7 @@ fn test_lowcardinality_dictionary() {
     };
 
     let col = ColumnLowCardinality::new(lc_type);
-    let dict = col.dictionary();
+    let dict = col.dictionary_ref();
 
     // Dictionary should exist but be empty
     assert_eq!(dict.size(), 0);
