@@ -88,7 +88,7 @@ fn test_roundtrip_float32() {
 #[test]
 fn test_roundtrip_uint8() {
     let data = [1u8, 2, 3, 5, 7, 11, 13, 17, 19, 23, 31];
-    let col = ColumnUInt8::new().with_data(data.clone());
+    let col = ColumnUInt8::new().with_data(data.to_vec());
 
     let result = roundtrip_column(&col).unwrap();
     let result_u8 = result.as_any().downcast_ref::<ColumnUInt8>().unwrap();
@@ -180,14 +180,14 @@ fn test_roundtrip_array_uint64() {
     let mut col = ColumnArray::new(col_type.clone());
 
     // Create first array: [1, 2, 3]
-    let mut inner1 = ColumnUInt64::new(inner_type.clone());
+    let mut inner1 = ColumnUInt64::with_type(inner_type.clone());
     inner1.append(1);
     inner1.append(2);
     inner1.append(3);
     col.append_array(Arc::new(inner1));
 
     // Create second array: [10, 20]
-    let mut inner2 = ColumnUInt64::new(inner_type.clone());
+    let mut inner2 = ColumnUInt64::with_type(inner_type.clone());
     inner2.append(10);
     inner2.append(20);
     col.append_array(Arc::new(inner2));
@@ -295,7 +295,7 @@ fn test_roundtrip_nullable_uint32() {
 #[test]
 fn test_roundtrip_tuple() {
     let types = [Type::uint64(), Type::string()];
-    let tuple_type = Type::tuple(types.clone());
+    let tuple_type = Type::tuple(types.to_vec());
 
     // Create and populate inner columns first
     let mut inner1 = ColumnUInt64::new();
