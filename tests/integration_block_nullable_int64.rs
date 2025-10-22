@@ -376,11 +376,7 @@ proptest! {
 
                 .expect("Invalid column type");
 
-            let nested_ref = result_col.nested();
-            let nested = nested_ref
-                .as_any()
-                .downcast_ref::<ColumnInt64>()
-                .expect("Nested should be ColumnInt64");
+            let nested: &ColumnInt64 = result_col.nested();
 
             for (idx, expected_opt) in values.iter().enumerate() {
                 match expected_opt {
