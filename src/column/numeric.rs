@@ -377,6 +377,7 @@ pub type ColumnFloat64 = ColumnVector<f64>;
 pub type ColumnDate = ColumnVector<u16>;
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

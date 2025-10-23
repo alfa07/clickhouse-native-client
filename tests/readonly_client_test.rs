@@ -120,7 +120,7 @@ async fn test_readonly_select_with_aggregation() {
         create_test_client().await.expect("Failed to connect to ClickHouse");
 
     let query =
-        Query::new("SELECT count(*) as cnt FROM system.numbers LIMIT 1000")
+        Query::new("SELECT count(*) as cnt FROM (SELECT number FROM system.numbers LIMIT 1000)")
             .with_setting("readonly", "1");
 
     let result = client

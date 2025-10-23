@@ -447,6 +447,7 @@ pub fn parse_type_name(type_name: &str) -> Result<TypeAst> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

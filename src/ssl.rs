@@ -269,6 +269,7 @@ impl SSLOptions {
 
 #[cfg(test)]
 #[cfg(feature = "tls")]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

@@ -309,6 +309,7 @@ fn format_ipv6(bytes: &[u8; 16]) -> String {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

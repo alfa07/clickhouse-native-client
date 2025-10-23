@@ -237,6 +237,7 @@ fn compress_none(data: &[u8]) -> Result<Bytes> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

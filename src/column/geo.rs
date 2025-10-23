@@ -38,6 +38,7 @@ pub fn multi_polygon_type() -> Type {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

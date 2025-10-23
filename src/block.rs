@@ -1,3 +1,4 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 use crate::{
     column::{
         Column,
@@ -217,6 +218,7 @@ impl<'a> IntoIterator for &'a Block {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::column::numeric::ColumnUInt64;

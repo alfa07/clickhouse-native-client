@@ -179,6 +179,7 @@ pub trait ColumnIter<T> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     // Tests will be in individual column implementations
 }

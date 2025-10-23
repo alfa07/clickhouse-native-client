@@ -783,6 +783,7 @@ impl BlockWriter {
 // read_string, write_string})
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::column::numeric::ColumnUInt64;

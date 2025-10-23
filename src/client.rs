@@ -370,10 +370,16 @@ impl Client {
 
         if packet_type != ServerCode::Hello as u64 {
             if packet_type == ServerCode::Exception as u64 {
-                eprintln!("[DEBUG] Server sent exception!");
-                return Err(Error::Protocol(
-                    "Server returned exception during handshake".to_string(),
-                ));
+                eprintln!("[DEBUG] Server sent exception during handshake!");
+                let exception = Self::read_exception_from_conn(conn).await?;
+                eprintln!(
+                    "[DEBUG] Exception: code={}, name={}, msg={}",
+                    exception.code, exception.name, exception.display_text
+                );
+                return Err(Error::Protocol(format!(
+                    "ClickHouse exception during handshake: {} (code {}): {}",
+                    exception.name, exception.code, exception.display_text
+                )));
             }
             eprintln!("[DEBUG] Unexpected packet type: {}", packet_type);
             return Err(Error::Protocol(format!(
@@ -1174,6 +1180,49 @@ impl Client {
         Ok(Progress { rows, bytes, total_rows, written_rows, written_bytes })
     }
 
+    /// Read exception from connection (static helper for use in contexts
+    /// without self)
+    fn read_exception_from_conn(
+        conn: &mut Connection,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<crate::query::Exception>>
+                + '_,
+        >,
+    > {
+        use crate::query::Exception;
+        Box::pin(async move {
+            eprintln!("[DEBUG] Reading exception code...");
+            let code = conn.read_i32().await?;
+            eprintln!("[DEBUG] Exception code: {}", code);
+            eprintln!("[DEBUG] Reading exception name...");
+            let name = conn.read_string().await?;
+            eprintln!("[DEBUG] Exception name: {}", name);
+            eprintln!("[DEBUG] Reading exception display_text...");
+            let display_text = conn.read_string().await?;
+            eprintln!(
+                "[DEBUG] Exception display_text length: {}",
+                display_text.len()
+            );
+            eprintln!("[DEBUG] Reading exception stack_trace...");
+            let stack_trace = conn.read_string().await?;
+            eprintln!(
+                "[DEBUG] Exception stack_trace length: {}",
+                stack_trace.len()
+            );
+
+            // Check for nested exception
+            let has_nested = conn.read_u8().await?;
+            let nested = if has_nested != 0 {
+                Some(Box::new(Self::read_exception_from_conn(conn).await?))
+            } else {
+                None
+            };
+
+            Ok(Exception { code, name, display_text, stack_trace, nested })
+        })
+    }
+
     /// Read exception from server
     fn read_exception<'a>(
         &'a mut self,
@@ -1183,36 +1232,8 @@ impl Client {
                 + 'a,
         >,
     > {
-        use crate::query::Exception;
         Box::pin(async move {
-            eprintln!("[DEBUG] Reading exception code...");
-            let code = self.conn.read_i32().await?;
-            eprintln!("[DEBUG] Exception code: {}", code);
-            eprintln!("[DEBUG] Reading exception name...");
-            let name = self.conn.read_string().await?;
-            eprintln!("[DEBUG] Exception name: {}", name);
-            eprintln!("[DEBUG] Reading exception display_text...");
-            let display_text = self.conn.read_string().await?;
-            eprintln!(
-                "[DEBUG] Exception display_text length: {}",
-                display_text.len()
-            );
-            eprintln!("[DEBUG] Reading exception stack_trace...");
-            let stack_trace = self.conn.read_string().await?;
-            eprintln!(
-                "[DEBUG] Exception stack_trace length: {}",
-                stack_trace.len()
-            );
-
-            // Check for nested exception
-            let has_nested = self.conn.read_u8().await?;
-            let nested = if has_nested != 0 {
-                Some(Box::new(self.read_exception().await?))
-            } else {
-                None
-            };
-
-            Ok(Exception { code, name, display_text, stack_trace, nested })
+            Self::read_exception_from_conn(&mut self.conn).await
         })
     }
 
@@ -1533,6 +1554,7 @@ impl QueryResult {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 
