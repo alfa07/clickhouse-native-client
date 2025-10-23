@@ -180,14 +180,14 @@ fn test_roundtrip_array_uint64() {
     let mut col = ColumnArray::new(col_type.clone());
 
     // Create first array: [1, 2, 3]
-    let mut inner1 = ColumnUInt64::with_type(inner_type.clone());
+    let mut inner1 = ColumnUInt64::new();
     inner1.append(1);
     inner1.append(2);
     inner1.append(3);
     col.append_array(Arc::new(inner1));
 
     // Create second array: [10, 20]
-    let mut inner2 = ColumnUInt64::with_type(inner_type.clone());
+    let mut inner2 = ColumnUInt64::new();
     inner2.append(10);
     inner2.append(20);
     col.append_array(Arc::new(inner2));

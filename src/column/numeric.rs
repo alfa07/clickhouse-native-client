@@ -129,17 +129,6 @@ pub struct ColumnVector<T: FixedSize> {
 }
 
 impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
-    /// Create a new column with explicit type (backward compatible)
-    pub fn with_type(type_: Type) -> Self {
-        Self { type_, data: Vec::new() }
-    }
-
-    /// Create a new column with explicit type and capacity (backward
-    /// compatible)
-    pub fn with_type_and_capacity(type_: Type, capacity: usize) -> Self {
-        Self { type_, data: Vec::with_capacity(capacity) }
-    }
-
     pub fn from_vec(type_: Type, data: Vec<T>) -> Self {
         Self { type_, data }
     }
@@ -241,7 +230,7 @@ impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> Default
     }
 }
 
-impl<T: FixedSize> Column for ColumnVector<T> {
+impl<T: FixedSize + ToType> Column for ColumnVector<T> {
     fn column_type(&self) -> &Type {
         &self.type_
     }
@@ -327,7 +316,7 @@ impl<T: FixedSize> Column for ColumnVector<T> {
     }
 
     fn clone_empty(&self) -> ColumnRef {
-        Arc::new(ColumnVector::<T>::with_type(self.type_.clone()))
+        Arc::new(ColumnVector::<T>::new())
     }
 
     fn slice(&self, begin: usize, len: usize) -> Result<ColumnRef> {
@@ -356,7 +345,7 @@ impl<T: FixedSize> Column for ColumnVector<T> {
     }
 }
 
-impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnTyped<T>
+impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnTyped<T>
     for ColumnVector<T>
 {
     fn get(&self, index: usize) -> Option<T> {
@@ -390,7 +379,6 @@ pub type ColumnDate = ColumnVector<u16>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Type;
 
     #[test]
     fn test_column_creation() {
@@ -399,8 +387,8 @@ mod tests {
         assert_eq!(col.size(), 0);
         assert_eq!(col.column_type().name(), "UInt32");
 
-        // Test explicit type constructor
-        let col2 = ColumnUInt32::with_type(Type::uint32());
+        // Test with_capacity constructor
+        let col2 = ColumnUInt32::with_capacity(100);
         assert_eq!(col2.size(), 0);
         assert_eq!(col2.column_type().name(), "UInt32");
     }
