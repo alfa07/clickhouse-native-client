@@ -61,42 +61,18 @@ pub fn create_column(type_: &Type) -> Result<ColumnRef> {
         Type::Simple(code) => {
             use crate::types::TypeCode;
             match code {
-                TypeCode::UInt8 => {
-                    Ok(Arc::new(ColumnUInt8::with_type(type_.clone())))
-                }
-                TypeCode::UInt16 => {
-                    Ok(Arc::new(ColumnUInt16::with_type(type_.clone())))
-                }
-                TypeCode::UInt32 => {
-                    Ok(Arc::new(ColumnUInt32::with_type(type_.clone())))
-                }
-                TypeCode::UInt64 => {
-                    Ok(Arc::new(ColumnUInt64::with_type(type_.clone())))
-                }
-                TypeCode::UInt128 => {
-                    Ok(Arc::new(ColumnUInt128::with_type(type_.clone())))
-                }
-                TypeCode::Int8 => {
-                    Ok(Arc::new(ColumnInt8::with_type(type_.clone())))
-                }
-                TypeCode::Int16 => {
-                    Ok(Arc::new(ColumnInt16::with_type(type_.clone())))
-                }
-                TypeCode::Int32 => {
-                    Ok(Arc::new(ColumnInt32::with_type(type_.clone())))
-                }
-                TypeCode::Int64 => {
-                    Ok(Arc::new(ColumnInt64::with_type(type_.clone())))
-                }
-                TypeCode::Int128 => {
-                    Ok(Arc::new(ColumnInt128::with_type(type_.clone())))
-                }
-                TypeCode::Float32 => {
-                    Ok(Arc::new(ColumnFloat32::with_type(type_.clone())))
-                }
-                TypeCode::Float64 => {
-                    Ok(Arc::new(ColumnFloat64::with_type(type_.clone())))
-                }
+                TypeCode::UInt8 => Ok(Arc::new(ColumnUInt8::new())),
+                TypeCode::UInt16 => Ok(Arc::new(ColumnUInt16::new())),
+                TypeCode::UInt32 => Ok(Arc::new(ColumnUInt32::new())),
+                TypeCode::UInt64 => Ok(Arc::new(ColumnUInt64::new())),
+                TypeCode::UInt128 => Ok(Arc::new(ColumnUInt128::new())),
+                TypeCode::Int8 => Ok(Arc::new(ColumnInt8::new())),
+                TypeCode::Int16 => Ok(Arc::new(ColumnInt16::new())),
+                TypeCode::Int32 => Ok(Arc::new(ColumnInt32::new())),
+                TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new())),
+                TypeCode::Int128 => Ok(Arc::new(ColumnInt128::new())),
+                TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new())),
+                TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new())),
                 TypeCode::String => {
                     Ok(Arc::new(ColumnString::new(type_.clone())))
                 }
@@ -116,12 +92,8 @@ pub fn create_column(type_: &Type) -> Result<ColumnRef> {
                 TypeCode::Point => {
                     // Point is Tuple(Float64, Float64)
                     let columns: Vec<ColumnRef> = vec![
-                        Arc::new(ColumnFloat64::with_type(Type::Simple(
-                            TypeCode::Float64,
-                        ))) as ColumnRef,
-                        Arc::new(ColumnFloat64::with_type(Type::Simple(
-                            TypeCode::Float64,
-                        ))) as ColumnRef,
+                        Arc::new(ColumnFloat64::new()) as ColumnRef,
+                        Arc::new(ColumnFloat64::new()) as ColumnRef,
                     ];
                     Ok(Arc::new(crate::column::ColumnTuple::new(
                         type_.clone(),
@@ -602,42 +574,18 @@ impl BlockReader {
             Type::Simple(code) => {
                 use crate::types::TypeCode;
                 match code {
-                    TypeCode::UInt8 => {
-                        Ok(Arc::new(ColumnUInt8::with_type(type_.clone())))
-                    }
-                    TypeCode::UInt16 => {
-                        Ok(Arc::new(ColumnUInt16::with_type(type_.clone())))
-                    }
-                    TypeCode::UInt32 => {
-                        Ok(Arc::new(ColumnUInt32::with_type(type_.clone())))
-                    }
-                    TypeCode::UInt64 => {
-                        Ok(Arc::new(ColumnUInt64::with_type(type_.clone())))
-                    }
-                    TypeCode::UInt128 => {
-                        Ok(Arc::new(ColumnUInt128::with_type(type_.clone())))
-                    }
-                    TypeCode::Int8 => {
-                        Ok(Arc::new(ColumnInt8::with_type(type_.clone())))
-                    }
-                    TypeCode::Int16 => {
-                        Ok(Arc::new(ColumnInt16::with_type(type_.clone())))
-                    }
-                    TypeCode::Int32 => {
-                        Ok(Arc::new(ColumnInt32::with_type(type_.clone())))
-                    }
-                    TypeCode::Int64 => {
-                        Ok(Arc::new(ColumnInt64::with_type(type_.clone())))
-                    }
-                    TypeCode::Int128 => {
-                        Ok(Arc::new(ColumnInt128::with_type(type_.clone())))
-                    }
-                    TypeCode::Float32 => {
-                        Ok(Arc::new(ColumnFloat32::with_type(type_.clone())))
-                    }
-                    TypeCode::Float64 => {
-                        Ok(Arc::new(ColumnFloat64::with_type(type_.clone())))
-                    }
+                    TypeCode::UInt8 => Ok(Arc::new(ColumnUInt8::new())),
+                    TypeCode::UInt16 => Ok(Arc::new(ColumnUInt16::new())),
+                    TypeCode::UInt32 => Ok(Arc::new(ColumnUInt32::new())),
+                    TypeCode::UInt64 => Ok(Arc::new(ColumnUInt64::new())),
+                    TypeCode::UInt128 => Ok(Arc::new(ColumnUInt128::new())),
+                    TypeCode::Int8 => Ok(Arc::new(ColumnInt8::new())),
+                    TypeCode::Int16 => Ok(Arc::new(ColumnInt16::new())),
+                    TypeCode::Int32 => Ok(Arc::new(ColumnInt32::new())),
+                    TypeCode::Int64 => Ok(Arc::new(ColumnInt64::new())),
+                    TypeCode::Int128 => Ok(Arc::new(ColumnInt128::new())),
+                    TypeCode::Float32 => Ok(Arc::new(ColumnFloat32::new())),
+                    TypeCode::Float64 => Ok(Arc::new(ColumnFloat64::new())),
                     TypeCode::String => {
                         Ok(Arc::new(ColumnString::new(type_.clone())))
                     }
