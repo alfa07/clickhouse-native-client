@@ -122,6 +122,7 @@ impl Column for ColumnNothing {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::types::TypeCode;

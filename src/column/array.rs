@@ -658,6 +658,7 @@ where
 // Helper functions removed - using buffer_utils module
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::{

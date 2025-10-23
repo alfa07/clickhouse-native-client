@@ -68,7 +68,7 @@ fn column_uint64_append(c: &mut Criterion) {
 
     group.bench_function(BenchmarkId::new("UInt64", "1M_items"), |b| {
         b.iter(|| {
-            let mut col = ColumnUInt64::new(Type::uint64());
+            let mut col = ColumnUInt64::new();
             for i in 0..ITEMS_1M {
                 col.append(black_box(generate_uint64(i)));
             }
@@ -100,7 +100,7 @@ fn column_string_append(c: &mut Criterion) {
 /// Benchmark: Serialize UInt64 column (1M items)
 fn column_uint64_save(c: &mut Criterion) {
     // Pre-create column with 1M items
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
     for i in 0..ITEMS_1M {
         col.append(generate_uint64(i));
     }
@@ -144,7 +144,7 @@ fn column_string_save(c: &mut Criterion) {
 /// Benchmark: Deserialize UInt64 column (1M items)
 fn column_uint64_load(c: &mut Criterion) {
     // Pre-serialize column
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
     for i in 0..ITEMS_1M {
         col.append(generate_uint64(i));
     }
@@ -159,7 +159,7 @@ fn column_uint64_load(c: &mut Criterion) {
     group.bench_function(BenchmarkId::new("UInt64", "1M_items"), |b| {
         b.iter(|| {
             let mut data = &serialized[..];
-            let mut col = ColumnUInt64::new(Type::uint64());
+            let mut col = ColumnUInt64::new();
             col.load_from_buffer(&mut data, black_box(ITEMS_1M))
                 .expect("Failed to deserialize");
             black_box(col.size())
@@ -199,7 +199,7 @@ fn column_string_load(c: &mut Criterion) {
 
 /// Benchmark: Round-trip (Save + Load) for UInt64
 fn column_uint64_roundtrip(c: &mut Criterion) {
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
     for i in 0..ITEMS_100K {
         col.append(generate_uint64(i));
     }
@@ -216,7 +216,7 @@ fn column_uint64_roundtrip(c: &mut Criterion) {
 
             // Deserialize
             let mut data = &serialized[..];
-            let mut loaded_col = ColumnUInt64::new(Type::uint64());
+            let mut loaded_col = ColumnUInt64::new();
             loaded_col.load_from_buffer(&mut data, ITEMS_100K).unwrap();
 
             black_box(loaded_col.size())
@@ -230,7 +230,7 @@ fn column_uint64_roundtrip(c: &mut Criterion) {
 /// Matches C++ methodology: reuses buffer capacity across iterations
 fn column_uint64_save_fair(c: &mut Criterion) {
     // Pre-create column with 1M items
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
     for i in 0..ITEMS_1M {
         col.append(generate_uint64(i));
     }
@@ -256,7 +256,7 @@ fn column_uint64_save_fair(c: &mut Criterion) {
 /// Matches C++ methodology: reuses column capacity across iterations
 fn column_uint64_load_fair(c: &mut Criterion) {
     // Pre-serialize column
-    let mut col = ColumnUInt64::new(Type::uint64());
+    let mut col = ColumnUInt64::new();
     for i in 0..ITEMS_1M {
         col.append(generate_uint64(i));
     }
@@ -269,8 +269,7 @@ fn column_uint64_load_fair(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(serialized.len() as u64));
 
     // Pre-allocate column with capacity (like C++ does with column.Clear())
-    let mut reusable_col =
-        ColumnUInt64::with_capacity(Type::uint64(), ITEMS_1M);
+    let mut reusable_col = ColumnUInt64::with_capacity(ITEMS_1M);
 
     group.bench_function(BenchmarkId::new("UInt64", "1M_items_reuse"), |b| {
         b.iter(|| {

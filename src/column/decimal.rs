@@ -326,6 +326,7 @@ fn format_decimal(value: i128, scale: usize) -> String {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

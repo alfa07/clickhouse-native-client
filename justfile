@@ -210,6 +210,62 @@ run-agent FILE:
     echo ""
     echo "==> Agent completed. Worktree location: ${WORKTREE_PATH}"
 
+# Run code coverage for unit tests and integration tests
+coverage: start-db
+    @echo "Running code coverage (unit + integration tests)..."
+    @sleep 2
+    @echo "Installing/checking cargo-llvm-cov..."
+    @command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
+    @echo ""
+    @echo "==> Running tests with coverage..."
+    cargo +nightly llvm-cov --all-targets --workspace --html --ignore-run-fail -- --ignored
+    @just stop-db
+    @echo ""
+    @echo "✓ Coverage report generated:"
+    @echo "  - HTML: target/llvm-cov/html/index.html"
+    @echo "  - Run 'just coverage-open' to view in browser"
+
+# Run code coverage including TLS tests
+coverage-with-tls:
+    @echo "Running complete code coverage (unit + integration + TLS)..."
+    @just start-db
+    @sleep 2
+    @echo "Installing/checking cargo-llvm-cov..."
+    @command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
+    @echo ""
+    @echo "==> Running tests with coverage (unit + integration)..."
+    cargo +nightly llvm-cov --all-targets --workspace --html --no-report --ignore-run-fail -- --ignored
+    @just stop-db
+    @echo ""
+    @echo "==> Running TLS tests with coverage..."
+    @just start-db-tls
+    @sleep 2
+    cargo +nightly llvm-cov --all-targets --workspace --features tls --html --no-report --ignore-run-fail -- --ignored
+    @just stop-db-tls
+    @echo ""
+    @echo "==> Generating final coverage report..."
+    cargo +nightly llvm-cov report --html
+    @echo ""
+    @echo "✓ Complete coverage report generated:"
+    @echo "  - HTML: target/llvm-cov/html/index.html"
+    @echo "  - Run 'just coverage-open' to view in browser"
+
+# Clean coverage artifacts
+coverage-clean:
+    @echo "Cleaning coverage artifacts..."
+    cargo +nightly llvm-cov clean --workspace
+    @rm -rf target/llvm-cov
+    @echo "✓ Coverage artifacts cleaned"
+
+# Open HTML coverage report in browser
+coverage-open:
+    @echo "Opening coverage report in browser..."
+    @if [ ! -f target/llvm-cov/html/index.html ]; then \
+        echo "Error: Coverage report not found. Run 'just coverage' first."; \
+        exit 1; \
+    fi
+    @open target/llvm-cov/html/index.html || xdg-open target/llvm-cov/html/index.html || echo "Could not open browser. Open target/llvm-cov/html/index.html manually."
+
 # Show help
 help:
     @just --list

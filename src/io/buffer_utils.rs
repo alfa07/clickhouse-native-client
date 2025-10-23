@@ -116,6 +116,7 @@ pub fn write_varint_to_vec(buf: &mut Vec<u8>, mut value: u64) {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

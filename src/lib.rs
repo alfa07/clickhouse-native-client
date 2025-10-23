@@ -1,3 +1,4 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 pub mod block;
 pub mod client;
 pub mod column;
