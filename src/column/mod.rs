@@ -73,7 +73,10 @@ pub use enum_column::{
 pub use ipv4::ColumnIpv4;
 pub use ipv6::ColumnIpv6;
 pub use lowcardinality::ColumnLowCardinality;
-pub use map::ColumnMap;
+pub use map::{
+    ColumnMap,
+    ColumnMapT,
+};
 pub use nothing::ColumnNothing;
 pub use nullable::ColumnNullable;
 pub use numeric::*;
@@ -81,7 +84,10 @@ pub use string::{
     ColumnFixedString,
     ColumnString,
 };
-pub use tuple::ColumnTuple;
+pub use tuple::{
+    ColumnTuple,
+    ColumnTupleT,
+};
 pub use uuid::{
     ColumnUuid,
     Uuid,
