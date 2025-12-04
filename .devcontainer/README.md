@@ -18,6 +18,7 @@ The dev container includes:
 - **Purpose:** Full Rust development environment
 
 ### Additional Tools
+- **gh:** GitHub CLI for creating PRs and managing issues (installed via Dockerfile)
 - **just:** Command runner for project tasks (installed via Dockerfile)
 - **cargo-binstall:** Fast binary installation for Rust tools (installed via Dockerfile)
 
@@ -54,6 +55,12 @@ rustc --version
 cargo --version
 rustfmt --version
 clippy-driver --version
+```
+
+### GitHub CLI
+```bash
+gh --version
+gh auth status
 ```
 
 ### Just Command Runner
