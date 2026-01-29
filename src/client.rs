@@ -24,6 +24,7 @@ use crate::{
     Result,
 };
 use std::time::Duration;
+use tracing::debug;
 
 #[cfg(feature = "tls")]
 use crate::ssl::SSLOptions;
@@ -300,10 +301,10 @@ impl Client {
         // Send addendum (quota key) if server supports it
         // DBMS_MIN_PROTOCOL_VERSION_WITH_ADDENDUM = 54458
         if server_info.revision >= 54458 {
-            eprintln!("[DEBUG] Sending quota key addendum (empty string)...");
+            debug!("Sending quota key addendum (empty string)...");
             conn.write_string("").await?;
             conn.flush().await?;
-            eprintln!("[DEBUG] Addendum sent");
+            debug!("Addendum sent");
         }
 
         // Create block reader/writer with compression
@@ -330,22 +331,22 @@ impl Client {
         conn: &mut Connection,
         options: &ClientOptions,
     ) -> Result<()> {
-        eprintln!("[DEBUG] Sending client hello...");
+        debug!("Sending client hello...");
         // Write client hello code
         conn.write_varint(ClientCode::Hello as u64).await?;
-        eprintln!("[DEBUG] Sent hello code");
+        debug!("Sent hello code");
 
         // Write client name and version
         conn.write_string(&options.client_info.client_name).await?;
-        eprintln!(
-            "[DEBUG] Sent client name: {}",
+        debug!(
+            "Sent client name: {}",
             options.client_info.client_name
         );
         conn.write_varint(options.client_info.client_version_major).await?;
         conn.write_varint(options.client_info.client_version_minor).await?;
         conn.write_varint(options.client_info.client_revision).await?;
-        eprintln!(
-            "[DEBUG] Sent version: {}.{}.{}",
+        debug!(
+            "Sent version: {}.{}.{}",
             options.client_info.client_version_major,
             options.client_info.client_version_minor,
             options.client_info.client_revision
@@ -355,25 +356,25 @@ impl Client {
         conn.write_string(&options.database).await?;
         conn.write_string(&options.user).await?;
         conn.write_string(&options.password).await?;
-        eprintln!("[DEBUG] Sent credentials");
+        debug!("Sent credentials");
 
         conn.flush().await?;
-        eprintln!("[DEBUG] Flushed");
+        debug!("Flushed");
         Ok(())
     }
 
     /// Receive hello packet from server
     async fn receive_hello(conn: &mut Connection) -> Result<ServerInfo> {
-        eprintln!("[DEBUG] Reading server hello...");
+        debug!("Reading server hello...");
         let packet_type = conn.read_varint().await?;
-        eprintln!("[DEBUG] Got packet type: {}", packet_type);
+        debug!("Got packet type: {}", packet_type);
 
         if packet_type != ServerCode::Hello as u64 {
             if packet_type == ServerCode::Exception as u64 {
-                eprintln!("[DEBUG] Server sent exception during handshake!");
+                debug!("Server sent exception during handshake!");
                 let exception = Self::read_exception_from_conn(conn).await?;
-                eprintln!(
-                    "[DEBUG] Exception: code={}, name={}, msg={}",
+                debug!(
+                    "Exception: code={}, name={}, msg={}",
                     exception.code, exception.name, exception.display_text
                 );
                 return Err(Error::Protocol(format!(
@@ -381,7 +382,7 @@ impl Client {
                     exception.name, exception.code, exception.display_text
                 )));
             }
-            eprintln!("[DEBUG] Unexpected packet type: {}", packet_type);
+            debug!("Unexpected packet type: {}", packet_type);
             return Err(Error::Protocol(format!(
                 "Expected Hello packet, got {}",
                 packet_type
@@ -389,39 +390,39 @@ impl Client {
         }
 
         // Read server info
-        eprintln!("[DEBUG] Reading server info...");
+        debug!("Reading server info...");
         let name = conn.read_string().await?;
-        eprintln!("[DEBUG] Server name: {}", name);
+        debug!("Server name: {}", name);
         let version_major = conn.read_varint().await?;
         let version_minor = conn.read_varint().await?;
         let revision = conn.read_varint().await?;
-        eprintln!(
-            "[DEBUG] Server version: {}.{}, revision: {}",
+        debug!(
+            "Server version: {}.{}, revision: {}",
             version_major, version_minor, revision
         );
 
         let timezone = if revision >= 54058 {
-            eprintln!("[DEBUG] Reading timezone...");
+            debug!("Reading timezone...");
             conn.read_string().await?
         } else {
             String::new()
         };
 
         let display_name = if revision >= 54372 {
-            eprintln!("[DEBUG] Reading display name...");
+            debug!("Reading display name...");
             conn.read_string().await?
         } else {
             String::new()
         };
 
         let version_patch = if revision >= 54401 {
-            eprintln!("[DEBUG] Reading version patch...");
+            debug!("Reading version patch...");
             conn.read_varint().await?
         } else {
             0
         };
 
-        eprintln!("[DEBUG] Server hello complete!");
+        debug!("Server hello complete!");
         Ok(ServerInfo {
             name,
             version_major,
@@ -629,11 +630,11 @@ impl Client {
 
         loop {
             let packet_type = self.conn.read_varint().await?;
-            eprintln!("[DEBUG] Query response packet: {}", packet_type);
+            debug!("Query response packet: {}", packet_type);
 
             match packet_type {
                 code if code == ServerCode::Data as u64 => {
-                    eprintln!("[DEBUG] Received data packet");
+                    debug!("Received data packet");
                     // Skip temp table name if protocol supports it (matches
                     // C++ ReceiveData)
                     if self.server_info.revision >= 50264 {
@@ -647,8 +648,8 @@ impl Client {
                     if let Some(callback) = query.get_on_data_cancelable() {
                         let should_continue = callback(&block);
                         if !should_continue {
-                            eprintln!(
-                                "[DEBUG] Query cancelled by data callback"
+                            debug!(
+                                "Query cancelled by data callback"
                             );
                             break;
                         }
@@ -661,8 +662,13 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::Progress as u64 => {
-                    eprintln!("[DEBUG] Received progress packet");
-                    progress_info = self.read_progress().await?;
+                    debug!("Received progress packet");
+                    let delta = self.read_progress().await?;
+                    progress_info.rows += delta.rows;
+                    progress_info.bytes += delta.bytes;
+                    progress_info.total_rows = delta.total_rows;
+                    progress_info.written_rows += delta.written_rows;
+                    progress_info.written_bytes += delta.written_bytes;
 
                     // Invoke progress callback if present
                     if let Some(callback) = query.get_on_progress() {
@@ -670,11 +676,11 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::EndOfStream as u64 => {
-                    eprintln!("[DEBUG] Received end of stream");
+                    debug!("Received end of stream");
                     break;
                 }
                 code if code == ServerCode::ProfileInfo as u64 => {
-                    eprintln!("[DEBUG] Received profile info packet");
+                    debug!("Received profile info packet");
                     // Read ProfileInfo fields directly
                     let rows = self.conn.read_varint().await?;
                     let blocks = self.conn.read_varint().await?;
@@ -699,7 +705,7 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::Log as u64 => {
-                    eprintln!("[DEBUG] Received log packet");
+                    debug!("Received log packet");
                     // Skip string first (log tag)
                     let _log_tag = self.conn.read_string().await?;
                     // Read the log block (sent uncompressed)
@@ -714,7 +720,7 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::ProfileEvents as u64 => {
-                    eprintln!("[DEBUG] Received profile events packet");
+                    debug!("Received profile events packet");
                     // Skip string first (matches C++ implementation)
                     let _table_name = self.conn.read_string().await?;
                     // Read ProfileEvents block (sent uncompressed)
@@ -729,8 +735,8 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    eprintln!(
-                        "[DEBUG] Received table columns packet (ignoring)"
+                    debug!(
+                        "Received table columns packet (ignoring)"
                     );
                     // Skip external table name
                     let _table_name = self.conn.read_string().await?;
@@ -738,10 +744,10 @@ impl Client {
                     let _columns_metadata = self.conn.read_string().await?;
                 }
                 code if code == ServerCode::Exception as u64 => {
-                    eprintln!("[DEBUG] Server returned exception during query, reading details...");
+                    debug!("Server returned exception during query, reading details...");
                     let exception = self.read_exception().await?;
-                    eprintln!(
-                        "[DEBUG] Exception: code={}, name={}, msg={}",
+                    debug!(
+                        "Exception: code={}, name={}, msg={}",
                         exception.code, exception.name, exception.display_text
                     );
 
@@ -756,7 +762,7 @@ impl Client {
                     )));
                 }
                 other => {
-                    eprintln!("[DEBUG] Unexpected packet type: {}", other);
+                    debug!("Unexpected packet type: {}", other);
                     return Err(Error::Protocol(format!(
                         "Unexpected packet type: {}",
                         other
@@ -845,11 +851,11 @@ impl Client {
 
         loop {
             let packet_type = self.conn.read_varint().await?;
-            eprintln!("[DEBUG] Query response packet: {}", packet_type);
+            debug!("Query response packet: {}", packet_type);
 
             match packet_type {
                 code if code == ServerCode::Data as u64 => {
-                    eprintln!("[DEBUG] Received data packet");
+                    debug!("Received data packet");
                     // Skip temp table name if protocol supports it
                     if self.server_info.revision >= 50264 {
                         let _temp_table = self.conn.read_string().await?;
@@ -861,8 +867,8 @@ impl Client {
                     if let Some(callback) = query.get_on_data_cancelable() {
                         let should_continue = callback(&block);
                         if !should_continue {
-                            eprintln!(
-                                "[DEBUG] Query cancelled by data callback"
+                            debug!(
+                                "Query cancelled by data callback"
                             );
                             break;
                         }
@@ -875,8 +881,13 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::Progress as u64 => {
-                    eprintln!("[DEBUG] Received progress packet");
-                    progress_info = self.read_progress().await?;
+                    debug!("Received progress packet");
+                    let delta = self.read_progress().await?;
+                    progress_info.rows += delta.rows;
+                    progress_info.bytes += delta.bytes;
+                    progress_info.total_rows = delta.total_rows;
+                    progress_info.written_rows += delta.written_rows;
+                    progress_info.written_bytes += delta.written_bytes;
 
                     // Invoke progress callback if present
                     if let Some(callback) = query.get_on_progress() {
@@ -884,11 +895,11 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::EndOfStream as u64 => {
-                    eprintln!("[DEBUG] Received end of stream");
+                    debug!("Received end of stream");
                     break;
                 }
                 code if code == ServerCode::ProfileInfo as u64 => {
-                    eprintln!("[DEBUG] Received profile info packet");
+                    debug!("Received profile info packet");
                     let rows = self.conn.read_varint().await?;
                     let blocks = self.conn.read_varint().await?;
                     let bytes = self.conn.read_varint().await?;
@@ -911,7 +922,7 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::Log as u64 => {
-                    eprintln!("[DEBUG] Received log packet");
+                    debug!("Received log packet");
                     let _log_tag = self.conn.read_string().await?;
                     // Log blocks are sent uncompressed
                     let uncompressed_reader =
@@ -925,7 +936,7 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::ProfileEvents as u64 => {
-                    eprintln!("[DEBUG] Received profile events packet");
+                    debug!("Received profile events packet");
                     let _table_name = self.conn.read_string().await?;
                     // ProfileEvents blocks are sent uncompressed
                     let uncompressed_reader =
@@ -939,8 +950,8 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    eprintln!(
-                        "[DEBUG] Received table columns packet (ignoring)"
+                    debug!(
+                        "Received table columns packet (ignoring)"
                     );
                     // Skip external table name
                     let _table_name = self.conn.read_string().await?;
@@ -949,8 +960,8 @@ impl Client {
                 }
                 code if code == ServerCode::Exception as u64 => {
                     let exception = self.read_exception().await?;
-                    eprintln!(
-                        "[DEBUG] Received exception: {} - {}",
+                    debug!(
+                        "Received exception: {} - {}",
                         exception.name, exception.display_text
                     );
 
@@ -987,18 +998,18 @@ impl Client {
         query: &Query,
         finalize: bool,
     ) -> Result<()> {
-        eprintln!("[DEBUG] Sending query: {}", query.text());
+        debug!("Sending query: {}", query.text());
         // Write query code
         self.conn.write_varint(ClientCode::Query as u64).await?;
 
         // Write query ID
         self.conn.write_string(query.id()).await?;
-        eprintln!("[DEBUG] Sent query ID");
+        debug!("Sent query ID");
 
         // Client info
         let revision = self.server_info.revision;
         if revision >= 54032 {
-            eprintln!("[DEBUG] Writing client info...");
+            debug!("Writing client info...");
             let info = &self.options.client_info;
 
             // Write client info fields in the correct order
@@ -1050,12 +1061,12 @@ impl Client {
                 self.conn.write_varint(0).await?; // number_of_current_replica
             }
 
-            eprintln!("[DEBUG] Client info sent");
+            debug!("Client info sent");
         }
 
         // Settings
         if revision >= 54429 {
-            eprintln!("[DEBUG] Writing settings...");
+            debug!("Writing settings...");
             for (key, field) in query.settings() {
                 self.conn.write_string(key).await?;
                 self.conn.write_varint(field.flags).await?;
@@ -1064,7 +1075,7 @@ impl Client {
         }
         // Empty string to mark end of settings
         self.conn.write_string("").await?;
-        eprintln!("[DEBUG] Settings sent");
+        debug!("Settings sent");
 
         // Interserver secret (for servers >= 54441)
         if revision >= 54441 {
@@ -1072,7 +1083,7 @@ impl Client {
         }
 
         // Query stage, compression, text
-        eprintln!("[DEBUG] Writing query stage and text...");
+        debug!("Writing query stage and text...");
         self.conn.write_varint(2).await?; // Stage = Complete
                                           // Enable compression if we have it configured
         let compression_enabled =
@@ -1107,7 +1118,7 @@ impl Client {
     async fn finalize_query(&mut self) -> Result<()> {
         // Send empty block to finalize query (as per C++ client)
         // This block must respect the compression setting we told the server
-        eprintln!("[DEBUG] Sending empty block to finalize...");
+        debug!("Sending empty block to finalize...");
         self.conn.write_varint(ClientCode::Data as u64).await?;
         let empty_block = Block::new();
         // Create writer that matches the compression setting
@@ -1120,7 +1131,7 @@ impl Client {
         writer.write_block(&mut self.conn, &empty_block).await?;
 
         self.conn.flush().await?;
-        eprintln!("[DEBUG] Query finalized");
+        debug!("Query finalized");
         Ok(())
     }
 
@@ -1139,7 +1150,7 @@ impl Client {
                 continue;
             }
 
-            eprintln!("[DEBUG] Sending external table: {}", table.name);
+            debug!("Sending external table: {}", table.name);
 
             // Send Data packet type
             self.conn.write_varint(ClientCode::Data as u64).await?;
@@ -1192,22 +1203,22 @@ impl Client {
     > {
         use crate::query::Exception;
         Box::pin(async move {
-            eprintln!("[DEBUG] Reading exception code...");
+            debug!("Reading exception code...");
             let code = conn.read_i32().await?;
-            eprintln!("[DEBUG] Exception code: {}", code);
-            eprintln!("[DEBUG] Reading exception name...");
+            debug!("Exception code: {}", code);
+            debug!("Reading exception name...");
             let name = conn.read_string().await?;
-            eprintln!("[DEBUG] Exception name: {}", name);
-            eprintln!("[DEBUG] Reading exception display_text...");
+            debug!("Exception name: {}", name);
+            debug!("Reading exception display_text...");
             let display_text = conn.read_string().await?;
-            eprintln!(
-                "[DEBUG] Exception display_text length: {}",
+            debug!(
+                "Exception display_text length: {}",
                 display_text.len()
             );
-            eprintln!("[DEBUG] Reading exception stack_trace...");
+            debug!("Reading exception stack_trace...");
             let stack_trace = conn.read_string().await?;
-            eprintln!(
-                "[DEBUG] Exception stack_trace length: {}",
+            debug!(
+                "Exception stack_trace length: {}",
                 stack_trace.len()
             );
 
@@ -1292,7 +1303,7 @@ impl Client {
             col_names.join(", ")
         );
 
-        eprintln!("[DEBUG] Sending INSERT query: {}", query_text);
+        debug!("Sending INSERT query: {}", query_text);
         let query = Query::new(query_text).with_query_id(query_id);
 
         // Send query
@@ -1300,18 +1311,18 @@ impl Client {
 
         // Wait for server to respond with Data packet (matches C++ Insert
         // flow)
-        eprintln!("[DEBUG] Waiting for server Data packet...");
+        debug!("Waiting for server Data packet...");
         loop {
             let packet_type = self.conn.read_varint().await?;
-            eprintln!(
-                "[DEBUG] INSERT wait response packet type: {}",
+            debug!(
+                "INSERT wait response packet type: {}",
                 packet_type
             );
 
             match packet_type {
                 code if code == ServerCode::Data as u64 => {
-                    eprintln!(
-                        "[DEBUG] Received Data packet, ready to send data"
+                    debug!(
+                        "Received Data packet, ready to send data"
                     );
                     // CRITICAL: Must consume the Data packet's payload to keep
                     // stream aligned! Skip temp table name
@@ -1321,24 +1332,24 @@ impl Client {
                     // Read the block (likely empty, but must consume it)
                     let _block =
                         self.block_reader.read_block(&mut self.conn).await?;
-                    eprintln!(
-                        "[DEBUG] Consumed Data packet payload, stream aligned"
+                    debug!(
+                        "Consumed Data packet payload, stream aligned"
                     );
                     break;
                 }
                 code if code == ServerCode::Progress as u64 => {
-                    eprintln!("[DEBUG] Received Progress packet");
+                    debug!("Received Progress packet");
                     let _ = self.read_progress().await?;
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    eprintln!("[DEBUG] Received TableColumns packet");
+                    debug!("Received TableColumns packet");
                     // Skip external table name
                     let _table_name = self.conn.read_string().await?;
                     // Skip columns metadata string
                     let _columns_metadata = self.conn.read_string().await?;
                 }
                 code if code == ServerCode::Exception as u64 => {
-                    eprintln!("[DEBUG] Server returned exception before accepting data");
+                    debug!("Server returned exception before accepting data");
                     let exception = self.read_exception().await?;
                     return Err(Error::Protocol(format!(
                         "ClickHouse exception: {} (code {}): {}",
@@ -1355,35 +1366,35 @@ impl Client {
         }
 
         // Now send our data block
-        eprintln!(
-            "[DEBUG] Sending data block with {} rows",
+        debug!(
+            "Sending data block with {} rows",
             block.row_count()
         );
         self.conn.write_varint(ClientCode::Data as u64).await?;
         self.block_writer.write_block(&mut self.conn, &block).await?;
 
         // Send empty block to signal end
-        eprintln!("[DEBUG] Sending empty block to signal end");
+        debug!("Sending empty block to signal end");
         let empty_block = Block::new();
         self.conn.write_varint(ClientCode::Data as u64).await?;
         self.block_writer.write_block(&mut self.conn, &empty_block).await?;
 
         // Wait for EndOfStream (matches C++ flow)
-        eprintln!("[DEBUG] Waiting for EndOfStream...");
+        debug!("Waiting for EndOfStream...");
         loop {
             let packet_type = self.conn.read_varint().await?;
-            eprintln!(
-                "[DEBUG] INSERT final response packet type: {}",
+            debug!(
+                "INSERT final response packet type: {}",
                 packet_type
             );
 
             match packet_type {
                 code if code == ServerCode::EndOfStream as u64 => {
-                    eprintln!("[DEBUG] Received EndOfStream, insert complete");
+                    debug!("Received EndOfStream, insert complete");
                     break;
                 }
                 code if code == ServerCode::Data as u64 => {
-                    eprintln!("[DEBUG] Received Data packet in INSERT response (skipping)");
+                    debug!("Received Data packet in INSERT response (skipping)");
                     // Skip temp table name if protocol supports it
                     if self.server_info.revision >= 50264 {
                         let _temp_table = self.conn.read_string().await?;
@@ -1393,12 +1404,12 @@ impl Client {
                         self.block_reader.read_block(&mut self.conn).await?;
                 }
                 code if code == ServerCode::Progress as u64 => {
-                    eprintln!("[DEBUG] Received Progress packet");
+                    debug!("Received Progress packet");
                     let _ = self.read_progress().await?;
                 }
                 code if code == ServerCode::ProfileEvents as u64 => {
-                    eprintln!(
-                        "[DEBUG] Received ProfileEvents packet (skipping)"
+                    debug!(
+                        "Received ProfileEvents packet (skipping)"
                     );
                     let _table_name = self.conn.read_string().await?;
                     let uncompressed_reader =
@@ -1407,15 +1418,15 @@ impl Client {
                         uncompressed_reader.read_block(&mut self.conn).await?;
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    eprintln!(
-                        "[DEBUG] Received TableColumns packet (skipping)"
+                    debug!(
+                        "Received TableColumns packet (skipping)"
                     );
                     let _table_name = self.conn.read_string().await?;
                     let _columns_metadata = self.conn.read_string().await?;
                 }
                 code if code == ServerCode::Exception as u64 => {
-                    eprintln!(
-                        "[DEBUG] Server returned exception after sending data"
+                    debug!(
+                        "Server returned exception after sending data"
                     );
                     let exception = self.read_exception().await?;
                     return Err(Error::Protocol(format!(
@@ -1424,7 +1435,7 @@ impl Client {
                     )));
                 }
                 _ => {
-                    eprintln!("[DEBUG] WARNING: Ignoring unexpected packet type: {} - stream may be misaligned", packet_type);
+                    debug!("WARNING: Ignoring unexpected packet type: {} - stream may be misaligned", packet_type);
                 }
             }
         }
@@ -1434,19 +1445,19 @@ impl Client {
 
     /// Ping the server
     pub async fn ping(&mut self) -> Result<()> {
-        eprintln!("[DEBUG] Sending ping...");
+        debug!("Sending ping...");
         self.conn.write_varint(ClientCode::Ping as u64).await?;
         self.conn.flush().await?;
-        eprintln!("[DEBUG] Ping sent, waiting for pong...");
+        debug!("Ping sent, waiting for pong...");
 
         let packet_type = self.conn.read_varint().await?;
-        eprintln!("[DEBUG] Got response packet type: {}", packet_type);
+        debug!("Got response packet type: {}", packet_type);
 
         if packet_type == ServerCode::Pong as u64 {
-            eprintln!("[DEBUG] Pong received!");
+            debug!("Pong received!");
             Ok(())
         } else {
-            eprintln!("[DEBUG] Unexpected packet: {}", packet_type);
+            debug!("Unexpected packet: {}", packet_type);
             Err(Error::Protocol(format!("Expected Pong, got {}", packet_type)))
         }
     }
@@ -1458,10 +1469,10 @@ impl Client {
     /// callback, or when you need to cancel a long-running query from
     /// outside the query execution flow.
     pub async fn cancel(&mut self) -> Result<()> {
-        eprintln!("[DEBUG] Sending cancel...");
+        debug!("Sending cancel...");
         self.conn.write_varint(ClientCode::Cancel as u64).await?;
         self.conn.flush().await?;
-        eprintln!("[DEBUG] Cancel sent");
+        debug!("Cancel sent");
         Ok(())
     }
 

@@ -15,6 +15,7 @@ use crate::{
     Error,
     Result,
 };
+use tracing::debug;
 use bytes::{
     Buf,
     BufMut,
@@ -199,48 +200,70 @@ impl BlockReader {
         self
     }
 
-    /// Read a block from the connection
+    /// Read and decompress a single compressed frame from the connection.
+    async fn read_compressed_frame(
+        &self,
+        conn: &mut Connection,
+    ) -> Result<bytes::Bytes> {
+        let checksum = conn.read_bytes(16).await?;
+        let method = conn.read_u8().await?;
+        let compressed_size = conn.read_u32().await? as usize;
+        let uncompressed_size = conn.read_u32().await?;
+
+        let compressed_data_len = compressed_size.saturating_sub(9);
+        let compressed_data =
+            conn.read_bytes(compressed_data_len).await?;
+
+        let mut full_block =
+            BytesMut::with_capacity(16 + 9 + compressed_data_len);
+        full_block.extend_from_slice(&checksum);
+        full_block.put_u8(method);
+        full_block.put_u32_le(compressed_size as u32);
+        full_block.put_u32_le(uncompressed_size);
+        full_block.extend_from_slice(&compressed_data);
+
+        decompress(&full_block)
+    }
+
+    /// Read a block from the connection.
+    ///
+    /// For compressed connections, ClickHouse may split a single logical
+    /// block across multiple compressed frames (each frame ≤
+    /// max_compress_block_size, typically 1 MB). This method reads frames
+    /// until the accumulated decompressed data forms a complete block.
+    ///
     /// Note: Caller is responsible for skipping temp table name if needed
-    /// (matches C++ ReadBlock)
+    /// (matches C++ ReadBlock / CompressedInput).
     pub async fn read_block(&self, conn: &mut Connection) -> Result<Block> {
-        // Read the block data
-        let block_data = if let Some(_compression_method) = self.compression {
-            // Read compressed data: checksum (16) + header (9) + compressed
-            // data (N) First read checksum
-            let checksum = conn.read_bytes(16).await?;
-
-            // Read header to determine compressed size
-            let method = conn.read_u8().await?;
-            let compressed_size = conn.read_u32().await? as usize;
-            let uncompressed_size = conn.read_u32().await?;
-
-            // Read the remaining compressed data
-            let compressed_data_len = compressed_size.saturating_sub(9);
-            let compressed_data = conn.read_bytes(compressed_data_len).await?;
-
-            // Build the full compressed block for decompression
-            let mut full_block =
-                BytesMut::with_capacity(16 + 9 + compressed_data_len);
-            full_block.extend_from_slice(&checksum);
-            full_block.put_u8(method);
-            full_block.put_u32_le(compressed_size as u32);
-            full_block.put_u32_le(uncompressed_size);
-            full_block.extend_from_slice(&compressed_data);
-
-            // Decompress
-            decompress(&full_block)?
-        } else {
-            // Read uncompressed - we'll read into a buffer as we parse
-            // For now, create an empty buffer and read fields directly
-            BytesMut::new().into()
-        };
-
-        // Parse block from buffer (or read directly if uncompressed)
-        if self.compression.is_some() {
-            self.parse_block_from_buffer(&mut &block_data[..])
-        } else {
-            self.read_block_direct(conn).await
+        if self.compression.is_none() {
+            return self.read_block_direct(conn).await;
         }
+
+        let mut accumulated: Vec<u8> = Vec::new();
+        const MAX_FRAMES: usize = 4096;
+
+        for _ in 0..MAX_FRAMES {
+            let frame = self.read_compressed_frame(conn).await?;
+            accumulated.extend_from_slice(&frame);
+
+            let mut slice: &[u8] = &accumulated;
+            match self.parse_block_from_buffer(&mut slice) {
+                Ok(block) => return Ok(block),
+                Err(e) => {
+                    let msg = e.to_string();
+                    let is_underflow = msg.contains("Not enough data")
+                        || msg.contains("Buffer underflow")
+                        || msg.contains("Unexpected end");
+                    if !is_underflow {
+                        return Err(e);
+                    }
+                }
+            }
+        }
+
+        Err(Error::Protocol(
+            "Compressed block exceeded maximum frame count".to_string(),
+        ))
     }
 
     /// Read block directly from connection (uncompressed)
@@ -699,8 +722,8 @@ impl BlockWriter {
         block: &Block,
         write_temp_table_name: bool,
     ) -> Result<()> {
-        eprintln!(
-            "[DEBUG] Writing block: {} columns, {} rows",
+        debug!(
+            "Writing block: {} columns, {} rows",
             block.column_count(),
             block.row_count()
         );
@@ -709,30 +732,30 @@ impl BlockWriter {
         if write_temp_table_name
             && self.server_revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES
         {
-            eprintln!("[DEBUG] Writing empty temp table name");
+            debug!("Writing empty temp table name");
             conn.write_string("").await?;
         }
 
         // Serialize block to buffer
         let mut buffer = BytesMut::new();
         self.write_block_to_buffer(&mut buffer, block)?;
-        eprintln!("[DEBUG] Block serialized to {} bytes", buffer.len());
+        debug!("Block serialized to {} bytes", buffer.len());
 
         // Compress if needed
         if let Some(compression_method) = self.compression {
             let compressed = compress(compression_method, &buffer)?;
-            eprintln!("[DEBUG] Compressed to {} bytes (includes 16-byte checksum + 9-byte header)", compressed.len());
+            debug!("Compressed to {} bytes (includes 16-byte checksum + 9-byte header)", compressed.len());
             // Compressed data already includes checksum + header, write it
             // directly
             conn.write_bytes(&compressed).await?;
         } else {
             // Write uncompressed
-            eprintln!("[DEBUG] Writing uncompressed block");
+            debug!("Writing uncompressed block");
             conn.write_bytes(&buffer).await?;
         }
 
         conn.flush().await?;
-        eprintln!("[DEBUG] Block write complete");
+        debug!("Block write complete");
         Ok(())
     }
 
