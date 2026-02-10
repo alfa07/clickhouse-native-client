@@ -152,7 +152,8 @@ impl ColumnDecimal {
         self.precision
     }
 
-    /// Returns the scale (digits after the decimal point) of this decimal column.
+    /// Returns the scale (digits after the decimal point) of this decimal
+    /// column.
     pub fn scale(&self) -> usize {
         self.scale
     }

@@ -104,7 +104,8 @@ async fn test_array_date_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
+    let mut id_col =
+        clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let mut nested = ColumnDate::new(Type::date());
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {

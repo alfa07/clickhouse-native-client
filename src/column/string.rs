@@ -55,7 +55,8 @@ pub struct ColumnFixedString {
 }
 
 impl ColumnFixedString {
-    /// Creates a new empty FixedString column, extracting the fixed size from the type.
+    /// Creates a new empty FixedString column, extracting the fixed size from
+    /// the type.
     pub fn new(type_: Type) -> Self {
         let string_size = match &type_ {
             Type::FixedString { size } => *size,
@@ -65,7 +66,8 @@ impl ColumnFixedString {
         Self { type_, string_size, data: Vec::new() }
     }
 
-    /// Creates a new empty FixedString column with pre-allocated capacity for the given number of elements.
+    /// Creates a new empty FixedString column with pre-allocated capacity for
+    /// the given number of elements.
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         let string_size = match &type_ {
             Type::FixedString { size } => *size,
@@ -251,7 +253,8 @@ impl ColumnString {
         Self { type_, data: Vec::new() }
     }
 
-    /// Creates a new empty String column with pre-allocated capacity for the given number of elements.
+    /// Creates a new empty String column with pre-allocated capacity for the
+    /// given number of elements.
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         Self { type_, data: Vec::with_capacity(capacity) }
     }
@@ -272,7 +275,8 @@ impl ColumnString {
         self.data.push(s.into());
     }
 
-    /// Returns a reference to the string at the given index, or `None` if out of bounds.
+    /// Returns a reference to the string at the given index, or `None` if out
+    /// of bounds.
     pub fn get(&self, index: usize) -> Option<&str> {
         self.data.get(index).map(|s| s.as_str())
     }

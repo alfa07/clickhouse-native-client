@@ -203,8 +203,9 @@ async fn test_database_does_not_exist() {
             println!("Connection succeeded, testing query...");
 
             // Try a simple query - this should fail
-            let query_result =
-                client.query(clickhouse_native_client::Query::new("SELECT 1")).await;
+            let query_result = client
+                .query(clickhouse_native_client::Query::new("SELECT 1"))
+                .await;
 
             match query_result {
                 Err(e) => {

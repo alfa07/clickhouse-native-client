@@ -1509,7 +1509,8 @@ impl Client {
     }
 }
 
-/// Result of a `SELECT` query, containing data blocks and progress information.
+/// Result of a `SELECT` query, containing data blocks and progress
+/// information.
 pub struct QueryResult {
     /// Result blocks
     pub blocks: Vec<Block>,

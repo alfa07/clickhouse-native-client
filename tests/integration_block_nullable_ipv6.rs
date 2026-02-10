@@ -114,7 +114,8 @@ async fn test_nullable_ipv6_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
+    let mut id_col =
+        clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let nullable_type = Type::nullable(Type::ipv6());
     let mut nullable_col = ColumnNullable::new(nullable_type);
 

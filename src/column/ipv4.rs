@@ -35,7 +35,8 @@ impl ColumnIpv4 {
         self
     }
 
-    /// Append an IPv4 address parsed from a dotted-decimal string like `"192.168.1.1"`.
+    /// Append an IPv4 address parsed from a dotted-decimal string like
+    /// `"192.168.1.1"`.
     ///
     /// # Errors
     ///

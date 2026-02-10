@@ -105,7 +105,8 @@ async fn test_enum16_block_insert_boundary() {
         [("Min value", -32768), ("Zero value", 0), ("Max value", 32767)];
 
     let mut block = Block::new();
-    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
+    let mut id_col =
+        clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let mut val_col = ColumnEnum16::new(enum_type.clone());
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {
