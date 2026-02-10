@@ -2,8 +2,6 @@
 
 [![CI](https://github.com/alfa07/clickhouse-native-client/workflows/CI/badge.svg)](https://github.com/alfa07/clickhouse-native-client/actions)
 
-🤡 ⚠️ **Do not use in production! This is me clowning around with Claude Code**
-
 A native Rust client for ClickHouse database, converted from the C++ clickhouse-cpp library.
 
 ## Features
@@ -16,9 +14,16 @@ A native Rust client for ClickHouse database, converted from the C++ clickhouse-
 - ✅ Query execution and data insertion
 - ✅ Comprehensive test coverage (84+ unit tests)
 
+## Production Readiness Status
+
+Most of codebase is created by asking Claude to convert cpp version of clickhouse_client.
+Although the client is already used to ingest TiBs of data a day and relatively well covered by the unit tests
+there may be embarrassing bugs. Test your use case before committing.
+
 ## Architecture
 
 **Async-at-Boundaries Design:**
+
 - **Sync Core**: All data structures (types, columns, blocks, compression)
 - **Async Boundary**: Connection wrapper + BlockReader/BlockWriter
 - **Public API**: Async Client interface
@@ -69,11 +74,13 @@ tokio = { version = "1", features = ["full"] }
 ### Running Tests
 
 **Unit tests only:**
+
 ```bash
 cargo test --lib
 ```
 
 **Integration tests (requires ClickHouse):**
+
 ```bash
 # Start ClickHouse in Docker
 just start-db
@@ -126,6 +133,7 @@ just cli                # Open ClickHouse CLI client
 ## Integration Tests
 
 The integration test suite covers:
+
 - Connection and ping
 - Database creation
 - Table creation with String, UInt64, Float64 columns
@@ -135,11 +143,13 @@ The integration test suite covers:
 - Cleanup operations
 
 Run with:
+
 ```bash
 just test-all
 ```
 
 Or manually:
+
 ```bash
 # Start ClickHouse
 docker-compose up -d
@@ -223,6 +233,7 @@ certs/
 ```
 
 **Certificate Details:**
+
 - **Validity**: 10 years (testing only!)
 - **Algorithm**: RSA 4096-bit
 - **Server CN**: localhost
@@ -232,6 +243,7 @@ certs/
 ### Manual TLS Testing
 
 Start TLS server manually:
+
 ```bash
 # Generate certificates if not already done
 just generate-certs
@@ -277,6 +289,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Troubleshooting TLS
 
 **Connection refused:**
+
 ```bash
 # Check if TLS server is running
 docker ps | grep clickhouse-server-tls
@@ -289,6 +302,7 @@ ls -la certs/ca/ca-cert.pem certs/server/server-cert.pem
 ```
 
 **Certificate errors:**
+
 ```bash
 # Regenerate certificates
 just clean-certs
@@ -297,6 +311,7 @@ just start-db-tls
 ```
 
 **Port conflicts:**
+
 ```bash
 # Check if port 9440 is in use
 lsof -i :9440
@@ -338,6 +353,7 @@ justfile              # Task runner scripts
 ## Type Support
 
 Currently supported ClickHouse types:
+
 - Numeric: UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64, Float32, Float64
 - String: String, FixedString(N)
 - Nullable: Nullable(T)
@@ -351,6 +367,7 @@ This project is a Rust port of the clickhouse-cpp C++ library.
 ## Contributing
 
 Contributions are welcome! Please ensure:
+
 1. All unit tests pass: `cargo test --lib`
 2. Integration tests pass: `just test-all`
 3. Code is formatted: `just fmt`
