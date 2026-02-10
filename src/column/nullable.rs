@@ -147,8 +147,8 @@ impl ColumnNullable {
     /// Get a reference to the nested column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let col: ColumnNullable = ...;
+    /// ```ignore
+    /// let col: ColumnNullable = /* ... */;
     /// let nested: &ColumnUInt32 = col.nested();
     /// ```
     pub fn nested<T: Column + 'static>(&self) -> &T {
@@ -161,8 +161,8 @@ impl ColumnNullable {
     /// Get mutable reference to the nested column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let mut col: ColumnNullable = ...;
+    /// ```ignore
+    /// let mut col: ColumnNullable = /* ... */;
     /// let nested_mut: &mut ColumnUInt32 = col.nested_mut();
     /// ```
     pub fn nested_mut<T: Column + 'static>(&mut self) -> &mut T {
@@ -173,7 +173,7 @@ impl ColumnNullable {
             .expect("Failed to downcast nested column to requested type")
     }
 
-    /// Get the nested column as a ColumnRef (Arc<dyn Column>)
+    /// Get the nested column as a `ColumnRef` (`Arc<dyn Column>`)
     pub fn nested_ref(&self) -> ColumnRef {
         self.nested.clone()
     }

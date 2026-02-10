@@ -44,17 +44,29 @@ struct Token<'a> {
 /// Mirrors C++ `TypeAst::Meta`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeMeta {
+    /// Variable-length array type (`Array(T)`).
     Array,
+    /// Assignment expression (used in Enum definitions).
     Assign,
+    /// Null literal.
     Null,
+    /// Nullable wrapper type (`Nullable(T)`).
     Nullable,
+    /// Numeric literal (e.g. precision, scale, fixed string size).
     Number,
+    /// String literal.
     String,
+    /// Terminal (leaf) type with no parameters (e.g. `Int32`, `UUID`).
     Terminal,
+    /// Tuple type (`Tuple(T1, T2, ...)`).
     Tuple,
+    /// Enum type (`Enum8` or `Enum16`).
     Enum,
+    /// Dictionary-encoded type (`LowCardinality(T)`).
     LowCardinality,
+    /// Simple aggregate function type.
     SimpleAggregateFunction,
+    /// Key-value map type (`Map(K, V)`).
     Map,
 }
 

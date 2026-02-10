@@ -1,3 +1,15 @@
+//! LZ4 and ZSTD block compression for the ClickHouse native protocol.
+//!
+//! Each compressed frame has the following wire format:
+//!
+//! ```text
+//! [16 bytes CityHash128 checksum][1 byte method][4 bytes compressed_size][4 bytes uncompressed_size][compressed data]
+//! ```
+//!
+//! The `compress` function produces a complete frame (checksum + header + data).
+//! The `decompress` function accepts a complete frame and returns the
+//! uncompressed payload.
+
 use crate::{
     protocol::CompressionMethod,
     Error,
@@ -29,7 +41,14 @@ enum CompressionMethodByte {
 /// Maximum compressed block size (1GB)
 const MAX_COMPRESSED_SIZE: usize = 0x40000000;
 
-/// Compress data using the specified method
+/// Compress data using the specified method.
+///
+/// Returns a complete compressed frame including CityHash128 checksum,
+/// compression header, and compressed payload.
+///
+/// # Errors
+///
+/// Returns `Error::Compression` if the underlying LZ4 or ZSTD encoder fails.
 pub fn compress(method: CompressionMethod, data: &[u8]) -> Result<Bytes> {
     match method {
         CompressionMethod::None => {
@@ -41,7 +60,18 @@ pub fn compress(method: CompressionMethod, data: &[u8]) -> Result<Bytes> {
     }
 }
 
-/// Decompress data (auto-detects compression method from header)
+/// Decompress data (auto-detects compression method from header).
+///
+/// Expects a complete compressed frame: checksum + header + payload.
+/// The compression method is detected from the header byte.
+///
+/// # Errors
+///
+/// Returns `Error::Compression` if:
+/// - The data is too small for the checksum and header.
+/// - The compressed or uncompressed size exceeds 1 GB.
+/// - The compression method byte is unrecognized.
+/// - The underlying LZ4 or ZSTD decoder fails.
 pub fn decompress(data: &[u8]) -> Result<Bytes> {
     if data.len() < CHECKSUM_SIZE + HEADER_SIZE {
         return Err(Error::Compression(

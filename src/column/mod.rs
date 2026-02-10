@@ -37,21 +37,37 @@
 //! - [ClickHouse Issue #42456](https://github.com/ClickHouse/ClickHouse/issues/42456)
 //!   - LowCardinality cannot be inside Nullable
 
+/// Array column type (`Array(T)`).
 pub mod array;
+/// Column value extraction and insertion helpers.
 pub mod column_value;
+/// Date and DateTime column types.
 pub mod date;
+/// Decimal column types (`Decimal32`, `Decimal64`, `Decimal128`).
 pub mod decimal;
+/// Enum8 and Enum16 column types.
 pub mod enum_column;
+/// Geo type helpers (Point, Ring, Polygon, MultiPolygon).
 pub mod geo;
+/// IPv4 column type.
 pub mod ipv4;
+/// IPv6 column type.
 pub mod ipv6;
+/// LowCardinality column type (dictionary encoding).
 pub mod lowcardinality;
+/// Map column type (`Map(K, V)`).
 pub mod map;
+/// Nothing/Void column type.
 pub mod nothing;
+/// Nullable column type (`Nullable(T)`).
 pub mod nullable;
+/// Numeric column types (integers, floats, bool).
 pub mod numeric;
+/// String and FixedString column types.
 pub mod string;
+/// Tuple column type (`Tuple(T1, T2, ...)`).
 pub mod tuple;
+/// UUID column type.
 pub mod uuid;
 
 // Re-export column types for easier access
@@ -169,12 +185,14 @@ pub trait ColumnTyped<T>: Column {
     fn append(&mut self, value: T);
 }
 
-/// Trait for columns that support iteration
+/// Trait for columns that support iteration over their values.
 pub trait ColumnIter<T> {
+    /// The iterator type returned by [`iter`](Self::iter).
     type Iter<'a>: Iterator<Item = T>
     where
         Self: 'a;
 
+    /// Returns an iterator over the column values.
     fn iter(&self) -> Self::Iter<'_>;
 }
 

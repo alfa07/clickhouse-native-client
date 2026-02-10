@@ -1,12 +1,14 @@
-/// Geo column types are wrappers around existing column types
-/// - Point: Tuple(Float64, Float64)
-/// - Ring: Array(Point)
-/// - Polygon: Array(Ring)
-/// - MultiPolygon: Array(Polygon)
-///
-/// These types use the existing ColumnTuple and ColumnArray
-/// implementations with specific type constraints. No separate column
-/// implementation is needed.
+//! Geo type helpers for ClickHouse geo column types.
+//!
+//! - **Point:** `Tuple(Float64, Float64)`
+//! - **Ring:** `Array(Point)`
+//! - **Polygon:** `Array(Ring)`
+//! - **MultiPolygon:** `Array(Polygon)`
+//!
+//! These types reuse the existing `ColumnTuple` and `ColumnArray`
+//! implementations with specific type constraints. No separate column struct
+//! is needed.
+
 use crate::types::{
     Type,
     TypeCode,

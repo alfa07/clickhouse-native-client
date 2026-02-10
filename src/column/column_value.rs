@@ -17,20 +17,23 @@ use std::{
     sync::Arc,
 };
 
-/// A value from a column, stored as bytes with type information
-/// Similar to C++ ItemView but owned
+/// A value from a column, stored as little-endian bytes with type information.
+/// Similar to C++ clickhouse-cpp's `ItemView` but owned.
 #[derive(Clone, Debug)]
 pub struct ColumnValue {
+    /// The ClickHouse type code for this value.
     pub type_code: TypeCode,
+    /// The raw little-endian byte representation of the value.
     pub data: Vec<u8>,
 }
 
 impl ColumnValue {
-    /// Create from primitive types
+    /// Create a `UInt8` value.
     pub fn from_u8(value: u8) -> Self {
         Self { type_code: TypeCode::UInt8, data: value.to_le_bytes().to_vec() }
     }
 
+    /// Create a `UInt16` value.
     pub fn from_u16(value: u16) -> Self {
         Self {
             type_code: TypeCode::UInt16,
@@ -38,6 +41,7 @@ impl ColumnValue {
         }
     }
 
+    /// Create a `UInt32` value.
     pub fn from_u32(value: u32) -> Self {
         Self {
             type_code: TypeCode::UInt32,
@@ -45,6 +49,7 @@ impl ColumnValue {
         }
     }
 
+    /// Create a `UInt64` value.
     pub fn from_u64(value: u64) -> Self {
         Self {
             type_code: TypeCode::UInt64,
@@ -52,22 +57,27 @@ impl ColumnValue {
         }
     }
 
+    /// Create an `Int8` value.
     pub fn from_i8(value: i8) -> Self {
         Self { type_code: TypeCode::Int8, data: value.to_le_bytes().to_vec() }
     }
 
+    /// Create an `Int16` value.
     pub fn from_i16(value: i16) -> Self {
         Self { type_code: TypeCode::Int16, data: value.to_le_bytes().to_vec() }
     }
 
+    /// Create an `Int32` value.
     pub fn from_i32(value: i32) -> Self {
         Self { type_code: TypeCode::Int32, data: value.to_le_bytes().to_vec() }
     }
 
+    /// Create an `Int64` value.
     pub fn from_i64(value: i64) -> Self {
         Self { type_code: TypeCode::Int64, data: value.to_le_bytes().to_vec() }
     }
 
+    /// Create a `Float32` value.
     pub fn from_f32(value: f32) -> Self {
         Self {
             type_code: TypeCode::Float32,
@@ -75,6 +85,7 @@ impl ColumnValue {
         }
     }
 
+    /// Create a `Float64` value.
     pub fn from_f64(value: f64) -> Self {
         Self {
             type_code: TypeCode::Float64,
@@ -82,10 +93,12 @@ impl ColumnValue {
         }
     }
 
+    /// Create a `String` value.
     pub fn from_string(value: &str) -> Self {
         Self { type_code: TypeCode::String, data: value.as_bytes().to_vec() }
     }
 
+    /// Create a Void/NULL value with no data.
     pub fn void() -> Self {
         Self { type_code: TypeCode::Void, data: Vec::new() }
     }

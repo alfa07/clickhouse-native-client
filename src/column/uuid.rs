@@ -1,3 +1,9 @@
+//! UUID column implementation.
+//!
+//! UUIDs are stored as 128-bit values (two `u64` fields) in the ClickHouse
+//! native wire format. Supports parsing and formatting in the standard
+//! `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` format.
+
 use super::{
     Column,
     ColumnRef,
@@ -10,19 +16,27 @@ use crate::{
 use bytes::BytesMut;
 use std::sync::Arc;
 
-/// UUID value stored as 128 bits (2x u64)
+/// UUID value stored as 128 bits (two `u64` halves).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Uuid {
+    /// Upper 64 bits of the UUID.
     pub high: u64,
+    /// Lower 64 bits of the UUID.
     pub low: u64,
 }
 
 impl Uuid {
+    /// Create a UUID from its high and low 64-bit halves.
     pub fn new(high: u64, low: u64) -> Self {
         Self { high, low }
     }
 
-    /// Parse UUID from string format: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    /// Parse UUID from string format `"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string is not exactly 32 hex digits (with or
+    /// without dashes) or contains invalid hex characters.
     pub fn parse(s: &str) -> Result<Self> {
         let s = s.replace("-", "");
         if s.len() != 32 {
@@ -61,44 +75,52 @@ impl std::fmt::Display for Uuid {
     }
 }
 
-/// Column for UUID type (stored as 2x UInt64)
+/// Column for UUID type (stored as two `u64` values per row).
 pub struct ColumnUuid {
     type_: Type,
     data: Vec<Uuid>,
 }
 
 impl ColumnUuid {
+    /// Create a new empty UUID column.
     pub fn new(type_: Type) -> Self {
         Self { type_, data: Vec::new() }
     }
 
+    /// Set the column data from a vector of [`Uuid`] values.
     pub fn with_data(mut self, data: Vec<Uuid>) -> Self {
         self.data = data;
         self
     }
 
+    /// Append a [`Uuid`] value to this column.
     pub fn append(&mut self, value: Uuid) {
         self.data.push(value);
     }
 
+    /// Append a UUID parsed from a string.
     pub fn append_from_string(&mut self, s: &str) -> Result<()> {
         let uuid = Uuid::parse(s)?;
         self.data.push(uuid);
         Ok(())
     }
 
+    /// Get the UUID value at the given index.
     pub fn at(&self, index: usize) -> Uuid {
         self.data[index]
     }
 
+    /// Format the UUID at the given index as a string.
     pub fn as_string(&self, index: usize) -> String {
         self.data[index].as_string()
     }
 
+    /// Returns the number of values in this column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns `true` if the column contains no values.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }

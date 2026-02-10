@@ -199,7 +199,11 @@ impl ClientOptions {
     }
 }
 
-/// ClickHouse client
+/// Async ClickHouse client using the native TCP protocol.
+///
+/// Create a client by calling [`Client::connect`] with [`ClientOptions`].
+/// The client holds a single TCP connection and is not `Clone`; for
+/// concurrent access, create multiple client instances.
 pub struct Client {
     conn: Connection,
     server_info: ServerInfo,
@@ -1505,7 +1509,7 @@ impl Client {
     }
 }
 
-/// Query result
+/// Result of a `SELECT` query, containing data blocks and progress information.
 pub struct QueryResult {
     /// Result blocks
     pub blocks: Vec<Block>,

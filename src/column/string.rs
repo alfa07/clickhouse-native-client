@@ -55,6 +55,7 @@ pub struct ColumnFixedString {
 }
 
 impl ColumnFixedString {
+    /// Creates a new empty FixedString column, extracting the fixed size from the type.
     pub fn new(type_: Type) -> Self {
         let string_size = match &type_ {
             Type::FixedString { size } => *size,
@@ -64,6 +65,7 @@ impl ColumnFixedString {
         Self { type_, string_size, data: Vec::new() }
     }
 
+    /// Creates a new empty FixedString column with pre-allocated capacity for the given number of elements.
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         let string_size = match &type_ {
             Type::FixedString { size } => *size,
@@ -85,6 +87,7 @@ impl ColumnFixedString {
         self
     }
 
+    /// Appends a string value, zero-padding it to the fixed size.
     pub fn append(&mut self, s: String) {
         let bytes = s.as_bytes();
 
@@ -106,6 +109,7 @@ impl ColumnFixedString {
         }
     }
 
+    /// Returns the string at the given index, or `None` if out of bounds.
     pub fn get(&self, index: usize) -> Option<String> {
         if index >= self.size() {
             return None;
@@ -136,6 +140,7 @@ impl ColumnFixedString {
         self.data.is_empty()
     }
 
+    /// Returns the fixed byte size of each element in the column.
     pub fn fixed_size(&self) -> usize {
         self.string_size
     }
@@ -241,14 +246,17 @@ pub struct ColumnString {
 }
 
 impl ColumnString {
+    /// Creates a new empty String column with the given type.
     pub fn new(type_: Type) -> Self {
         Self { type_, data: Vec::new() }
     }
 
+    /// Creates a new empty String column with pre-allocated capacity for the given number of elements.
     pub fn with_capacity(type_: Type, capacity: usize) -> Self {
         Self { type_, data: Vec::with_capacity(capacity) }
     }
 
+    /// Creates a String column from an existing vector of strings.
     pub fn from_vec(type_: Type, data: Vec<String>) -> Self {
         Self { type_, data }
     }
@@ -259,10 +267,12 @@ impl ColumnString {
         self
     }
 
+    /// Appends a string value to the column.
     pub fn append(&mut self, s: impl Into<String>) {
         self.data.push(s.into());
     }
 
+    /// Returns a reference to the string at the given index, or `None` if out of bounds.
     pub fn get(&self, index: usize) -> Option<&str> {
         self.data.get(index).map(|s| s.as_str())
     }
@@ -282,6 +292,7 @@ impl ColumnString {
         self.data.is_empty()
     }
 
+    /// Returns an iterator over the string values in the column.
     pub fn iter(&self) -> impl Iterator<Item = &str> {
         self.data.iter().map(|s| s.as_str())
     }

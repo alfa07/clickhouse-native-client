@@ -10,10 +10,12 @@ use crate::{
 };
 use std::sync::Arc;
 
-/// Block metadata
+/// Block metadata used by ClickHouse for distributed query processing.
 #[derive(Debug, Clone, Default)]
 pub struct BlockInfo {
+    /// Whether this block is an overflow block (1 = yes, 0 = no).
     pub is_overflows: u8,
+    /// Bucket number for distributed GROUP BY (-1 if not applicable).
     pub bucket_num: i32,
 }
 

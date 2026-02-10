@@ -100,7 +100,7 @@ pub fn write_string(buffer: &mut BytesMut, s: &str) {
     buffer.put_slice(s.as_bytes());
 }
 
-/// Write a varint to a raw Vec<u8> (convenience for tests)
+/// Write a varint to a raw `Vec<u8>` (convenience for tests)
 pub fn write_varint_to_vec(buf: &mut Vec<u8>, mut value: u64) {
     loop {
         let mut byte = (value & 0x7F) as u8;

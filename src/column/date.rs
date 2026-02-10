@@ -59,10 +59,12 @@ pub struct ColumnDate {
 }
 
 impl ColumnDate {
+    /// Creates a new empty Date column with the given type.
     pub fn new(type_: Type) -> Self {
         Self { type_, data: Arc::new(super::ColumnUInt16::new()) }
     }
 
+    /// Returns a new column populated with the given days-since-epoch values.
     pub fn with_data(mut self, data: Vec<u16>) -> Self {
         self.data =
             Arc::new(super::ColumnUInt16::from_vec(Type::uint16(), data));
@@ -92,10 +94,12 @@ impl ColumnDate {
         self.data.at(index) as i64 * SECONDS_PER_DAY
     }
 
+    /// Returns the number of elements in the column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns true if the column contains no elements.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -206,10 +210,12 @@ pub struct ColumnDate32 {
 }
 
 impl ColumnDate32 {
+    /// Creates a new empty Date32 column with the given type.
     pub fn new(type_: Type) -> Self {
         Self { type_, data: Arc::new(super::ColumnInt32::new()) }
     }
 
+    /// Returns a new column populated with the given days-since-epoch values.
     pub fn with_data(mut self, data: Vec<i32>) -> Self {
         self.data =
             Arc::new(super::ColumnInt32::from_vec(Type::int32(), data));
@@ -239,10 +245,12 @@ impl ColumnDate32 {
         self.data.at(index) as i64 * SECONDS_PER_DAY
     }
 
+    /// Returns the number of elements in the column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns true if the column contains no elements.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -353,6 +361,7 @@ pub struct ColumnDateTime {
 }
 
 impl ColumnDateTime {
+    /// Creates a new empty DateTime column, extracting timezone from the type.
     pub fn new(type_: Type) -> Self {
         let timezone = match &type_ {
             Type::DateTime { timezone } => timezone.clone(),
@@ -362,6 +371,7 @@ impl ColumnDateTime {
         Self { type_, data: Arc::new(super::ColumnUInt32::new()), timezone }
     }
 
+    /// Returns a new column populated with the given Unix timestamp values.
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
         self.data =
             Arc::new(super::ColumnUInt32::from_vec(Type::uint32(), data));
@@ -385,10 +395,12 @@ impl ColumnDateTime {
         self.timezone.as_deref()
     }
 
+    /// Returns the number of elements in the column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns true if the column contains no elements.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -500,6 +512,7 @@ pub struct ColumnDateTime64 {
 }
 
 impl ColumnDateTime64 {
+    /// Creates a new empty DateTime64 column, extracting precision and timezone from the type.
     pub fn new(type_: Type) -> Self {
         let (precision, timezone) = match &type_ {
             Type::DateTime64 { precision, timezone } => {
@@ -516,6 +529,7 @@ impl ColumnDateTime64 {
         }
     }
 
+    /// Returns a new column populated with the given sub-second timestamp values.
     pub fn with_data(mut self, data: Vec<i64>) -> Self {
         self.data =
             Arc::new(super::ColumnInt64::from_vec(Type::int64(), data));
@@ -545,10 +559,12 @@ impl ColumnDateTime64 {
         self.timezone.as_deref()
     }
 
+    /// Returns the number of elements in the column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns true if the column contains no elements.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }

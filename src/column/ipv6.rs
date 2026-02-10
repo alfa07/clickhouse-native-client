@@ -24,17 +24,24 @@ pub struct ColumnIpv6 {
 }
 
 impl ColumnIpv6 {
+    /// Create a new empty IPv6 column.
     pub fn new(type_: Type) -> Self {
         Self { type_, data: Vec::new() }
     }
 
+    /// Set the column data from a vector of 16-byte arrays.
     pub fn with_data(mut self, data: Vec<[u8; 16]>) -> Self {
         self.data = data;
         self
     }
 
-    /// Append IPv6 from string (supports compressed format)
-    /// Examples: "2001:0db8:85a3:0000:0000:8a2e:0370:7334", "::1", "fe80::1"
+    /// Append an IPv6 address parsed from a string.
+    ///
+    /// Supports both full and compressed formats (e.g., `"::1"`, `"fe80::1"`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string is not a valid IPv6 address.
     pub fn append_from_string(&mut self, s: &str) -> Result<()> {
         let bytes = parse_ipv6(s)?;
         self.data.push(bytes);
@@ -56,10 +63,12 @@ impl ColumnIpv6 {
         format_ipv6(&self.data[index])
     }
 
+    /// Returns the number of values in this column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns `true` if the column contains no values.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }

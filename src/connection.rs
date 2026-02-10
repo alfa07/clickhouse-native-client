@@ -429,30 +429,37 @@ impl Connection {
         Ok(self.reader.read_u8().await?)
     }
 
+    /// Read a little-endian u16
     pub async fn read_u16(&mut self) -> Result<u16> {
         Ok(self.reader.read_u16_le().await?)
     }
 
+    /// Read a little-endian u32
     pub async fn read_u32(&mut self) -> Result<u32> {
         Ok(self.reader.read_u32_le().await?)
     }
 
+    /// Read a little-endian u64
     pub async fn read_u64(&mut self) -> Result<u64> {
         Ok(self.reader.read_u64_le().await?)
     }
 
+    /// Read a signed i8
     pub async fn read_i8(&mut self) -> Result<i8> {
         Ok(self.reader.read_i8().await?)
     }
 
+    /// Read a little-endian i16
     pub async fn read_i16(&mut self) -> Result<i16> {
         Ok(self.reader.read_i16_le().await?)
     }
 
+    /// Read a little-endian i32
     pub async fn read_i32(&mut self) -> Result<i32> {
         Ok(self.reader.read_i32_le().await?)
     }
 
+    /// Read a little-endian i64
     pub async fn read_i64(&mut self) -> Result<i64> {
         Ok(self.reader.read_i64_le().await?)
     }
@@ -462,34 +469,42 @@ impl Connection {
         Ok(self.writer.write_u8(value).await?)
     }
 
+    /// Write a little-endian u16
     pub async fn write_u16(&mut self, value: u16) -> Result<()> {
         Ok(self.writer.write_u16_le(value).await?)
     }
 
+    /// Write a little-endian u32
     pub async fn write_u32(&mut self, value: u32) -> Result<()> {
         Ok(self.writer.write_u32_le(value).await?)
     }
 
+    /// Write a little-endian u64
     pub async fn write_u64(&mut self, value: u64) -> Result<()> {
         Ok(self.writer.write_u64_le(value).await?)
     }
 
+    /// Write a little-endian u128
     pub async fn write_u128(&mut self, value: u128) -> Result<()> {
         Ok(self.writer.write_u128_le(value).await?)
     }
 
+    /// Write a signed i8
     pub async fn write_i8(&mut self, value: i8) -> Result<()> {
         Ok(self.writer.write_i8(value).await?)
     }
 
+    /// Write a little-endian i16
     pub async fn write_i16(&mut self, value: i16) -> Result<()> {
         Ok(self.writer.write_i16_le(value).await?)
     }
 
+    /// Write a little-endian i32
     pub async fn write_i32(&mut self, value: i32) -> Result<()> {
         Ok(self.writer.write_i32_le(value).await?)
     }
 
+    /// Write a little-endian i64
     pub async fn write_i64(&mut self, value: i64) -> Result<()> {
         Ok(self.writer.write_i64_le(value).await?)
     }
