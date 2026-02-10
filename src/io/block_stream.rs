@@ -15,13 +15,13 @@ use crate::{
     Error,
     Result,
 };
-use tracing::debug;
 use bytes::{
     Buf,
     BufMut,
     BytesMut,
 };
 use std::sync::Arc;
+use tracing::debug;
 
 /// Minimum revision constants
 const DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES: u64 = 50264;
@@ -211,8 +211,7 @@ impl BlockReader {
         let uncompressed_size = conn.read_u32().await?;
 
         let compressed_data_len = compressed_size.saturating_sub(9);
-        let compressed_data =
-            conn.read_bytes(compressed_data_len).await?;
+        let compressed_data = conn.read_bytes(compressed_data_len).await?;
 
         let mut full_block =
             BytesMut::with_capacity(16 + 9 + compressed_data_len);
