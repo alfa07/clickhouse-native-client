@@ -10,7 +10,6 @@ use common::{
     cleanup_test_database,
     create_isolated_test_client,
 };
-use proptest::prelude::*;
 use std::sync::Arc;
 
 #[tokio::test]

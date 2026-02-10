@@ -6,7 +6,6 @@ use clickhouse_client::{
         array::ColumnArray,
         numeric::ColumnInt64,
     },
-    types::Type,
     Block,
 };
 use common::{

@@ -3,7 +3,6 @@ mod common;
 
 use clickhouse_client::{
     column::numeric::ColumnInt16,
-    types::Type,
     Block,
 };
 use common::{

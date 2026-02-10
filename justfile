@@ -3,7 +3,7 @@
 # Start ClickHouse in Docker
 start-db:
     @echo "Starting ClickHouse container..."
-    docker-compose up -d clickhouse
+    docker compose up -d clickhouse
     @echo "Waiting for ClickHouse to be ready..."
     @sleep 5
     @echo "ClickHouse is ready on localhost:9000"
@@ -11,7 +11,7 @@ start-db:
 # Stop ClickHouse container
 stop-db:
     @echo "Stopping ClickHouse container..."
-    docker-compose down clickhouse
+    docker compose down clickhouse
 
 # Generate TLS certificates for testing
 generate-certs:
@@ -27,7 +27,7 @@ start-db-tls:
         just generate-certs; \
     fi
     @echo "Starting TLS-enabled ClickHouse container..."
-    docker-compose up -d clickhouse-tls
+    docker compose up -d clickhouse-tls
     @echo "Waiting for ClickHouse TLS to be ready..."
     @sleep 5
     @echo "ClickHouse TLS is ready on localhost:9440"
@@ -35,7 +35,7 @@ start-db-tls:
 # Stop TLS ClickHouse container
 stop-db-tls:
     @echo "Stopping TLS ClickHouse container..."
-    docker-compose down clickhouse-tls
+    docker compose down clickhouse-tls
 
 # Start both standard and TLS ClickHouse servers
 start-db-all:
@@ -47,19 +47,19 @@ start-db-all:
 # Stop both servers
 stop-db-all:
     @echo "Stopping all ClickHouse containers..."
-    docker-compose down
+    docker compose down
 
 # Clean up containers and volumes
 clean:
     @echo "Cleaning up ClickHouse containers and volumes..."
-    docker-compose down -v
+    docker compose down -v
     @rm -rf clickhouse-data clickhouse-data-tls
 
 # Clean TLS artifacts (certificates and data)
 clean-tls:
     @echo "Cleaning up TLS data..."
     @rm -rf clickhouse-data-tls
-    docker-compose down -v clickhouse-tls
+    docker compose down -v clickhouse-tls
 
 # Clean certificates (will need to regenerate)
 clean-certs:
@@ -126,7 +126,7 @@ clippy:
 
 # View ClickHouse logs
 logs:
-    docker-compose logs -f clickhouse
+    docker compose logs -f clickhouse
 
 # Open ClickHouse client (for manual testing)
 cli:

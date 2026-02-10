@@ -4,12 +4,8 @@ mod common;
 
 use clickhouse_client::{
     column::{
-        array::ColumnArray,
-        ipv4::ColumnIpv4,
-        ipv6::ColumnIpv6,
         nullable::ColumnNullable,
         string::ColumnString,
-        tuple::ColumnTuple,
     },
     types::Type,
     Block,
@@ -18,13 +14,7 @@ use common::{
     cleanup_test_database,
     create_isolated_test_client,
 };
-use std::{
-    net::{
-        Ipv4Addr,
-        Ipv6Addr,
-    },
-    sync::Arc,
-};
+use std::sync::Arc;
 
 // ============================================================================
 // Nullable(String)
