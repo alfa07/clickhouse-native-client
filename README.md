@@ -10,9 +10,9 @@ A native Rust client for ClickHouse database, converted from the C++ clickhouse-
 - ✅ Native TCP protocol implementation
 - ✅ LZ4 and ZSTD compression support
 - ✅ Type-safe column operations
-- ✅ Support for String, numeric (UInt8-64, Int8-64, Float32/64), Nullable, and Array types
+- ✅ Comprehensive type support: String, FixedString, all numeric types (UInt8-128, Int8-128, Float32/64), Nullable, Array, LowCardinality, Date/DateTime/DateTime64, Decimal, UUID, IPv4, IPv6, Enum8/16, Tuple, Map, and Geo types
 - ✅ Query execution and data insertion
-- ✅ Comprehensive test coverage (84+ unit tests)
+- ✅ Comprehensive test coverage (490+ tests: 188 unit + 305 integration)
 
 ## Production Readiness Status
 
@@ -98,49 +98,58 @@ just stop-db
 ### Available Just Commands
 
 ```bash
-just --list              # Show all available commands
+just help                # Show all available commands
 
 # Standard Database Commands
-just start-db           # Start ClickHouse in Docker (port 9000)
-just stop-db            # Stop ClickHouse container
-just clean              # Clean up containers and volumes
+just start-db            # Start ClickHouse in Docker (port 9000)
+just stop-db             # Stop ClickHouse container
+just clean               # Clean up containers and volumes
 
 # TLS Database Commands
-just generate-certs     # Generate test certificates for TLS
-just start-db-tls       # Start TLS-enabled ClickHouse (port 9440)
-just stop-db-tls        # Stop TLS ClickHouse container
-just start-db-all       # Start both standard and TLS servers
-just stop-db-all        # Stop all servers
-just clean-tls          # Clean TLS data only
-just clean-certs        # Remove generated certificates
+just generate-certs      # Generate test certificates for TLS
+just start-db-tls        # Start TLS-enabled ClickHouse (port 9440)
+just stop-db-tls         # Stop TLS ClickHouse container
+just start-db-all        # Start both standard and TLS servers
+just stop-db-all         # Stop all servers
+just clean-tls           # Clean TLS data only
+just clean-certs         # Remove generated certificates
 
 # Testing Commands
-just test               # Run unit tests only
-just test-integration   # Run integration tests (non-TLS)
-just test-tls           # Run TLS integration tests
-just test-all           # Run all tests (unit + integration, no TLS)
-just test-all-with-tls  # Run ALL tests including TLS
+just test                # Run unit tests only
+just test-integration    # Run integration tests (non-TLS)
+just test-tls            # Run TLS integration tests
+just test-all            # Run all tests (unit + integration, no TLS)
+just test-all-with-tls   # Run ALL tests including TLS
 
 # Development Commands
-just build              # Build the project
-just build-release      # Build release version
-just clippy             # Run clippy linter
-just fmt                # Format code
-just logs               # View ClickHouse logs
-just cli                # Open ClickHouse CLI client
+just build               # Build the project
+just build-release       # Build release version
+just check               # Fast check without building
+just clippy              # Run clippy linter
+just fmt                 # Format code
+just logs                # View ClickHouse logs
+just cli                 # Open ClickHouse CLI client
+
+# Code Coverage
+just coverage            # Run coverage (unit + integration)
+just coverage-with-tls   # Run coverage including TLS tests
+just coverage-clean      # Clean coverage artifacts
+just coverage-open       # Open HTML coverage report in browser
 ```
 
 ## Integration Tests
 
-The integration test suite covers:
+The integration test suite includes 305+ tests across 80+ test files covering:
 
-- Connection and ping
-- Database creation
-- Table creation with String, UInt64, Float64 columns
-- Data insertion (both SQL INSERT and block-based)
+- Connection, ping, and error handling
+- Per-column-type roundtrip tests (create table, insert, select) for all supported types
+- Block-based and SQL INSERT operations
 - SELECT queries with WHERE clauses
 - Aggregation queries (COUNT, SUM, AVG)
-- Cleanup operations
+- Nullable, Array, LowCardinality, Map, Tuple combinations
+- Decimal, Date/DateTime, UUID, IPv4, IPv6, Enum types
+- Edge cases, nested complex types, and advanced client features
+- TLS connections (11 tests, feature-gated)
 
 Run with:
 
@@ -152,7 +161,7 @@ Or manually:
 
 ```bash
 # Start ClickHouse
-docker-compose up -d
+docker compose up -d
 
 # Wait for ready
 sleep 5
@@ -161,7 +170,7 @@ sleep 5
 cargo test --test integration_test -- --ignored --nocapture
 
 # Cleanup
-docker-compose down
+docker compose down
 ```
 
 ## TLS Integration Testing
@@ -249,10 +258,10 @@ Start TLS server manually:
 just generate-certs
 
 # Start TLS server
-docker-compose up -d clickhouse-tls
+docker compose up -d clickhouse-tls
 
 # Check logs
-docker-compose logs -f clickhouse-tls
+docker compose logs -f clickhouse-tls
 
 # Test with clickhouse-client (from host)
 clickhouse-client --secure --port 9440 --query "SELECT 1"
@@ -295,7 +304,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 docker ps | grep clickhouse-server-tls
 
 # Check server logs
-docker-compose logs clickhouse-tls
+docker compose logs clickhouse-tls
 
 # Verify certificates exist
 ls -la certs/ca/ca-cert.pem certs/server/server-cert.pem
@@ -324,41 +333,73 @@ just stop-db-all
 
 ```
 src/
-├── client.rs           # High-level async Client API
-├── connection.rs       # Async TCP connection wrapper
+├── client.rs              # High-level async Client API
+├── connection.rs          # Async TCP connection wrapper
 ├── io/
-│   └── block_stream.rs # BlockReader/BlockWriter (async I/O bridge)
-├── block.rs           # Block data structure (sync)
-├── column/            # Column implementations (sync)
-│   ├── mod.rs         # Column trait
-│   ├── numeric.rs     # Numeric columns (UInt*, Int*, Float*)
-│   ├── string.rs      # String and FixedString
-│   ├── nullable.rs    # Nullable wrapper
-│   └── array.rs       # Array columns
-├── query.rs           # Query builder and protocol messages
-├── types/             # Type system
-├── compression.rs     # LZ4/ZSTD compression (sync)
-├── protocol.rs        # Protocol constants
-├── wire_format.rs     # Wire protocol encoding (async)
-└── error.rs           # Error types
+│   ├── block_stream.rs    # BlockReader/BlockWriter (async I/O bridge)
+│   └── buffer_utils.rs    # Buffer utilities
+├── block.rs               # Block data structure (sync)
+├── column/                # Column implementations (sync)
+│   ├── mod.rs             # Column trait + factory functions
+│   ├── numeric.rs         # UInt8-128, Int8-128, Float32/64
+│   ├── string.rs          # String and FixedString
+│   ├── nullable.rs        # Nullable wrapper
+│   ├── array.rs           # Array columns
+│   ├── lowcardinality.rs  # LowCardinality (dictionary encoding)
+│   ├── date.rs            # Date, Date32, DateTime, DateTime64
+│   ├── decimal.rs         # Decimal32/64/128
+│   ├── uuid.rs            # UUID
+│   ├── ipv4.rs            # IPv4
+│   ├── ipv6.rs            # IPv6
+│   ├── enum_column.rs     # Enum8, Enum16
+│   ├── tuple.rs           # Tuple(T1, T2, ...)
+│   ├── map.rs             # Map(K, V)
+│   ├── geo.rs             # Point, Ring, Polygon, MultiPolygon
+│   └── nothing.rs         # Nothing type
+├── query.rs               # Query builder and protocol messages
+├── types/
+│   ├── mod.rs             # Type enum + TypeCode
+│   └── parser.rs          # Type string parsing
+├── compression.rs         # LZ4/ZSTD compression (sync)
+├── protocol.rs            # Protocol constants
+├── wire_format.rs         # Wire protocol encoding (async)
+├── error.rs               # Error types
+├── socket.rs              # Socket utilities
+└── ssl.rs                 # TLS/SSL support (feature-gated)
 
 tests/
-└── integration_test.rs # Integration tests
+├── common/                     # Shared test utilities
+├── integration_test.rs         # Core integration tests
+├── integration_<type>.rs       # Per-column-type integration tests
+├── tls_integration_test.rs     # TLS-specific tests
+└── ...                         # 80+ test files total
 
-clickhouse-config/     # ClickHouse configuration
-docker-compose.yml     # Docker setup
-justfile              # Task runner scripts
+benches/
+├── select_benchmarks.rs   # SELECT query benchmarks
+└── column_benchmarks.rs   # Column serialization benchmarks
+
+clickhouse-config/         # ClickHouse server configuration
+docker-compose.yml         # Docker setup (standard + TLS)
+justfile                   # Task runner scripts
 ```
 
 ## Type Support
 
 Currently supported ClickHouse types:
 
-- Numeric: UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64, Float32, Float64
+- Numeric: UInt8, UInt16, UInt32, UInt64, UInt128, Int8, Int16, Int32, Int64, Int128, Float32, Float64
 - String: String, FixedString(N)
+- Date/Time: Date, Date32, DateTime, DateTime64
+- Decimal: Decimal32, Decimal64, Decimal128
 - Nullable: Nullable(T)
 - Array: Array(T)
-- Date: Date, DateTime
+- LowCardinality: LowCardinality(T)
+- Enum: Enum8, Enum16
+- Tuple: Tuple(T1, T2, ...)
+- Map: Map(K, V)
+- UUID
+- Network: IPv4, IPv6
+- Geo: Point, Ring, Polygon, MultiPolygon
 
 ## License
 
