@@ -338,10 +338,7 @@ impl Client {
 
         // Write client name and version
         conn.write_string(&options.client_info.client_name).await?;
-        debug!(
-            "Sent client name: {}",
-            options.client_info.client_name
-        );
+        debug!("Sent client name: {}", options.client_info.client_name);
         conn.write_varint(options.client_info.client_version_major).await?;
         conn.write_varint(options.client_info.client_version_minor).await?;
         conn.write_varint(options.client_info.client_revision).await?;
@@ -648,9 +645,7 @@ impl Client {
                     if let Some(callback) = query.get_on_data_cancelable() {
                         let should_continue = callback(&block);
                         if !should_continue {
-                            debug!(
-                                "Query cancelled by data callback"
-                            );
+                            debug!("Query cancelled by data callback");
                             break;
                         }
                     } else if let Some(callback) = query.get_on_data() {
@@ -735,9 +730,7 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    debug!(
-                        "Received table columns packet (ignoring)"
-                    );
+                    debug!("Received table columns packet (ignoring)");
                     // Skip external table name
                     let _table_name = self.conn.read_string().await?;
                     // Skip columns metadata string
@@ -867,9 +860,7 @@ impl Client {
                     if let Some(callback) = query.get_on_data_cancelable() {
                         let should_continue = callback(&block);
                         if !should_continue {
-                            debug!(
-                                "Query cancelled by data callback"
-                            );
+                            debug!("Query cancelled by data callback");
                             break;
                         }
                     } else if let Some(callback) = query.get_on_data() {
@@ -950,9 +941,7 @@ impl Client {
                     }
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    debug!(
-                        "Received table columns packet (ignoring)"
-                    );
+                    debug!("Received table columns packet (ignoring)");
                     // Skip external table name
                     let _table_name = self.conn.read_string().await?;
                     // Skip columns metadata string
@@ -1122,9 +1111,9 @@ impl Client {
         self.conn.write_varint(ClientCode::Data as u64).await?;
         let empty_block = Block::new();
         // Create writer that matches the compression setting
-        let writer = if self.options.compression.is_some() {
+        let writer = if let Some(compression) = self.options.compression {
             BlockWriter::new(self.server_info.revision)
-                .with_compression(self.options.compression.unwrap())
+                .with_compression(compression)
         } else {
             BlockWriter::new(self.server_info.revision)
         };
@@ -1211,16 +1200,10 @@ impl Client {
             debug!("Exception name: {}", name);
             debug!("Reading exception display_text...");
             let display_text = conn.read_string().await?;
-            debug!(
-                "Exception display_text length: {}",
-                display_text.len()
-            );
+            debug!("Exception display_text length: {}", display_text.len());
             debug!("Reading exception stack_trace...");
             let stack_trace = conn.read_string().await?;
-            debug!(
-                "Exception stack_trace length: {}",
-                stack_trace.len()
-            );
+            debug!("Exception stack_trace length: {}", stack_trace.len());
 
             // Check for nested exception
             let has_nested = conn.read_u8().await?;
@@ -1314,16 +1297,11 @@ impl Client {
         debug!("Waiting for server Data packet...");
         loop {
             let packet_type = self.conn.read_varint().await?;
-            debug!(
-                "INSERT wait response packet type: {}",
-                packet_type
-            );
+            debug!("INSERT wait response packet type: {}", packet_type);
 
             match packet_type {
                 code if code == ServerCode::Data as u64 => {
-                    debug!(
-                        "Received Data packet, ready to send data"
-                    );
+                    debug!("Received Data packet, ready to send data");
                     // CRITICAL: Must consume the Data packet's payload to keep
                     // stream aligned! Skip temp table name
                     if self.server_info.revision >= 50264 {
@@ -1332,9 +1310,7 @@ impl Client {
                     // Read the block (likely empty, but must consume it)
                     let _block =
                         self.block_reader.read_block(&mut self.conn).await?;
-                    debug!(
-                        "Consumed Data packet payload, stream aligned"
-                    );
+                    debug!("Consumed Data packet payload, stream aligned");
                     break;
                 }
                 code if code == ServerCode::Progress as u64 => {
@@ -1366,10 +1342,7 @@ impl Client {
         }
 
         // Now send our data block
-        debug!(
-            "Sending data block with {} rows",
-            block.row_count()
-        );
+        debug!("Sending data block with {} rows", block.row_count());
         self.conn.write_varint(ClientCode::Data as u64).await?;
         self.block_writer.write_block(&mut self.conn, &block).await?;
 
@@ -1383,10 +1356,7 @@ impl Client {
         debug!("Waiting for EndOfStream...");
         loop {
             let packet_type = self.conn.read_varint().await?;
-            debug!(
-                "INSERT final response packet type: {}",
-                packet_type
-            );
+            debug!("INSERT final response packet type: {}", packet_type);
 
             match packet_type {
                 code if code == ServerCode::EndOfStream as u64 => {
@@ -1394,7 +1364,9 @@ impl Client {
                     break;
                 }
                 code if code == ServerCode::Data as u64 => {
-                    debug!("Received Data packet in INSERT response (skipping)");
+                    debug!(
+                        "Received Data packet in INSERT response (skipping)"
+                    );
                     // Skip temp table name if protocol supports it
                     if self.server_info.revision >= 50264 {
                         let _temp_table = self.conn.read_string().await?;
@@ -1408,9 +1380,7 @@ impl Client {
                     let _ = self.read_progress().await?;
                 }
                 code if code == ServerCode::ProfileEvents as u64 => {
-                    debug!(
-                        "Received ProfileEvents packet (skipping)"
-                    );
+                    debug!("Received ProfileEvents packet (skipping)");
                     let _table_name = self.conn.read_string().await?;
                     let uncompressed_reader =
                         BlockReader::new(self.server_info.revision);
@@ -1418,16 +1388,12 @@ impl Client {
                         uncompressed_reader.read_block(&mut self.conn).await?;
                 }
                 code if code == ServerCode::TableColumns as u64 => {
-                    debug!(
-                        "Received TableColumns packet (skipping)"
-                    );
+                    debug!("Received TableColumns packet (skipping)");
                     let _table_name = self.conn.read_string().await?;
                     let _columns_metadata = self.conn.read_string().await?;
                 }
                 code if code == ServerCode::Exception as u64 => {
-                    debug!(
-                        "Server returned exception after sending data"
-                    );
+                    debug!("Server returned exception after sending data");
                     let exception = self.read_exception().await?;
                     return Err(Error::Protocol(format!(
                         "ClickHouse exception: {} (code {}): {}",
