@@ -6,7 +6,6 @@ use clickhouse_client::{
         array::ColumnArray,
         numeric::ColumnFloat64,
     },
-    types::Type,
     Block,
 };
 use common::{
@@ -220,13 +219,11 @@ proptest! {
             let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
             let mut nested = ColumnFloat64::new();
 
-            let mut cumulative = 0u64;
             for (idx, array) in arrays.iter().enumerate() {
                 id_col.append(idx as u32);
                 for &val in array {
                     nested.append(val);
                 }
-                cumulative += array.len() as u64;
             }
 
             let mut array_col = ColumnArray::with_nested(Arc::new(nested));

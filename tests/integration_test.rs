@@ -637,10 +637,7 @@ async fn test_large_result_set() {
             .await
             .expect("Failed to create isolated test client");
 
-    use clickhouse_client::{
-        column::numeric::ColumnUInt64,
-        types::Type,
-    };
+    use clickhouse_client::column::numeric::ColumnUInt64;
 
     // Create and populate table
     let create_table_sql = format!(

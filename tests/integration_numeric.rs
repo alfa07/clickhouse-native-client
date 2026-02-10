@@ -5,7 +5,6 @@ mod common;
 
 use clickhouse_client::{
     column::numeric::*,
-    types::Type,
     Block,
 };
 use common::{

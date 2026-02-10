@@ -4,7 +4,6 @@
 /// Nullable(LowCardinality(String)))
 mod common;
 
-use clickhouse_client::Block;
 use common::{
     cleanup_test_database,
     create_isolated_test_client,
