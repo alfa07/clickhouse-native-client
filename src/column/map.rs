@@ -1,3 +1,8 @@
+//! Map column implementation.
+//!
+//! ClickHouse `Map(K, V)` is stored internally as `Array(Tuple(K, V))`.
+//! This module wraps `ColumnArray` with the appropriate tuple element type.
+
 use super::{
     Column,
     ColumnArray,
@@ -11,14 +16,18 @@ use crate::{
 use bytes::BytesMut;
 use std::sync::Arc;
 
-/// Column for Map(K, V) type
-/// Maps are stored internally as Array(Tuple(K, V))
+/// Column for `Map(K, V)` type, stored internally as `Array(Tuple(K, V))`.
 pub struct ColumnMap {
     type_: Type,
     data: ColumnRef, // Array of Tuple(key, value)
 }
 
 impl ColumnMap {
+    /// Create a new empty map column for the given `Map` type.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `type_` is not `Type::Map`.
     pub fn new(type_: Type) -> Self {
         // Extract key and value types from Map type
         let (key_type, value_type) = match &type_ {
@@ -47,8 +56,8 @@ impl ColumnMap {
     /// Get a reference to the data column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let col: ColumnMap = ...;
+    /// ```ignore
+    /// let col: ColumnMap = /* ... */;
     /// let data: &ColumnArray = col.data();
     /// ```
     pub fn data<T: Column + 'static>(&self) -> &T {
@@ -61,8 +70,8 @@ impl ColumnMap {
     /// Get mutable reference to the data column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let mut col: ColumnMap = ...;
+    /// ```ignore
+    /// let mut col: ColumnMap = /* ... */;
     /// let data_mut: &mut ColumnArray = col.data_mut();
     /// ```
     pub fn data_mut<T: Column + 'static>(&mut self) -> &mut T {
@@ -73,7 +82,7 @@ impl ColumnMap {
             .expect("Failed to downcast data column to requested type")
     }
 
-    /// Get the data column as a ColumnRef (Arc<dyn Column>)
+    /// Get the data column as a `ColumnRef` (`Arc<dyn Column>`)
     pub fn data_ref(&self) -> ColumnRef {
         self.data.clone()
     }
@@ -90,10 +99,12 @@ impl ColumnMap {
         self.data.slice(index, 1)
     }
 
+    /// Returns the number of map entries (rows) in this column.
     pub fn len(&self) -> usize {
         self.data.size()
     }
 
+    /// Returns `true` if the column contains no entries.
     pub fn is_empty(&self) -> bool {
         self.data.size() == 0
     }

@@ -2,22 +2,36 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum ServerCode {
-    Hello = 0,     // Name, version, revision
-    Data = 1,      // Block of data, may be compressed
-    Exception = 2, // Exception during query execution
-    Progress = 3,  /* Query execution progress: rows and bytes
-                    * read */
-    Pong = 4,                 // Response to Ping
-    EndOfStream = 5,          // All packets were sent
-    ProfileInfo = 6,          // Profiling data
-    Totals = 7,               // Block of totals, may be compressed
-    Extremes = 8,             // Block of mins and maxs, may be compressed
-    TablesStatusResponse = 9, // Response to TableStatus
-    Log = 10,                 // Query execution log
-    TableColumns = 11,        // Columns' description for default values
-    PartUUIDs = 12,           // List of unique parts ids
-    ReadTaskRequest = 13,     // UUID describes a request for next task
-    ProfileEvents = 14,       // Packet with profile events from server
+    /// Server handshake response containing name, version, and revision.
+    Hello = 0,
+    /// Block of data, may be compressed.
+    Data = 1,
+    /// Exception that occurred during query execution.
+    Exception = 2,
+    /// Query execution progress: rows and bytes read.
+    Progress = 3,
+    /// Response to a client Ping request.
+    Pong = 4,
+    /// Signals that all packets for the current operation have been sent.
+    EndOfStream = 5,
+    /// Profiling data for query execution.
+    ProfileInfo = 6,
+    /// Block of totals, may be compressed.
+    Totals = 7,
+    /// Block of extremes (mins and maxs), may be compressed.
+    Extremes = 8,
+    /// Response to a TableStatus request.
+    TablesStatusResponse = 9,
+    /// Query execution log (always uncompressed).
+    Log = 10,
+    /// Columns description for default values calculation.
+    TableColumns = 11,
+    /// List of unique part UUIDs.
+    PartUUIDs = 12,
+    /// Request for the next distributed read task.
+    ReadTaskRequest = 13,
+    /// Profile events from the server (always uncompressed).
+    ProfileEvents = 14,
 }
 
 impl TryFrom<u64> for ServerCode {
@@ -52,18 +66,25 @@ impl TryFrom<u64> for ServerCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum ClientCode {
-    Hello = 0,  // Name, version, default database name
-    Query = 1,  // Query id, settings, stage, compression, and query text
-    Data = 2,   // Data Block (e.g. INSERT data), may be compressed
-    Cancel = 3, // Cancel query
-    Ping = 4,   // Check server connection
+    /// Client handshake containing name, version, and default database.
+    Hello = 0,
+    /// Query packet with query id, settings, stage, compression, and query text.
+    Query = 1,
+    /// Data block (e.g. INSERT data), may be compressed.
+    Data = 2,
+    /// Cancel the currently running query.
+    Cancel = 3,
+    /// Ping the server to check the connection is alive.
+    Ping = 4,
 }
 
 /// Should we compress Blocks of data
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum CompressionState {
+    /// Block compression is disabled.
     Disable = 0,
+    /// Block compression is enabled.
     Enable = 1,
 }
 
@@ -71,15 +92,19 @@ pub enum CompressionState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum Stage {
+    /// Fully process the query and return the final result.
     Complete = 2,
 }
 
 /// Methods of block compression
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CompressionMethod {
+    /// No compression (default).
     #[default]
     None = -1,
+    /// LZ4 compression -- fast with good compression ratio.
     Lz4 = 1,
+    /// ZSTD compression -- better ratio but slower than LZ4.
     Zstd = 2,
 }
 

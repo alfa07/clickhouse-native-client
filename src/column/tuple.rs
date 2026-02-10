@@ -1,3 +1,9 @@
+//! Tuple column implementation.
+//!
+//! A tuple stores a fixed number of heterogeneous columns (e.g.,
+//! `Tuple(UInt64, String, Float64)`). Each element column has the same
+//! number of rows.
+
 use super::{
     Column,
     ColumnRef,
@@ -10,13 +16,14 @@ use crate::{
 use bytes::BytesMut;
 use std::sync::Arc;
 
-/// Column for tuple types (fixed number of heterogeneous columns)
+/// Column for tuple types (fixed number of heterogeneous columns).
 pub struct ColumnTuple {
     type_: Type,
     columns: Vec<ColumnRef>,
 }
 
 impl ColumnTuple {
+    /// Create a new tuple column with the given type and element columns.
     pub fn new(type_: Type, columns: Vec<ColumnRef>) -> Self {
         Self { type_, columns }
     }

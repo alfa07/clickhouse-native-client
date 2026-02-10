@@ -89,7 +89,7 @@ pub use parser::{
 use std::sync::Arc;
 
 /// Trait for mapping Rust primitive types to ClickHouse types
-/// Equivalent to C++ Type::CreateSimple<T>() template specializations
+/// Equivalent to C++ `Type::CreateSimple<T>()` template specializations
 ///
 /// This trait allows type inference in column constructors, eliminating the
 /// need to pass Type explicitly when creating typed columns.
@@ -104,6 +104,7 @@ use std::sync::Arc;
 /// assert_eq!(f64::to_type(), Type::float64());
 /// ```
 pub trait ToType {
+    /// Returns the corresponding ClickHouse [`Type`] for this Rust type.
     fn to_type() -> Type;
 }
 
@@ -187,46 +188,84 @@ impl ToType for f64 {
 /// parameters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TypeCode {
+    /// Nothing/Void type, used for NULL-only columns.
     Void = 0,
+    /// Signed 8-bit integer (-128 to 127).
     Int8,
+    /// Signed 16-bit integer (-32768 to 32767).
     Int16,
+    /// Signed 32-bit integer.
     Int32,
+    /// Signed 64-bit integer.
     Int64,
+    /// Unsigned 8-bit integer (0 to 255), also used as Bool.
     UInt8,
+    /// Unsigned 16-bit integer (0 to 65535).
     UInt16,
+    /// Unsigned 32-bit integer.
     UInt32,
+    /// Unsigned 64-bit integer.
     UInt64,
+    /// 32-bit IEEE 754 floating-point number.
     Float32,
+    /// 64-bit IEEE 754 floating-point number.
     Float64,
+    /// Variable-length byte string.
     String,
+    /// Fixed-length byte string, padded with null bytes.
     FixedString,
+    /// Date and time as a Unix timestamp (UInt32), with optional timezone.
     DateTime,
+    /// Date stored as days since 1970-01-01 (UInt16).
     Date,
+    /// Variable-length array of elements of a single type.
     Array,
+    /// Wrapper type that adds NULL support to the nested type.
     Nullable,
+    /// Fixed-size ordered collection of heterogeneous types.
     Tuple,
+    /// Enumeration with Int8 storage (up to 128 values).
     Enum8,
+    /// Enumeration with Int16 storage (up to 32768 values).
     Enum16,
+    /// Universally unique identifier (128-bit).
     UUID,
+    /// IPv4 address stored as UInt32.
     IPv4,
+    /// IPv6 address stored as 16 bytes in network byte order.
     IPv6,
+    /// Signed 128-bit integer.
     Int128,
+    /// Unsigned 128-bit integer.
     UInt128,
+    /// Arbitrary-precision decimal with configurable precision and scale.
     Decimal,
+    /// Decimal with up to 9 digits of precision (stored as Int32).
     Decimal32,
+    /// Decimal with up to 18 digits of precision (stored as Int64).
     Decimal64,
+    /// Decimal with up to 38 digits of precision (stored as Int128).
     Decimal128,
+    /// Dictionary-encoded column for low-cardinality data.
     LowCardinality,
+    /// High-precision date and time stored as Int64, with sub-second precision.
     DateTime64,
+    /// Extended date range stored as Int32 (days since 1970-01-01).
     Date32,
+    /// Key-value pairs with typed keys and values.
     Map,
+    /// 2D geographic point as Tuple(Float64, Float64).
     Point,
+    /// Geographic ring as Array(Point).
     Ring,
+    /// Geographic polygon as Array(Ring).
     Polygon,
+    /// Collection of polygons as Array(Polygon).
     MultiPolygon,
 }
 
 impl TypeCode {
+    /// Returns the ClickHouse type name string for this type code.
     pub fn name(&self) -> &'static str {
         match self {
             TypeCode::Void => "Void",
@@ -270,31 +309,85 @@ impl TypeCode {
     }
 }
 
-/// Enum item for Enum8/Enum16 types
+/// Enum item for Enum8/Enum16 types, mapping a name to its integer value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnumItem {
+    /// The string name of this enum variant.
     pub name: String,
+    /// The integer value associated with this enum variant.
     pub value: i16,
 }
 
-/// Type definition
+/// ClickHouse type definition, representing both simple and parametric types.
 #[derive(Debug, Clone)]
 pub enum Type {
+    /// A non-parametric type identified by its [`TypeCode`].
     Simple(TypeCode),
-    FixedString { size: usize },
-    DateTime { timezone: Option<String> },
-    DateTime64 { precision: usize, timezone: Option<String> },
-    Decimal { precision: usize, scale: usize },
-    Enum8 { items: Vec<EnumItem> },
-    Enum16 { items: Vec<EnumItem> },
-    Array { item_type: Box<Type> },
-    Nullable { nested_type: Box<Type> },
-    Tuple { item_types: Vec<Type> },
-    LowCardinality { nested_type: Box<Type> },
-    Map { key_type: Box<Type>, value_type: Box<Type> },
+    /// Fixed-length byte string with the given size in bytes.
+    FixedString {
+        /// Length of the fixed string in bytes.
+        size: usize,
+    },
+    /// Date and time with optional timezone.
+    DateTime {
+        /// Optional IANA timezone name (e.g. "UTC", "Europe/Moscow").
+        timezone: Option<String>,
+    },
+    /// High-precision date and time with sub-second precision and optional timezone.
+    DateTime64 {
+        /// Number of sub-second decimal digits (0 to 18).
+        precision: usize,
+        /// Optional IANA timezone name.
+        timezone: Option<String>,
+    },
+    /// Arbitrary-precision decimal with given precision and scale.
+    Decimal {
+        /// Total number of significant digits.
+        precision: usize,
+        /// Number of digits after the decimal point.
+        scale: usize,
+    },
+    /// Enum with Int8 storage, containing named integer variants.
+    Enum8 {
+        /// The named variants with their integer values.
+        items: Vec<EnumItem>,
+    },
+    /// Enum with Int16 storage, containing named integer variants.
+    Enum16 {
+        /// The named variants with their integer values.
+        items: Vec<EnumItem>,
+    },
+    /// Variable-length array of the given element type.
+    Array {
+        /// The type of each element in the array.
+        item_type: Box<Type>,
+    },
+    /// Nullable wrapper around the given nested type.
+    Nullable {
+        /// The type that is made nullable.
+        nested_type: Box<Type>,
+    },
+    /// Fixed-size tuple of heterogeneous element types.
+    Tuple {
+        /// The ordered list of element types in the tuple.
+        item_types: Vec<Type>,
+    },
+    /// Dictionary-encoded wrapper around the given nested type.
+    LowCardinality {
+        /// The type that is dictionary-encoded.
+        nested_type: Box<Type>,
+    },
+    /// Key-value map with typed keys and values.
+    Map {
+        /// The type of map keys.
+        key_type: Box<Type>,
+        /// The type of map values.
+        value_type: Box<Type>,
+    },
 }
 
 impl Type {
+    /// Returns the [`TypeCode`] for this type.
     pub fn code(&self) -> TypeCode {
         match self {
             Type::Simple(code) => *code,
@@ -312,6 +405,7 @@ impl Type {
         }
     }
 
+    /// Returns the full ClickHouse type name string, including parameters.
     pub fn name(&self) -> String {
         match self {
             Type::Simple(code) => code.name().to_string(),
@@ -416,119 +510,147 @@ impl Type {
         }
     }
 
-    // Factory methods for simple types
+    /// Creates an Int8 type.
     pub fn int8() -> Self {
         Type::Simple(TypeCode::Int8)
     }
 
+    /// Creates an Int16 type.
     pub fn int16() -> Self {
         Type::Simple(TypeCode::Int16)
     }
 
+    /// Creates an Int32 type.
     pub fn int32() -> Self {
         Type::Simple(TypeCode::Int32)
     }
 
+    /// Creates an Int64 type.
     pub fn int64() -> Self {
         Type::Simple(TypeCode::Int64)
     }
 
+    /// Creates an Int128 type.
     pub fn int128() -> Self {
         Type::Simple(TypeCode::Int128)
     }
 
+    /// Creates a UInt8 type.
     pub fn uint8() -> Self {
         Type::Simple(TypeCode::UInt8)
     }
 
+    /// Creates a UInt16 type.
     pub fn uint16() -> Self {
         Type::Simple(TypeCode::UInt16)
     }
 
+    /// Creates a UInt32 type.
     pub fn uint32() -> Self {
         Type::Simple(TypeCode::UInt32)
     }
 
+    /// Creates a UInt64 type.
     pub fn uint64() -> Self {
         Type::Simple(TypeCode::UInt64)
     }
 
+    /// Creates a UInt128 type.
     pub fn uint128() -> Self {
         Type::Simple(TypeCode::UInt128)
     }
 
+    /// Creates a Float32 type.
     pub fn float32() -> Self {
         Type::Simple(TypeCode::Float32)
     }
 
+    /// Creates a Float64 type.
     pub fn float64() -> Self {
         Type::Simple(TypeCode::Float64)
     }
 
+    /// Creates a variable-length String type.
     pub fn string() -> Self {
         Type::Simple(TypeCode::String)
     }
 
+    /// Creates a FixedString type with the given size in bytes.
     pub fn fixed_string(size: usize) -> Self {
         Type::FixedString { size }
     }
 
+    /// Creates a Date type (days since 1970-01-01, stored as UInt16).
     pub fn date() -> Self {
         Type::Simple(TypeCode::Date)
     }
 
+    /// Creates a Date32 type (days since 1970-01-01, stored as Int32).
     pub fn date32() -> Self {
         Type::Simple(TypeCode::Date32)
     }
 
+    /// Creates a DateTime type with an optional timezone.
     pub fn datetime(timezone: Option<String>) -> Self {
         Type::DateTime { timezone }
     }
 
+    /// Creates a DateTime64 type with the given sub-second precision and optional timezone.
     pub fn datetime64(precision: usize, timezone: Option<String>) -> Self {
         Type::DateTime64 { precision, timezone }
     }
 
+    /// Creates a Decimal type with the given precision and scale.
     pub fn decimal(precision: usize, scale: usize) -> Self {
         Type::Decimal { precision, scale }
     }
 
+    /// Creates an IPv4 address type.
     pub fn ipv4() -> Self {
         Type::Simple(TypeCode::IPv4)
     }
 
+    /// Creates an IPv6 address type.
     pub fn ipv6() -> Self {
         Type::Simple(TypeCode::IPv6)
     }
 
+    /// Creates a UUID type.
     pub fn uuid() -> Self {
         Type::Simple(TypeCode::UUID)
     }
 
+    /// Creates an Array type with the given element type.
     pub fn array(item_type: Type) -> Self {
         Type::Array { item_type: Box::new(item_type) }
     }
 
+    /// Creates a Nullable wrapper around the given type.
     pub fn nullable(nested_type: Type) -> Self {
         Type::Nullable { nested_type: Box::new(nested_type) }
     }
 
+    /// Creates a Tuple type with the given element types.
     pub fn tuple(item_types: Vec<Type>) -> Self {
         Type::Tuple { item_types }
     }
 
+    /// Creates an Enum8 type with the given name-value items.
     pub fn enum8(items: Vec<EnumItem>) -> Self {
         Type::Enum8 { items }
     }
 
+    /// Creates an Enum16 type with the given name-value items.
     pub fn enum16(items: Vec<EnumItem>) -> Self {
         Type::Enum16 { items }
     }
 
+    /// Creates a LowCardinality wrapper around the given type.
     pub fn low_cardinality(nested_type: Type) -> Self {
         Type::LowCardinality { nested_type: Box::new(nested_type) }
     }
 
+    /// Creates a Map type with the given key and value types.
     pub fn map(key_type: Type, value_type: Type) -> Self {
         Type::Map {
             key_type: Box::new(key_type),
@@ -536,7 +658,7 @@ impl Type {
         }
     }
 
-    // Enum helper methods
+    /// Returns true if this enum type contains a variant with the given integer value.
     pub fn has_enum_value(&self, value: i16) -> bool {
         match self {
             Type::Enum8 { items } => {
@@ -549,6 +671,7 @@ impl Type {
         }
     }
 
+    /// Returns true if this enum type contains a variant with the given name.
     pub fn has_enum_name(&self, name: &str) -> bool {
         match self {
             Type::Enum8 { items } => {
@@ -561,6 +684,7 @@ impl Type {
         }
     }
 
+    /// Returns the enum variant name for the given integer value, if it exists.
     pub fn get_enum_name(&self, value: i16) -> Option<&str> {
         match self {
             Type::Enum8 { items } => items
@@ -575,6 +699,7 @@ impl Type {
         }
     }
 
+    /// Returns the integer value for the given enum variant name, if it exists.
     pub fn get_enum_value(&self, name: &str) -> Option<i16> {
         match self {
             Type::Enum8 { items } => items
@@ -589,6 +714,7 @@ impl Type {
         }
     }
 
+    /// Returns the enum items slice if this is an Enum8 or Enum16 type, or None otherwise.
     pub fn enum_items(&self) -> Option<&[EnumItem]> {
         match self {
             Type::Enum8 { items } => Some(items),
@@ -597,28 +723,33 @@ impl Type {
         }
     }
 
+    /// Creates a Point geo type (Tuple(Float64, Float64)).
     pub fn point() -> Self {
         Type::Simple(TypeCode::Point)
     }
 
+    /// Creates a Ring geo type (Array(Point)).
     pub fn ring() -> Self {
         Type::Simple(TypeCode::Ring)
     }
 
+    /// Creates a Polygon geo type (Array(Ring)).
     pub fn polygon() -> Self {
         Type::Simple(TypeCode::Polygon)
     }
 
+    /// Creates a MultiPolygon geo type (Array(Polygon)).
     pub fn multi_polygon() -> Self {
         Type::Simple(TypeCode::MultiPolygon)
     }
 
+    /// Creates a Nothing/Void type, used for NULL-only columns.
     pub fn nothing() -> Self {
         Type::Simple(TypeCode::Void)
     }
 
     /// Create a Type from a Rust primitive type
-    /// Equivalent to C++ Type::CreateSimple<T>()
+    /// Equivalent to C++ `Type::CreateSimple<T>()`
     ///
     /// # Examples
     ///
@@ -1190,6 +1321,7 @@ impl PartialEq for Type {
 
 impl Eq for Type {}
 
+/// Reference-counted shared pointer to a [`Type`].
 pub type TypeRef = Arc<Type>;
 
 fn format_enum_items(items: &[EnumItem]) -> String {

@@ -1,3 +1,8 @@
+//! Nothing/Void column implementation.
+//!
+//! This is a dummy column that tracks size without storing actual data.
+//! Used for `NULL`-only columns or as a placeholder.
+
 use super::{
     Column,
     ColumnRef,
@@ -10,19 +15,19 @@ use crate::{
 use bytes::BytesMut;
 use std::sync::Arc;
 
-/// Column for Nothing/Void type
-/// This is a dummy column that only tracks size and stores no actual data
-/// Used for NULL-only columns or as placeholder
+/// Column for Nothing/Void type. Tracks row count without storing data.
 pub struct ColumnNothing {
     type_: Type,
     size: usize,
 }
 
 impl ColumnNothing {
+    /// Create a new empty Nothing column.
     pub fn new(type_: Type) -> Self {
         Self { type_, size: 0 }
     }
 
+    /// Set the initial size (number of nothing/null entries).
     pub fn with_size(mut self, size: usize) -> Self {
         self.size = size;
         self
@@ -38,10 +43,12 @@ impl ColumnNothing {
         None
     }
 
+    /// Returns the number of entries in this column.
     pub fn len(&self) -> usize {
         self.size
     }
 
+    /// Returns `true` if the column contains no entries.
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }

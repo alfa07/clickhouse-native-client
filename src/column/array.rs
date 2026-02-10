@@ -137,8 +137,8 @@ impl ColumnArray {
     /// Get a reference to the nested column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let col: ColumnArray = ...;
+    /// ```ignore
+    /// let col: ColumnArray = /* ... */;
     /// let nested: &ColumnUInt32 = col.nested();
     /// ```
     pub fn nested<T: Column + 'static>(&self) -> &T {
@@ -151,8 +151,8 @@ impl ColumnArray {
     /// Get mutable reference to the nested column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let mut col: ColumnArray = ...;
+    /// ```ignore
+    /// let mut col: ColumnArray = /* ... */;
     /// let nested_mut: &mut ColumnUInt32 = col.nested_mut();
     /// ```
     pub fn nested_mut<T: Column + 'static>(&mut self) -> &mut T {
@@ -163,7 +163,7 @@ impl ColumnArray {
             .expect("Failed to downcast nested column to requested type")
     }
 
-    /// Get the nested column as a ColumnRef (Arc<dyn Column>)
+    /// Get the nested column as a `ColumnRef` (`Arc<dyn Column>`)
     pub fn nested_ref(&self) -> ColumnRef {
         self.nested.clone()
     }

@@ -233,9 +233,11 @@ impl WireFormat {
 /// Trait for types that can be read/written as fixed-size values
 #[async_trait::async_trait]
 pub trait FixedSize: Sized + Send {
+    /// Reads a fixed-size value from the given async reader.
     async fn read_from<R: AsyncRead + Unpin + Send>(
         reader: &mut R,
     ) -> Result<Self>;
+    /// Writes this fixed-size value to the given async writer.
     async fn write_to<W: AsyncWrite + Unpin + Send>(
         self,
         writer: &mut W,

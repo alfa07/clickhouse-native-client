@@ -23,17 +23,24 @@ pub struct ColumnIpv4 {
 }
 
 impl ColumnIpv4 {
+    /// Create a new empty IPv4 column.
     pub fn new(type_: Type) -> Self {
         Self { type_, data: Arc::new(super::ColumnUInt32::new()) }
     }
 
+    /// Set the column data from a vector of raw `u32` IPv4 addresses.
     pub fn with_data(mut self, data: Vec<u32>) -> Self {
         self.data =
             Arc::new(super::ColumnUInt32::from_vec(Type::uint32(), data));
         self
     }
 
-    /// Append IPv4 from dotted decimal string "192.168.1.1"
+    /// Append an IPv4 address parsed from a dotted-decimal string like `"192.168.1.1"`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string does not contain exactly four
+    /// dot-separated octets or an octet is not a valid `u8`.
     pub fn append_from_string(&mut self, s: &str) -> Result<()> {
         let parts: Vec<&str> = s.split('.').collect();
         if parts.len() != 4 {
@@ -80,15 +87,17 @@ impl ColumnIpv4 {
         )
     }
 
+    /// Returns the number of values in this column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns `true` if the column contains no values.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
-    /// Get reference to underlying data column (for advanced use)
+    /// Get reference to underlying data column (for advanced use).
     pub fn data(&self) -> &super::ColumnUInt32 {
         &self.data
     }

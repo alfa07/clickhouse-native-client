@@ -81,6 +81,7 @@ pub struct ColumnLowCardinality {
 }
 
 impl ColumnLowCardinality {
+    /// Create a new empty LowCardinality column for the given type.
     pub fn new(type_: Type) -> Self {
         // Extract the nested type from LowCardinality
         let dictionary_type = match &type_ {
@@ -106,8 +107,8 @@ impl ColumnLowCardinality {
     /// Get a reference to the dictionary column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let col: ColumnLowCardinality = ...;
+    /// ```ignore
+    /// let col: ColumnLowCardinality = /* ... */;
     /// let dict: &ColumnString = col.dictionary();
     /// ```
     pub fn dictionary<T: Column + 'static>(&self) -> &T {
@@ -120,8 +121,8 @@ impl ColumnLowCardinality {
     /// Get mutable reference to the dictionary column as a specific type
     ///
     /// # Example
-    /// ```
-    /// let mut col: ColumnLowCardinality = ...;
+    /// ```ignore
+    /// let mut col: ColumnLowCardinality = /* ... */;
     /// let dict_mut: &mut ColumnString = col.dictionary_mut();
     /// ```
     pub fn dictionary_mut<T: Column + 'static>(&mut self) -> &mut T {
@@ -132,7 +133,7 @@ impl ColumnLowCardinality {
             .expect("Failed to downcast dictionary column to requested type")
     }
 
-    /// Get the dictionary column as a ColumnRef (Arc<dyn Column>)
+    /// Get the dictionary column as a `ColumnRef` (`Arc<dyn Column>`)
     pub fn dictionary_ref(&self) -> ColumnRef {
         self.dictionary.clone()
     }
@@ -147,10 +148,12 @@ impl ColumnLowCardinality {
         self.indices[index]
     }
 
+    /// Returns the number of values (rows) in this column.
     pub fn len(&self) -> usize {
         self.indices.len()
     }
 
+    /// Returns `true` if the column contains no values.
     pub fn is_empty(&self) -> bool {
         self.indices.is_empty()
     }

@@ -1,3 +1,10 @@
+//! Enum8 and Enum16 column implementations.
+//!
+//! ClickHouse enums map string names to integer values. `Enum8` uses `Int8`
+//! storage (up to 127 distinct values) and `Enum16` uses `Int16` storage
+//! (up to 32767 distinct values). The name-to-value mapping is stored in
+//! the column's [`Type`].
+
 use super::{
     Column,
     ColumnRef,
@@ -10,13 +17,18 @@ use crate::{
 use bytes::BytesMut;
 use std::sync::Arc;
 
-/// Column for Enum8 type (stored as Int8 with name-value mapping in Type)
+/// Column for Enum8 type (stored as Int8 with name-value mapping in Type).
 pub struct ColumnEnum8 {
     type_: Type,
     data: Vec<i8>,
 }
 
 impl ColumnEnum8 {
+    /// Create a new empty Enum8 column.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `type_` is not `Type::Enum8`.
     pub fn new(type_: Type) -> Self {
         match &type_ {
             Type::Enum8 { .. } => Self { type_, data: Vec::new() },
@@ -24,6 +36,7 @@ impl ColumnEnum8 {
         }
     }
 
+    /// Set the column data from a vector of raw `i8` enum values.
     pub fn with_data(mut self, data: Vec<i8>) -> Self {
         self.data = data;
         self
@@ -34,7 +47,11 @@ impl ColumnEnum8 {
         self.data.push(value);
     }
 
-    /// Append enum by name (looks up value in Type)
+    /// Append enum by name (looks up value in Type).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `name` is not a known variant in this enum type.
     pub fn append_name(&mut self, name: &str) -> Result<()> {
         let value = self.type_.get_enum_value(name).ok_or_else(|| {
             Error::Protocol(format!("Unknown enum name: {}", name))
@@ -44,21 +61,23 @@ impl ColumnEnum8 {
         Ok(())
     }
 
-    /// Get numeric value at index
+    /// Get numeric value at index.
     pub fn at(&self, index: usize) -> i8 {
         self.data[index]
     }
 
-    /// Get enum name at index (looks up in Type)
+    /// Get enum name at index (looks up in Type).
     pub fn name_at(&self, index: usize) -> Option<&str> {
         let value = self.data[index] as i16;
         self.type_.get_enum_name(value)
     }
 
+    /// Returns the number of values in this column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns `true` if the column contains no values.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -170,13 +189,18 @@ impl Column for ColumnEnum8 {
     }
 }
 
-/// Column for Enum16 type (stored as Int16 with name-value mapping in Type)
+/// Column for Enum16 type (stored as Int16 with name-value mapping in Type).
 pub struct ColumnEnum16 {
     type_: Type,
     data: Vec<i16>,
 }
 
 impl ColumnEnum16 {
+    /// Create a new empty Enum16 column.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `type_` is not `Type::Enum16`.
     pub fn new(type_: Type) -> Self {
         match &type_ {
             Type::Enum16 { .. } => Self { type_, data: Vec::new() },
@@ -184,17 +208,22 @@ impl ColumnEnum16 {
         }
     }
 
+    /// Set the column data from a vector of raw `i16` enum values.
     pub fn with_data(mut self, data: Vec<i16>) -> Self {
         self.data = data;
         self
     }
 
-    /// Append enum by numeric value
+    /// Append enum by numeric value.
     pub fn append_value(&mut self, value: i16) {
         self.data.push(value);
     }
 
-    /// Append enum by name (looks up value in Type)
+    /// Append enum by name (looks up value in Type).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `name` is not a known variant in this enum type.
     pub fn append_name(&mut self, name: &str) -> Result<()> {
         let value = self.type_.get_enum_value(name).ok_or_else(|| {
             Error::Protocol(format!("Unknown enum name: {}", name))
@@ -204,21 +233,23 @@ impl ColumnEnum16 {
         Ok(())
     }
 
-    /// Get numeric value at index
+    /// Get numeric value at index.
     pub fn at(&self, index: usize) -> i16 {
         self.data[index]
     }
 
-    /// Get enum name at index (looks up in Type)
+    /// Get enum name at index (looks up in Type).
     pub fn name_at(&self, index: usize) -> Option<&str> {
         let value = self.data[index];
         self.type_.get_enum_name(value)
     }
 
+    /// Returns the number of values in this column.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns `true` if the column contains no values.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }

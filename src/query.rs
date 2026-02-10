@@ -29,9 +29,11 @@ pub struct QuerySettingsField {
 }
 
 impl QuerySettingsField {
-    /// Setting flags
+    /// Flag indicating the setting is critical for query execution.
     pub const IMPORTANT: u64 = 0x01;
+    /// Flag indicating the setting is user-defined.
     pub const CUSTOM: u64 = 0x02;
+    /// Flag indicating the setting is deprecated.
     pub const OBSOLETE: u64 = 0x04;
 
     /// Create a new settings field with value and no flags
@@ -370,17 +372,29 @@ impl Query {
 /// Client information sent during handshake
 #[derive(Clone, Debug)]
 pub struct ClientInfo {
-    pub interface_type: u8, // 1 = TCP
+    /// Interface type (1 = TCP).
+    pub interface_type: u8,
+    /// Query kind identifier.
     pub query_kind: u8,
+    /// User who initiated the query.
     pub initial_user: String,
+    /// Query ID of the initial query.
     pub initial_query_id: String,
+    /// Quota key for resource tracking.
     pub quota_key: String,
+    /// Operating system user name.
     pub os_user: String,
+    /// Client machine hostname.
     pub client_hostname: String,
+    /// Client application name.
     pub client_name: String,
+    /// Client major version number.
     pub client_version_major: u64,
+    /// Client minor version number.
     pub client_version_minor: u64,
+    /// Client patch version number.
     pub client_version_patch: u64,
+    /// Client protocol revision number.
     pub client_revision: u64,
 }
 
@@ -459,12 +473,19 @@ impl ClientInfo {
 /// Server information received during handshake
 #[derive(Clone, Debug, Default)]
 pub struct ServerInfo {
+    /// Server application name.
     pub name: String,
+    /// Server major version number.
     pub version_major: u64,
+    /// Server minor version number.
     pub version_minor: u64,
+    /// Server patch version number.
     pub version_patch: u64,
+    /// Server protocol revision number.
     pub revision: u64,
+    /// Server timezone (e.g. "UTC").
     pub timezone: String,
+    /// Server display name.
     pub display_name: String,
 }
 
@@ -531,21 +552,32 @@ impl ServerInfo {
 /// Progress information
 #[derive(Clone, Debug, Default)]
 pub struct Progress {
+    /// Number of rows read so far.
     pub rows: u64,
+    /// Number of bytes read so far.
     pub bytes: u64,
+    /// Total number of rows expected.
     pub total_rows: u64,
+    /// Number of rows written so far.
     pub written_rows: u64,
+    /// Number of bytes written so far.
     pub written_bytes: u64,
 }
 
 /// Profile information
 #[derive(Clone, Debug, Default)]
 pub struct Profile {
+    /// Number of rows processed.
     pub rows: u64,
+    /// Number of blocks processed.
     pub blocks: u64,
+    /// Number of bytes processed.
     pub bytes: u64,
+    /// Number of rows before LIMIT was applied.
     pub rows_before_limit: u64,
+    /// Whether a LIMIT clause was applied.
     pub applied_limit: bool,
+    /// Whether rows_before_limit was actually calculated.
     pub calculated_rows_before_limit: bool,
 }
 
@@ -590,13 +622,19 @@ impl ExternalTable {
     }
 }
 
-/// Callback types for query execution
+/// Callback invoked on query progress updates.
 pub type ProgressCallback = Arc<dyn Fn(&Progress) + Send + Sync>;
+/// Callback invoked with query profile information.
 pub type ProfileCallback = Arc<dyn Fn(&Profile) + Send + Sync>;
+/// Callback invoked with profile event blocks; return false to stop.
 pub type ProfileEventsCallback = Arc<dyn Fn(&Block) -> bool + Send + Sync>;
+/// Callback invoked with server log blocks; return false to stop.
 pub type ServerLogCallback = Arc<dyn Fn(&Block) -> bool + Send + Sync>;
+/// Callback invoked when the server returns an exception.
 pub type ExceptionCallback = Arc<dyn Fn(&Exception) + Send + Sync>;
+/// Callback invoked with each data block from query results.
 pub type DataCallback = Arc<dyn Fn(&Block) + Send + Sync>;
+/// Callback invoked with each data block; return false to cancel the query.
 pub type DataCancelableCallback = Arc<dyn Fn(&Block) -> bool + Send + Sync>;
 
 impl Progress {
@@ -679,10 +717,15 @@ impl Profile {
 /// Exception from server
 #[derive(Clone, Debug)]
 pub struct Exception {
+    /// ClickHouse error code.
     pub code: i32,
+    /// Exception class name.
     pub name: String,
+    /// Human-readable error message.
     pub display_text: String,
+    /// Server-side stack trace.
     pub stack_trace: String,
+    /// Optional nested (chained) exception.
     pub nested: Option<Box<Exception>>,
 }
 

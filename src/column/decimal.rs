@@ -28,6 +28,11 @@ pub struct ColumnDecimal {
 }
 
 impl ColumnDecimal {
+    /// Create a new empty decimal column for the given `Decimal` type.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `type_` is not a `Type::Decimal`.
     pub fn new(type_: Type) -> Self {
         let (precision, scale) = match &type_ {
             Type::Decimal { precision, scale } => (*precision, *scale),
@@ -47,6 +52,7 @@ impl ColumnDecimal {
         Self { type_, precision, scale, data }
     }
 
+    /// Set the column data from a vector of raw scaled `i128` values.
     pub fn with_data(mut self, data: Vec<i128>) -> Self {
         // Convert Vec<i128> to the appropriate column type
         if self.precision <= 9 {
@@ -71,7 +77,12 @@ impl ColumnDecimal {
         self
     }
 
-    /// Append decimal from string "123.45"
+    /// Append a decimal value parsed from a string like `"123.45"`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string is not a valid decimal or the
+    /// fractional part exceeds the column's scale.
     pub fn append_from_string(&mut self, s: &str) -> Result<()> {
         let value = parse_decimal(s, self.scale)?;
         self.append(value);
@@ -136,18 +147,22 @@ impl ColumnDecimal {
         format_decimal(self.at(index), self.scale)
     }
 
+    /// Returns the precision (total number of digits) of this decimal column.
     pub fn precision(&self) -> usize {
         self.precision
     }
 
+    /// Returns the scale (digits after the decimal point) of this decimal column.
     pub fn scale(&self) -> usize {
         self.scale
     }
 
+    /// Returns the number of values in this column.
     pub fn len(&self) -> usize {
         self.data.size()
     }
 
+    /// Returns `true` if the column contains no values.
     pub fn is_empty(&self) -> bool {
         self.data.size() == 0
     }

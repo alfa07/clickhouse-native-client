@@ -61,7 +61,9 @@ use std::sync::Arc;
 /// All numeric types are stored in **little-endian** format in ClickHouse wire
 /// protocol.
 pub trait FixedSize: Sized + Clone + Send + Sync + 'static {
+    /// Read a single fixed-size value from the buffer in little-endian byte order.
     fn read_from(buffer: &mut &[u8]) -> Result<Self>;
+    /// Write a single fixed-size value to the buffer in little-endian byte order.
     fn write_to(&self, buffer: &mut BytesMut);
 }
 
@@ -129,6 +131,7 @@ pub struct ColumnVector<T: FixedSize> {
 }
 
 impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
+    /// Create a column from an explicit type and a pre-built vector of values.
     pub fn from_vec(type_: Type, data: Vec<T>) -> Self {
         Self { type_, data }
     }
@@ -151,6 +154,7 @@ impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
         self.data.clear();
     }
 
+    /// Return a reference to the value at the given index, or `None` if out of bounds.
     pub fn get(&self, index: usize) -> Option<&T> {
         self.data.get(index)
     }
@@ -170,25 +174,29 @@ impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
         self.data.is_empty()
     }
 
+    /// Append a single value to the end of the column.
     pub fn append(&mut self, value: T) {
         self.data.push(value);
     }
 
+    /// Return an iterator over references to the column values.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.data.iter()
     }
 
+    /// Return a slice reference to the underlying data.
     pub fn data(&self) -> &[T] {
         &self.data
     }
 
+    /// Return a mutable reference to the underlying data vector.
     pub fn data_mut(&mut self) -> &mut Vec<T> {
         &mut self.data
     }
 }
 
 /// Type-inferred constructors for ColumnVector
-/// Implements the type map pattern from C++ Type::CreateSimple<T>()
+/// Implements the type map pattern from C++ `Type::CreateSimple<T>()`
 impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnVector<T> {
     /// Create a new column with type inferred from T
     /// Equivalent to C++ pattern where type is determined from template
@@ -197,7 +205,7 @@ impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnVector<T> {
     /// # Examples
     ///
     /// ```
-    /// use clickhouse_client::column::ColumnVector;
+    /// use clickhouse_client::column::{Column, ColumnVector};
     /// use clickhouse_client::types::Type;
     ///
     /// let col = ColumnVector::<i32>::new();
@@ -357,23 +365,34 @@ impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnTyped<T>
     }
 }
 
-// Type aliases for common numeric columns
+/// Column of `UInt8` values (1-byte unsigned integers).
 pub type ColumnUInt8 = ColumnVector<u8>;
+/// Column of `UInt16` values (2-byte unsigned integers, little-endian).
 pub type ColumnUInt16 = ColumnVector<u16>;
+/// Column of `UInt32` values (4-byte unsigned integers, little-endian).
 pub type ColumnUInt32 = ColumnVector<u32>;
+/// Column of `UInt64` values (8-byte unsigned integers, little-endian).
 pub type ColumnUInt64 = ColumnVector<u64>;
+/// Column of `UInt128` values (16-byte unsigned integers, little-endian).
 pub type ColumnUInt128 = ColumnVector<u128>;
 
+/// Column of `Int8` values (1-byte signed integers).
 pub type ColumnInt8 = ColumnVector<i8>;
+/// Column of `Int16` values (2-byte signed integers, little-endian).
 pub type ColumnInt16 = ColumnVector<i16>;
+/// Column of `Int32` values (4-byte signed integers, little-endian).
 pub type ColumnInt32 = ColumnVector<i32>;
+/// Column of `Int64` values (8-byte signed integers, little-endian).
 pub type ColumnInt64 = ColumnVector<i64>;
+/// Column of `Int128` values (16-byte signed integers, little-endian).
 pub type ColumnInt128 = ColumnVector<i128>;
 
+/// Column of `Float32` values (IEEE 754 single-precision, little-endian).
 pub type ColumnFloat32 = ColumnVector<f32>;
+/// Column of `Float64` values (IEEE 754 double-precision, little-endian).
 pub type ColumnFloat64 = ColumnVector<f64>;
 
-// Date is stored as UInt16 (days since epoch)
+/// Column of `Date` values stored as `u16` (days since 1970-01-01).
 pub type ColumnDate = ColumnVector<u16>;
 
 #[cfg(test)]
