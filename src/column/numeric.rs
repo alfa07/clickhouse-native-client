@@ -61,9 +61,11 @@ use std::sync::Arc;
 /// All numeric types are stored in **little-endian** format in ClickHouse wire
 /// protocol.
 pub trait FixedSize: Sized + Clone + Send + Sync + 'static {
-    /// Read a single fixed-size value from the buffer in little-endian byte order.
+    /// Read a single fixed-size value from the buffer in little-endian byte
+    /// order.
     fn read_from(buffer: &mut &[u8]) -> Result<Self>;
-    /// Write a single fixed-size value to the buffer in little-endian byte order.
+    /// Write a single fixed-size value to the buffer in little-endian byte
+    /// order.
     fn write_to(&self, buffer: &mut BytesMut);
 }
 
@@ -154,7 +156,8 @@ impl<T: FixedSize + Clone + Send + Sync + 'static> ColumnVector<T> {
         self.data.clear();
     }
 
-    /// Return a reference to the value at the given index, or `None` if out of bounds.
+    /// Return a reference to the value at the given index, or `None` if out of
+    /// bounds.
     pub fn get(&self, index: usize) -> Option<&T> {
         self.data.get(index)
     }

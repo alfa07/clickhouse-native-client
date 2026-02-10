@@ -512,7 +512,8 @@ pub struct ColumnDateTime64 {
 }
 
 impl ColumnDateTime64 {
-    /// Creates a new empty DateTime64 column, extracting precision and timezone from the type.
+    /// Creates a new empty DateTime64 column, extracting precision and
+    /// timezone from the type.
     pub fn new(type_: Type) -> Self {
         let (precision, timezone) = match &type_ {
             Type::DateTime64 { precision, timezone } => {
@@ -529,7 +530,8 @@ impl ColumnDateTime64 {
         }
     }
 
-    /// Returns a new column populated with the given sub-second timestamp values.
+    /// Returns a new column populated with the given sub-second timestamp
+    /// values.
     pub fn with_data(mut self, data: Vec<i64>) -> Self {
         self.data =
             Arc::new(super::ColumnInt64::from_vec(Type::int64(), data));

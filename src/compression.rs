@@ -6,8 +6,8 @@
 //! [16 bytes CityHash128 checksum][1 byte method][4 bytes compressed_size][4 bytes uncompressed_size][compressed data]
 //! ```
 //!
-//! The `compress` function produces a complete frame (checksum + header + data).
-//! The `decompress` function accepts a complete frame and returns the
+//! The `compress` function produces a complete frame (checksum + header +
+//! data). The `decompress` function accepts a complete frame and returns the
 //! uncompressed payload.
 
 use crate::{

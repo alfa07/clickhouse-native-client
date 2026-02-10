@@ -8,10 +8,10 @@
 //!
 //! # Production Readiness
 //!
-//! Most of the codebase was created by converting the C++ clickhouse-cpp client.
-//! Although the client is already used to ingest TiBs of data a day and is
-//! relatively well covered by unit tests, there may be bugs. Test your use case
-//! before committing.
+//! Most of the codebase was created by converting the C++ clickhouse-cpp
+//! client. Although the client is already used to ingest TiBs of data a day
+//! and is relatively well covered by unit tests, there may be bugs. Test your
+//! use case before committing.
 //!
 //! # Quick Start
 //!

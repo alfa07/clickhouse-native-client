@@ -68,7 +68,8 @@ impl TryFrom<u64> for ServerCode {
 pub enum ClientCode {
     /// Client handshake containing name, version, and default database.
     Hello = 0,
-    /// Query packet with query id, settings, stage, compression, and query text.
+    /// Query packet with query id, settings, stage, compression, and query
+    /// text.
     Query = 1,
     /// Data block (e.g. INSERT data), may be compressed.
     Data = 2,

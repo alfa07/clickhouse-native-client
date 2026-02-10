@@ -248,7 +248,8 @@ pub enum TypeCode {
     Decimal128,
     /// Dictionary-encoded column for low-cardinality data.
     LowCardinality,
-    /// High-precision date and time stored as Int64, with sub-second precision.
+    /// High-precision date and time stored as Int64, with sub-second
+    /// precision.
     DateTime64,
     /// Extended date range stored as Int32 (days since 1970-01-01).
     Date32,
@@ -333,7 +334,8 @@ pub enum Type {
         /// Optional IANA timezone name (e.g. "UTC", "Europe/Moscow").
         timezone: Option<String>,
     },
-    /// High-precision date and time with sub-second precision and optional timezone.
+    /// High-precision date and time with sub-second precision and optional
+    /// timezone.
     DateTime64 {
         /// Number of sub-second decimal digits (0 to 18).
         precision: usize,
@@ -595,7 +597,8 @@ impl Type {
         Type::DateTime { timezone }
     }
 
-    /// Creates a DateTime64 type with the given sub-second precision and optional timezone.
+    /// Creates a DateTime64 type with the given sub-second precision and
+    /// optional timezone.
     pub fn datetime64(precision: usize, timezone: Option<String>) -> Self {
         Type::DateTime64 { precision, timezone }
     }
@@ -658,7 +661,8 @@ impl Type {
         }
     }
 
-    /// Returns true if this enum type contains a variant with the given integer value.
+    /// Returns true if this enum type contains a variant with the given
+    /// integer value.
     pub fn has_enum_value(&self, value: i16) -> bool {
         match self {
             Type::Enum8 { items } => {
@@ -684,7 +688,8 @@ impl Type {
         }
     }
 
-    /// Returns the enum variant name for the given integer value, if it exists.
+    /// Returns the enum variant name for the given integer value, if it
+    /// exists.
     pub fn get_enum_name(&self, value: i16) -> Option<&str> {
         match self {
             Type::Enum8 { items } => items
@@ -699,7 +704,8 @@ impl Type {
         }
     }
 
-    /// Returns the integer value for the given enum variant name, if it exists.
+    /// Returns the integer value for the given enum variant name, if it
+    /// exists.
     pub fn get_enum_value(&self, name: &str) -> Option<i16> {
         match self {
             Type::Enum8 { items } => items
@@ -714,7 +720,8 @@ impl Type {
         }
     }
 
-    /// Returns the enum items slice if this is an Enum8 or Enum16 type, or None otherwise.
+    /// Returns the enum items slice if this is an Enum8 or Enum16 type, or
+    /// None otherwise.
     pub fn enum_items(&self) -> Option<&[EnumItem]> {
         match self {
             Type::Enum8 { items } => Some(items),
