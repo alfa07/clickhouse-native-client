@@ -21,7 +21,7 @@
 //! cargo test --test connection_failure_test -- --nocapture
 //! ```
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
     ConnectionOptions,
@@ -204,7 +204,7 @@ async fn test_database_does_not_exist() {
 
             // Try a simple query - this should fail
             let query_result =
-                client.query(clickhouse_client::Query::new("SELECT 1")).await;
+                client.query(clickhouse_native_client::Query::new("SELECT 1")).await;
 
             match query_result {
                 Err(e) => {
@@ -251,7 +251,7 @@ async fn test_connection_refused() {
 #[cfg(feature = "tls")]
 #[ignore] // Requires running ClickHouse with TLS
 async fn test_tls_handshake_failure_wrong_cert() {
-    use clickhouse_client::SSLOptions;
+    use clickhouse_native_client::SSLOptions;
 
     // Try to connect with TLS using invalid certificate
     let ssl_opts = SSLOptions::default()

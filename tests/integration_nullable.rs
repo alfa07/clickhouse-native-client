@@ -2,7 +2,7 @@
 /// Tests: Nullable(String), Nullable(Array(IPv6)), Nullable(Tuple(IPv6, IPv4))
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         nullable::ColumnNullable,
         string::ColumnString,

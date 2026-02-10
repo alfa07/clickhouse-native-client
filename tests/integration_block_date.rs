@@ -1,7 +1,7 @@
 /// Integration tests for Date column using Block insertion
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::date::ColumnDate,
     types::Type,
     Block,
@@ -94,7 +94,7 @@ async fn test_date_block_insert_boundary() {
     ];
 
     let mut block = Block::new();
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let mut val_col = ColumnDate::new(Type::date());
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {
@@ -157,7 +157,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+            let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnDate::new(Type::date());
 
             for (idx, value) in values.iter().enumerate() {

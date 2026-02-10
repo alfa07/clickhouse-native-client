@@ -1,7 +1,7 @@
 /// Integration tests for Enum8 and Enum16 types
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::enum_column::{
         ColumnEnum16,
         ColumnEnum8,

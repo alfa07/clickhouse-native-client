@@ -2,7 +2,7 @@
 // These tests verify column functionality: init, append, slice, and type
 // conversions
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::*,
     types::Type,
 };

@@ -10,7 +10,7 @@
 //! 1. Start ClickHouse server: `just start-db`
 //! 2. Run tests: `cargo test --test edge_cases_test -- --ignored --nocapture`
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         nullable::ColumnNullable,
         numeric::{

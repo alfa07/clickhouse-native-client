@@ -1,7 +1,7 @@
 // Type parser tests ported from clickhouse-cpp ut/type_parser_ut.cpp
 // These tests verify that we can correctly parse all ClickHouse type strings
 
-use clickhouse_client::types::{
+use clickhouse_native_client::types::{
     Type,
     TypeCode,
 };

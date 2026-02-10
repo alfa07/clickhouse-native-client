@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 /// Common test helpers for integration tests
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
 };

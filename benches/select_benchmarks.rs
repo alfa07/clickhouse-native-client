@@ -15,7 +15,7 @@
 
 #![allow(clippy::await_holding_refcell_ref)]
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
 };

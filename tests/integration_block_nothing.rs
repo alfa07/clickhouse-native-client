@@ -14,7 +14,7 @@
 /// tests in src/column/nothing.rs instead.
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::nothing::ColumnNothing,
     types::{
         Type,
@@ -32,7 +32,7 @@ fn nothing_type() -> Type {
 #[tokio::test]
 #[ignore]
 async fn test_nothing_column_interface() {
-    use clickhouse_client::column::Column;
+    use clickhouse_native_client::column::Column;
 
     // Test basic column operations
     let mut col = ColumnNothing::new(nothing_type());
@@ -69,7 +69,7 @@ async fn test_nothing_column_interface() {
 /// Test load_from_buffer (reading Nothing column data)
 #[test]
 fn test_nothing_load_from_buffer() {
-    use clickhouse_client::column::Column;
+    use clickhouse_native_client::column::Column;
 
     let mut col = ColumnNothing::new(nothing_type());
 
@@ -85,7 +85,7 @@ fn test_nothing_load_from_buffer() {
 #[test]
 fn test_nothing_save_to_buffer_not_supported() {
     use bytes::BytesMut;
-    use clickhouse_client::column::Column;
+    use clickhouse_native_client::column::Column;
 
     let col = ColumnNothing::new(nothing_type()).with_size(3);
     let mut buffer = BytesMut::new();

@@ -18,7 +18,7 @@
 //! Readonly mode is typically set at user level or via settings.
 //! These tests use the 'readonly' setting in queries.
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
     Query,

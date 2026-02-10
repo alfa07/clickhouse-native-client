@@ -1,4 +1,4 @@
-use clickhouse_client::{
+use clickhouse_native_client::{
     connection::Connection,
     protocol::ClientCode,
 };

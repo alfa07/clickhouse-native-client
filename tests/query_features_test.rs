@@ -17,7 +17,7 @@
 //! - Settings affecting execution
 //! - NULL parameter handling
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
     Query,

@@ -1,7 +1,7 @@
 /// Integration tests for Array(Float32) column using Block insertion
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         array::ColumnArray,
         numeric::ColumnFloat32,
@@ -103,7 +103,7 @@ async fn test_array_float32_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let mut nested = ColumnFloat32::new();
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
@@ -217,7 +217,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+            let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
             let mut nested = ColumnFloat32::new();
 
             for (idx, array) in arrays.iter().enumerate() {
