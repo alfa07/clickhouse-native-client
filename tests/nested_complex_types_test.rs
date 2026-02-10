@@ -16,7 +16,7 @@
 //! 2. Run tests: `cargo test --test nested_complex_types_test -- --ignored
 //!    --nocapture`
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
     Query,

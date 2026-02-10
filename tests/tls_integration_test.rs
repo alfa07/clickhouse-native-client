@@ -21,7 +21,7 @@
 
 #[cfg(feature = "tls")]
 mod tls_tests {
-    use clickhouse_client::{
+    use clickhouse_native_client::{
         Client,
         ClientOptions,
         SSLOptions,
@@ -307,7 +307,7 @@ mod tls_tests {
     #[tokio::test]
     #[ignore]
     async fn test_tls_connection_timeout() {
-        use clickhouse_client::ConnectionOptions;
+        use clickhouse_native_client::ConnectionOptions;
         use std::time::Duration;
 
         let ssl_opts = SSLOptions::new()

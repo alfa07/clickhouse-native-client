@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::*,
     types::{
         EnumItem,

@@ -2,7 +2,7 @@
 // These tests verify that we can create appropriate column types from type
 // name strings
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::*,
     io::block_stream::create_column,
     types::Type,
@@ -314,7 +314,7 @@ fn test_bool_is_uint8() {
     // Bool should be parsed as UInt8
     match type_ {
         Type::Simple(code) => {
-            use clickhouse_client::types::TypeCode;
+            use clickhouse_native_client::types::TypeCode;
             assert_eq!(code, TypeCode::UInt8);
         }
         _ => panic!("Bool should be a Simple type (UInt8)"),

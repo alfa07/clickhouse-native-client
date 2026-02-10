@@ -448,7 +448,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # use clickhouse_native_client::{Client, ClientOptions};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut client = Client::connect(ClientOptions::default()).await?;
     /// client.execute("CREATE TABLE test (id UInt32) ENGINE = Memory").await?;
@@ -466,7 +466,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # use clickhouse_native_client::{Client, ClientOptions};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut client = Client::connect(ClientOptions::default()).await?;
     /// client.execute_with_id("CREATE TABLE test (id UInt32) ENGINE = Memory", "create-123").await?;
@@ -605,7 +605,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # use clickhouse_native_client::{Client, ClientOptions};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut client = Client::connect(ClientOptions::default()).await?;
     /// let result = client.query_with_id("SELECT 1", "select-123").await?;
@@ -778,7 +778,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions, Block, ExternalTable};
+    /// # use clickhouse_native_client::{Client, ClientOptions, Block, ExternalTable};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut client = Client::connect(ClientOptions::default()).await?;
     /// // Create a block with temporary data
@@ -808,7 +808,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions, Block, ExternalTable};
+    /// # use clickhouse_native_client::{Client, ClientOptions, Block, ExternalTable};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut client = Client::connect(ClientOptions::default()).await?;
     /// # let mut block = Block::new();
@@ -1259,7 +1259,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions, Block};
+    /// # use clickhouse_native_client::{Client, ClientOptions, Block};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut client = Client::connect(ClientOptions::default()).await?;
     /// # let block = Block::new();
@@ -1453,7 +1453,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # use clickhouse_native_client::{Client, ClientOptions};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let client = Client::connect(ClientOptions::default()).await?;
     /// let info = client.server_info();
@@ -1474,7 +1474,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # use clickhouse_native_client::{Client, ClientOptions};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let client = Client::connect(ClientOptions::default()).await?;
     /// let (major, minor, patch) = client.server_version();
@@ -1496,7 +1496,7 @@ impl Client {
     ///
     /// # Example
     /// ```no_run
-    /// # use clickhouse_client::{Client, ClientOptions};
+    /// # use clickhouse_native_client::{Client, ClientOptions};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// # let client = Client::connect(ClientOptions::default()).await?;
     /// let revision = client.server_revision();

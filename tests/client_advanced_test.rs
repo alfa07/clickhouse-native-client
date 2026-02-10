@@ -13,7 +13,7 @@
 //! 2. Run tests: `cargo test --test client_advanced_test -- --ignored
 //!    --nocapture`
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         numeric::ColumnUInt64,
         string::ColumnString,
@@ -65,7 +65,7 @@ async fn test_client_with_custom_database() {
 #[tokio::test]
 #[ignore]
 async fn test_client_with_compression_lz4() {
-    use clickhouse_client::protocol::CompressionMethod;
+    use clickhouse_native_client::protocol::CompressionMethod;
 
     let opts = ClientOptions::new("localhost", 9000)
         .database("default")

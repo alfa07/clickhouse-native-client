@@ -15,7 +15,7 @@
 //! 2. Run tests: `cargo test --test column_name_edge_cases_test -- --ignored
 //!    --nocapture`
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
     Query,

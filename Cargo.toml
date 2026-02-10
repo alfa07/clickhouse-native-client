@@ -1,7 +1,36 @@
 [package]
-name = "clickhouse-client"
+name = "clickhouse-native-client"
 version = "0.1.0"
 edition = "2021"
+description = "Async ClickHouse client using the native TCP protocol with LZ4/ZSTD compression and TLS support"
+license = "Apache-2.0"
+repository = "https://github.com/alfa07/clickhouse-native-client"
+homepage = "https://github.com/alfa07/clickhouse-native-client"
+documentation = "https://docs.rs/clickhouse-native-client"
+readme = "README.md"
+keywords = ["clickhouse", "database", "async", "tcp", "native-protocol"]
+categories = ["database", "asynchronous"]
+exclude = [
+    "cpp/",
+    "tests/",
+    "benches/",
+    "certs/",
+    "clickhouse-config/",
+    "clickhouse-data/",
+    "clickhouse-data-tls/",
+    "features/",
+    ".devcontainer/",
+    ".github/",
+    "docker-compose.yml",
+    "justfile",
+    "generate_block_tests.sh",
+    "BUILD.bazel",
+    "CLAUDE.md",
+    "BENCHMARK_RESULTS.md",
+    "doc-requirements.md",
+    "rustfmt.toml",
+    "*.proptest-regressions",
+]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
@@ -33,11 +62,3 @@ proptest = "1.4"
 [features]
 default = []
 tls = ["tokio-rustls", "rustls", "rustls-native-certs", "rustls-pemfile"]
-
-[[bench]]
-name = "select_benchmarks"
-harness = false
-
-[[bench]]
-name = "column_benchmarks"
-harness = false

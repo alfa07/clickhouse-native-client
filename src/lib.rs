@@ -16,8 +16,8 @@
 //! # Quick Start
 //!
 //! ```no_run
-//! use clickhouse_client::{Client, ClientOptions, Block};
-//! use clickhouse_client::column::numeric::ColumnUInt64;
+//! use clickhouse_native_client::{Client, ClientOptions, Block};
+//! use clickhouse_native_client::column::numeric::ColumnUInt64;
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {

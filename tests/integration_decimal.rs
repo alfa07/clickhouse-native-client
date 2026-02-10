@@ -1,7 +1,7 @@
 /// Integration tests for Decimal types
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::decimal::ColumnDecimal,
     types::Type,
     Block,

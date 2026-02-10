@@ -18,7 +18,7 @@
 //! - Int128 values
 //! - UInt128 values
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
 };

@@ -1,7 +1,7 @@
 // Type methods tests - test Type helper methods like name(), enum helpers,
 // etc.
 
-use clickhouse_client::types::{
+use clickhouse_native_client::types::{
     EnumItem,
     Type,
 };

@@ -2,7 +2,7 @@
 // These test that data can be saved to a buffer and loaded back correctly
 
 use bytes::BytesMut;
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::*,
     types::Type,
 };
@@ -15,7 +15,7 @@ use std::sync::Arc;
 /// Helper to roundtrip a column through serialization
 fn roundtrip_column<T: Column + 'static>(
     col: &T,
-) -> Result<Arc<dyn Column>, clickhouse_client::Error> {
+) -> Result<Arc<dyn Column>, clickhouse_native_client::Error> {
     let mut buffer = BytesMut::new();
 
     // Save to buffer

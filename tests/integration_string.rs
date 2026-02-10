@@ -1,7 +1,7 @@
 /// Integration tests for String and FixedString column types
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::string::*,
     types::Type,
     Block,

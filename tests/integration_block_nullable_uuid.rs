@@ -1,7 +1,7 @@
 /// Integration tests for Nullable(UUID) column using Block insertion
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         uuid::Uuid,
         ColumnNullable,
@@ -132,7 +132,7 @@ async fn test_nullable_uuid_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let nullable_type = Type::nullable(Type::uuid());
     let mut nullable_col = ColumnNullable::new(nullable_type);
 
@@ -284,7 +284,7 @@ proptest! {
             let mut block = Block::new();
 
             let mut id_col =
-                clickhouse_client::column::numeric::ColumnUInt32::new();
+                clickhouse_native_client::column::numeric::ColumnUInt32::new();
             let nullable_type = Type::nullable(Type::uuid());
             let mut nullable_col = ColumnNullable::new(nullable_type);
 

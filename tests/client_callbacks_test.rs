@@ -20,7 +20,7 @@
 //! - Callbacks combined with query ID
 //! - Callbacks combined with settings
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
     Query,

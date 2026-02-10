@@ -1,7 +1,7 @@
 /// Integration tests for Date, Date32, DateTime, and DateTime64 types
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::date::*,
     types::Type,
     Block,

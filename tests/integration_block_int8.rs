@@ -1,7 +1,7 @@
 /// Integration tests for Int8 column using Block insertion
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::numeric::ColumnInt8,
     Block,
 };
@@ -93,7 +93,7 @@ async fn test_int8_block_insert_boundary() {
     ];
 
     let mut block = Block::new();
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let mut val_col = ColumnInt8::new();
 
     for (idx, (_desc, value)) in test_cases.iter().enumerate() {
@@ -155,7 +155,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+            let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
             let mut val_col = ColumnInt8::new();
 
             for (idx, value) in values.iter().enumerate() {

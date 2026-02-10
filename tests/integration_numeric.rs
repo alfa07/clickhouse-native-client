@@ -3,7 +3,7 @@
 /// UInt128, Float32, Float64, Bool
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::numeric::*,
     Block,
 };

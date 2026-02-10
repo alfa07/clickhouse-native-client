@@ -31,7 +31,7 @@ there may be embarrassing bugs. Test your use case before committing.
 ## Quick Start
 
 ```rust
-use clickhouse_client::{Client, ClientOptions, Query};
+use clickhouse_native_client::{Client, ClientOptions, Query};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,7 +59,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-clickhouse-client = { path = "." }
+clickhouse-native-client = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -270,7 +270,7 @@ clickhouse-client --secure --port 9440 --query "SELECT 1"
 ### Using TLS in Your Code
 
 ```rust
-use clickhouse_client::{Client, ClientOptions, SSLOptions};
+use clickhouse_native_client::{Client, ClientOptions, SSLOptions};
 use std::path::PathBuf;
 
 #[tokio::main]

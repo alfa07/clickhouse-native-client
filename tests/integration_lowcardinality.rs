@@ -2,7 +2,7 @@
 /// Tests: LowCardinality(String), LowCardinality(Int64), LowCardinality(UUID)
 mod common;
 
-use clickhouse_client::column::lowcardinality::ColumnLowCardinality;
+use clickhouse_native_client::column::lowcardinality::ColumnLowCardinality;
 use common::{
     cleanup_test_database,
     create_isolated_test_client,

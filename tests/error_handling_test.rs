@@ -16,7 +16,7 @@
 //! - Invalid SQL syntax errors
 //! - Type mismatch errors
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     Client,
     ClientOptions,
     ConnectionOptions,

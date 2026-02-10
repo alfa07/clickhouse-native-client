@@ -1,7 +1,7 @@
 // Block tests ported from clickhouse-cpp ut/block_ut.cpp
 // These tests verify block functionality: iterators, clear, reserve, etc.
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     block::Block,
     column::{
         ColumnString,
@@ -453,7 +453,7 @@ fn test_block_clone() {
 // Column Type Mismatch Detection
 // ============================================================================
 
-use clickhouse_client::column::numeric::ColumnUInt64;
+use clickhouse_native_client::column::numeric::ColumnUInt64;
 
 #[test]
 fn test_block_can_store_different_numeric_types() {

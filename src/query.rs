@@ -588,7 +588,7 @@ pub struct Profile {
 ///
 /// # Example
 /// ```no_run
-/// # use clickhouse_client::{Client, ClientOptions, Block, ExternalTable};
+/// # use clickhouse_native_client::{Client, ClientOptions, Block, ExternalTable};
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// # let mut client = Client::connect(ClientOptions::default()).await?;
 /// // Create a block with temporary data

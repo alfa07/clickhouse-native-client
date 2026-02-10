@@ -97,7 +97,7 @@ use std::sync::Arc;
 /// # Examples
 ///
 /// ```
-/// use clickhouse_client::types::{Type, ToType};
+/// use clickhouse_native_client::types::{Type, ToType};
 ///
 /// assert_eq!(i32::to_type(), Type::int32());
 /// assert_eq!(u64::to_type(), Type::uint64());
@@ -457,7 +457,7 @@ impl Type {
     /// # Examples
     ///
     /// ```
-    /// use clickhouse_client::types::Type;
+    /// use clickhouse_native_client::types::Type;
     ///
     /// assert_eq!(Type::uint32().storage_size_bytes(), Some(4));
     /// assert_eq!(Type::uint64().storage_size_bytes(), Some(8));
@@ -754,7 +754,7 @@ impl Type {
     /// # Examples
     ///
     /// ```
-    /// use clickhouse_client::types::Type;
+    /// use clickhouse_native_client::types::Type;
     ///
     /// assert_eq!(Type::for_rust_type::<i32>(), Type::int32());
     /// assert_eq!(Type::for_rust_type::<u64>(), Type::uint64());

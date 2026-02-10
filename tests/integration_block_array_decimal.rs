@@ -1,7 +1,7 @@
 /// Integration tests for Array(Decimal(10, 2)) column using Block insertion
 mod common;
 
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         array::ColumnArray,
         decimal::ColumnDecimal,
@@ -112,7 +112,7 @@ async fn test_array_decimal_block_insert_boundary() {
 
     let mut block = Block::new();
 
-    let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+    let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
     let mut nested = ColumnDecimal::new(Type::decimal(precision, scale));
 
     for (idx, (_desc, values)) in test_cases.iter().enumerate() {
@@ -232,7 +232,7 @@ proptest! {
 
             let mut block = Block::new();
 
-            let mut id_col = clickhouse_client::column::numeric::ColumnUInt32::new();
+            let mut id_col = clickhouse_native_client::column::numeric::ColumnUInt32::new();
             let mut nested = ColumnDecimal::new(Type::decimal(precision, scale));
 
             for (idx, array) in arrays.iter().enumerate() {

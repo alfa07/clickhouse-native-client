@@ -1,4 +1,4 @@
-use clickhouse_client::io::buffer_utils;
+use clickhouse_native_client::io::buffer_utils;
 use tokio::{
     io::{
         AsyncWriteExt,

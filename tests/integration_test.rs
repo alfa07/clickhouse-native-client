@@ -1,4 +1,4 @@
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         nullable::ColumnNullable,
         numeric::ColumnUInt64,
@@ -250,7 +250,7 @@ async fn test_insert_block() {
         .await
         .expect("Failed to create isolated test client");
 
-    use clickhouse_client::{
+    use clickhouse_native_client::{
         column::{
             numeric::ColumnUInt64,
             string::ColumnString,
@@ -563,7 +563,7 @@ async fn test_large_block_insert() {
             .await
             .expect("Failed to create isolated test client");
 
-    use clickhouse_client::{
+    use clickhouse_native_client::{
         column::{
             numeric::ColumnUInt64,
             string::ColumnString,
@@ -637,7 +637,7 @@ async fn test_large_result_set() {
             .await
             .expect("Failed to create isolated test client");
 
-    use clickhouse_client::column::numeric::ColumnUInt64;
+    use clickhouse_native_client::column::numeric::ColumnUInt64;
 
     // Create and populate table
     let create_table_sql = format!(
@@ -1003,7 +1003,7 @@ async fn test_query_id_parameters() {
 #[tokio::test]
 #[ignore]
 async fn test_external_tables() {
-    use clickhouse_client::ExternalTable;
+    use clickhouse_native_client::ExternalTable;
 
     let (mut client, db_name) = create_isolated_test_client("external_tables")
         .await
@@ -1079,7 +1079,7 @@ async fn test_external_tables() {
 #[tokio::test]
 #[ignore]
 async fn test_external_tables_with_id() {
-    use clickhouse_client::ExternalTable;
+    use clickhouse_native_client::ExternalTable;
 
     let (mut client, db_name) =
         create_isolated_test_client("external_tables_id")
@@ -1167,7 +1167,7 @@ async fn test_server_version_getters() {
 #[tokio::test]
 #[ignore]
 async fn test_query_settings_with_flags() {
-    use clickhouse_client::{
+    use clickhouse_native_client::{
         Query,
         QuerySettingsField,
     };

@@ -13,7 +13,7 @@
 //! `cargo bench --bench column_benchmarks`
 
 use bytes::BytesMut;
-use clickhouse_client::{
+use clickhouse_native_client::{
     column::{
         numeric::ColumnUInt64,
         string::ColumnString,

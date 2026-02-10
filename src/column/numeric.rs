@@ -205,8 +205,8 @@ impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnVector<T> {
     /// # Examples
     ///
     /// ```
-    /// use clickhouse_client::column::{Column, ColumnVector};
-    /// use clickhouse_client::types::Type;
+    /// use clickhouse_native_client::column::{Column, ColumnVector};
+    /// use clickhouse_native_client::types::Type;
     ///
     /// let col = ColumnVector::<i32>::new();
     /// assert_eq!(col.column_type(), &Type::int32());
@@ -220,7 +220,7 @@ impl<T: FixedSize + ToType + Clone + Send + Sync + 'static> ColumnVector<T> {
     /// # Examples
     ///
     /// ```
-    /// use clickhouse_client::column::ColumnVector;
+    /// use clickhouse_native_client::column::ColumnVector;
     ///
     /// let col = ColumnVector::<u64>::with_capacity(100);
     /// assert_eq!(col.len(), 0);
